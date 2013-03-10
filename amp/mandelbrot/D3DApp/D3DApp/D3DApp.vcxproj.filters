@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>e9efe3fb-5355-4556-8fe6-9be37ab1ed0c</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>bc19d627-d808-4f6d-bb1a-2d69c211bf9c</UniqueIdentifier>
+    </Filter>
+    <Image Include="Assets\Logo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SmallLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="SimplePixelShader.hlsl" />
+    <FxCompile Include="SimpleVertexShader.hlsl" />
+    <FxCompile Include="MandelBrotPixelShader.hlsl" />
+    <FxCompile Include="MandelBrotVertexShader.hlsl" />
+    <FxCompile Include="MandelBrotComputeShader.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="D3DApp.cpp" />
+    <ClCompile Include="CubeRenderer.cpp" />
+    <ClCompile Include="Direct3DBase.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="MandelBrotRenderer.cpp" />
+    <ClCompile Include="RenderBase.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D3DApp.h" />
+    <ClInclude Include="CubeRenderer.h" />
+    <ClInclude Include="DirectXHelper.h" />
+    <ClInclude Include="Direct3DBase.h" />
+    <ClInclude Include="BasicTimer.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="MandelBrotRenderer.h" />
+    <ClInclude Include="RenderBase.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D3DApp_TemporaryKey.pfx" />
+    <None Include="texturedata.bin" />
+  </ItemGroup>
+</Project>
