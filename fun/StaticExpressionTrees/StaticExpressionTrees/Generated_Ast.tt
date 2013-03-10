@@ -1,0 +1,162 @@
+﻿// ----------------------------------------------------------------------------------------------
+// Copyright (c) Mårten Rånge.
+// ----------------------------------------------------------------------------------------------
+// This source code is subject to terms and conditions of the Microsoft Public License. A 
+// copy of the license can be found in the License.html file at the root of this distribution. 
+// If you cannot locate the  Microsoft Public License, please send an email to 
+// dlr@microsoft.com. By using this source code in any fashion, you are agreeing to be bound 
+//  by the terms of the Microsoft Public License.
+// ----------------------------------------------------------------------------------------------
+// You must not remove this notice, or any other, from this software.
+// ----------------------------------------------------------------------------------------------
+
+<#@ include file="$(SolutionDir)\packages\T4IncludeWPF.1.0.3\T4\Header.ttinclude" #>
+
+<#
+    var types = new []
+        {
+            Nop ("Value"                                    ),
+            Nop ("Column"                                   ),
+            Op  ("Add"                  , "Compute" , "+"   , "Column", "Value" , "Compute"               ),
+            Op  ("Subtract"             , "Compute" , "-"   , "Column", "Value" , "Compute"               ),
+            Op  ("Multiply"             , "Compute" , "*"   , "Column", "Value" , "Compute"               ),
+            Op  ("Divide"               , "Compute" , "/"   , "Column", "Value" , "Compute"               ),
+            Op  ("EqualTo"              , "Compare" , "=="  , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("NotEqualTo"           , "Compare" , "!="  , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("LessThan"             , "Compare" , "<"   , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("GreaterThan"          , "Compare" , ">"   , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("LessThanOrEqualTo"    , "Compare" , "<="  , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("GreaterThanOrEqualTo" , "Compare" , ">="  , "Column", "Value" , "Compute" , "Compare"   ),
+            Op  ("And"                  , "Logical" , "&"   , "Compare" , "Logical"             ),
+            Op  ("Or"                   , "Logical" , "|"   , "Compare" , "Logical"             ),
+
+        };
+
+
+#>
+
+<#
+    var operations = types
+            .Where (t => t.IsOperator)
+            .SelectMany (t => t.AppliesTo.Select(a => Tuple.Create(a,t))) 
+            .ToLookup (t => t.Item1, t => t.Item2);
+#>
+
+namespace StaticExpressionTrees
+{
+    enum AstType
+    {
+<#
+    foreach (var t in types)
+    {
+#>
+        <#=t.Name#>,
+<#
+    }
+#>        
+    }
+
+
+<#
+    foreach (var o in operations)
+    {
+#>
+    partial class <#=o.Key#>Operation
+    {
+<#
+    foreach (var op in o)
+    {
+#>
+<#
+    foreach (var at in op.AppliesTo)
+    {
+#>
+        public static <#=op.Result#>Operation operator <#=op.Operator#>(<#=o.Key#>Operation left, <#=at#>Operation right)
+        {
+            return new <#=op.Result#>Operation
+            {
+                Type        = AstType.<#=op.Name#>  ,
+                Left        = left                  ,
+                Right       = right                 ,
+            };
+        }
+
+<#
+    }
+#>
+<#
+    }
+#>
+    }
+<#
+    }
+#>
+}
+
+<#+
+
+    class AstType : BaseEntity<Root>
+    {
+        public string   Name        ;
+        public string   Result      ;
+        public string   Operator    ;
+        public string[] AppliesTo   ;
+
+        public bool IsOperator
+        {
+            get
+            {
+                return Operator != S_NoName;
+            }
+        }
+
+    }
+
+    class Operation : BaseContainer<Root, Operator>
+    {
+        public string Name      ;
+        public Operation (string name)
+        {
+            Name = name ?? S_NoName;
+        }
+    } 
+
+    class Operator : BaseEntity<Operation>
+    {
+        public string   Name        ;
+        public string[] AppliesTo   ;
+        public Operator (string name, string[] appliesTo)
+        {
+            Name        = name      ?? S_NoName     ;
+            AppliesTo   = appliesTo ?? new string[0];
+        }
+    } 
+
+    static Operator O (string name, params string[] appliesTo)
+    {
+        return new Operator(name, appliesTo);
+    }
+
+    static AstType Nop (string name)
+    {
+        return new AstType
+        {
+            Name        = name  ?? S_NoName     ,
+            Result      = S_NoName              ,
+            Operator    = S_NoName              ,
+            AppliesTo   = new string[0]         ,
+        };
+    }
+
+    static AstType Op (string name, string result, string op, params string[] appliesTo)
+    {
+        return new AstType
+        {
+            Name        = name      ?? S_NoName             ,
+            Result      = result    ?? S_NoName             ,
+            Operator    = op        ?? S_NoName             ,
+            AppliesTo   = appliesTo ?? new string[0]        ,
+        };
+    }
+
+#>
