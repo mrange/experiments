@@ -15,18 +15,18 @@
 <#
     var types = new []
         {
-            Nop ("Value"                                    ),
-            Nop ("Column"                                   ),
-            Op  ("Add"                  , "Compute" , "+"   , "Column", "Value" , "Compute"               ),
-            Op  ("Subtract"             , "Compute" , "-"   , "Column", "Value" , "Compute"               ),
-            Op  ("Multiply"             , "Compute" , "*"   , "Column", "Value" , "Compute"               ),
-            Op  ("Divide"               , "Compute" , "/"   , "Column", "Value" , "Compute"               ),
-            Op  ("EqualTo"              , "Compare" , "=="  , "Column", "Value" , "Compute" , "Compare"   ),
-            Op  ("NotEqualTo"           , "Compare" , "!="  , "Column", "Value" , "Compute" , "Compare"   ),
-            Op  ("LessThan"             , "Compare" , "<"   , "Column", "Value" , "Compute" , "Compare"   ),
-            Op  ("GreaterThan"          , "Compare" , ">"   , "Column", "Value" , "Compute" , "Compare"   ),
-            Op  ("LessThanOrEqualTo"    , "Compare" , "<="  , "Column", "Value" , "Compute" , "Compare"   ),
-            Op  ("GreaterThanOrEqualTo" , "Compare" , ">="  , "Column", "Value" , "Compute" , "Compare"   ),
+            Nop ("Value"                                                                        ),
+            Nop ("Column"                                                                       ),
+            Op  ("Add"                  , "Compute" , "+"   , "Column", "Value" , "Compute"     ),
+            Op  ("Subtract"             , "Compute" , "-"   , "Column", "Value" , "Compute"     ),
+            Op  ("Multiply"             , "Compute" , "*"   , "Column", "Value" , "Compute"     ),
+            Op  ("Divide"               , "Compute" , "/"   , "Column", "Value" , "Compute"     ),
+            Op  ("EqualTo"              , "Compare" , "=="  , "Column", "Value" , "Compute"     ),
+            Op  ("NotEqualTo"           , "Compare" , "!="  , "Column", "Value" , "Compute"     ),
+            Op  ("LessThan"             , "Compare" , "<"   , "Column", "Value" , "Compute"     ),
+            Op  ("GreaterThan"          , "Compare" , ">"   , "Column", "Value" , "Compute"     ),
+            Op  ("LessThanOrEqualTo"    , "Compare" , "<="  , "Column", "Value" , "Compute"     ),
+            Op  ("GreaterThanOrEqualTo" , "Compare" , ">="  , "Column", "Value" , "Compute"     ),
             Op  ("And"                  , "Logical" , "&"   , "Compare" , "Logical"             ),
             Op  ("Or"                   , "Logical" , "|"   , "Compare" , "Logical"             ),
 
@@ -61,7 +61,7 @@ namespace StaticExpressionTrees
     foreach (var o in operations)
     {
 #>
-    partial class <#=o.Key#>Operation
+    partial class <#=GetOperationName(o.Key)#>
     {
 <#
     foreach (var op in o)
@@ -71,9 +71,9 @@ namespace StaticExpressionTrees
     foreach (var at in op.AppliesTo)
     {
 #>
-        public static <#=op.Result#>Operation operator <#=op.Operator#>(<#=o.Key#>Operation left, <#=at#>Operation right)
+        public static <#=GetOperationName(op.Result)#> operator <#=op.Operator#>(<#=GetOperationName(o.Key)#> left, <#=GetOperationName(at)#> right)
         {
-            return new <#=op.Result#>Operation
+            return new <#=GetOperationName(op.Result)#>
             {
                 Type        = AstType.<#=op.Name#>  ,
                 Left        = left                  ,
@@ -121,6 +121,20 @@ namespace StaticExpressionTrees
             Operator    = S_NoName              ,
             AppliesTo   = new string[0]         ,
         };
+    }
+
+    static string GetOperationName (string opName)
+    {
+        opName = opName ?? S_NoName;
+        switch (opName)
+        {
+            // TODO: Fix this quick'n'dirty solution
+            case "Logical":
+            case "Compare":
+                return opName + "Operation";
+            default:
+                return opName + "Operation<T>"; 
+        }
     }
 
     static AstType Op (string name, string result, string op, params string[] appliesTo)

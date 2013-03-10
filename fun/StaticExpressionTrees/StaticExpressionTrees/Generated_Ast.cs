@@ -47,11 +47,11 @@ namespace StaticExpressionTrees
     }
 
 
-    partial class ColumnOperation
+    partial class ColumnOperation<T>
     {
-        public static ComputeOperation operator +(ColumnOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator +(ColumnOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -59,9 +59,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ColumnOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator +(ColumnOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -69,9 +69,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ColumnOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator +(ColumnOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -79,9 +79,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ColumnOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator -(ColumnOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -89,9 +89,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ColumnOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator -(ColumnOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -99,9 +99,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ColumnOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator -(ColumnOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -109,9 +109,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ColumnOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator *(ColumnOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -119,9 +119,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ColumnOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator *(ColumnOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -129,9 +129,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ColumnOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator *(ColumnOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -139,9 +139,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ColumnOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator /(ColumnOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -149,9 +149,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ColumnOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator /(ColumnOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -159,9 +159,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ColumnOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator /(ColumnOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -169,7 +169,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator ==(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -179,7 +179,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator ==(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -189,7 +189,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ColumnOperation left, ComputeOperation right)
+        public static CompareOperation operator ==(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -199,17 +199,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ColumnOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator !=(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -219,7 +209,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator !=(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -229,7 +219,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ColumnOperation left, ComputeOperation right)
+        public static CompareOperation operator !=(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -239,17 +229,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ColumnOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator <(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -259,7 +239,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator <(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -269,7 +249,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ColumnOperation left, ComputeOperation right)
+        public static CompareOperation operator <(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -279,17 +259,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ColumnOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator >(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -299,7 +269,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator >(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -309,7 +279,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ColumnOperation left, ComputeOperation right)
+        public static CompareOperation operator >(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -319,17 +289,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ColumnOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator <=(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -339,7 +299,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator <=(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -349,7 +309,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ColumnOperation left, ComputeOperation right)
+        public static CompareOperation operator <=(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -359,17 +319,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ColumnOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ColumnOperation left, ColumnOperation right)
+        public static CompareOperation operator >=(ColumnOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -379,7 +329,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ColumnOperation left, ValueOperation right)
+        public static CompareOperation operator >=(ColumnOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -389,17 +339,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ColumnOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ColumnOperation left, CompareOperation right)
+        public static CompareOperation operator >=(ColumnOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -410,11 +350,11 @@ namespace StaticExpressionTrees
         }
 
     }
-    partial class ValueOperation
+    partial class ValueOperation<T>
     {
-        public static ComputeOperation operator +(ValueOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator +(ValueOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -422,9 +362,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ValueOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator +(ValueOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -432,9 +372,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ValueOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator +(ValueOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -442,9 +382,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ValueOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator -(ValueOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -452,9 +392,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ValueOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator -(ValueOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -462,9 +402,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ValueOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator -(ValueOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -472,9 +412,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ValueOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator *(ValueOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -482,9 +422,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ValueOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator *(ValueOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -492,9 +432,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ValueOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator *(ValueOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -502,9 +442,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ValueOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator /(ValueOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -512,9 +452,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ValueOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator /(ValueOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -522,9 +462,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ValueOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator /(ValueOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -532,7 +472,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator ==(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -542,7 +482,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator ==(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -552,7 +492,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ValueOperation left, ComputeOperation right)
+        public static CompareOperation operator ==(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -562,17 +502,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ValueOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator !=(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -582,7 +512,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator !=(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -592,7 +522,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ValueOperation left, ComputeOperation right)
+        public static CompareOperation operator !=(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -602,17 +532,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ValueOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator <(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -622,7 +542,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator <(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -632,7 +552,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ValueOperation left, ComputeOperation right)
+        public static CompareOperation operator <(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -642,17 +562,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ValueOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator >(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -662,7 +572,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator >(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -672,7 +582,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ValueOperation left, ComputeOperation right)
+        public static CompareOperation operator >(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -682,17 +592,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ValueOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator <=(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -702,7 +602,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator <=(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -712,7 +612,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ValueOperation left, ComputeOperation right)
+        public static CompareOperation operator <=(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -722,17 +622,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ValueOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ValueOperation left, ColumnOperation right)
+        public static CompareOperation operator >=(ValueOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -742,7 +632,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ValueOperation left, ValueOperation right)
+        public static CompareOperation operator >=(ValueOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -752,17 +642,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ValueOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ValueOperation left, CompareOperation right)
+        public static CompareOperation operator >=(ValueOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -773,11 +653,11 @@ namespace StaticExpressionTrees
         }
 
     }
-    partial class ComputeOperation
+    partial class ComputeOperation<T>
     {
-        public static ComputeOperation operator +(ComputeOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator +(ComputeOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -785,9 +665,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ComputeOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator +(ComputeOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -795,9 +675,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator +(ComputeOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator +(ComputeOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Add  ,
                 Left        = left                  ,
@@ -805,9 +685,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ComputeOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator -(ComputeOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -815,9 +695,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ComputeOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator -(ComputeOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -825,9 +705,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator -(ComputeOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator -(ComputeOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Subtract  ,
                 Left        = left                  ,
@@ -835,9 +715,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ComputeOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator *(ComputeOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -845,9 +725,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ComputeOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator *(ComputeOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -855,9 +735,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator *(ComputeOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator *(ComputeOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Multiply  ,
                 Left        = left                  ,
@@ -865,9 +745,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ComputeOperation left, ColumnOperation right)
+        public static ComputeOperation<T> operator /(ComputeOperation<T> left, ColumnOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -875,9 +755,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ComputeOperation left, ValueOperation right)
+        public static ComputeOperation<T> operator /(ComputeOperation<T> left, ValueOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -885,9 +765,9 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static ComputeOperation operator /(ComputeOperation left, ComputeOperation right)
+        public static ComputeOperation<T> operator /(ComputeOperation<T> left, ComputeOperation<T> right)
         {
-            return new ComputeOperation
+            return new ComputeOperation<T>
             {
                 Type        = AstType.Divide  ,
                 Left        = left                  ,
@@ -895,7 +775,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator ==(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -905,7 +785,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator ==(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -915,7 +795,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ComputeOperation left, ComputeOperation right)
+        public static CompareOperation operator ==(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -925,17 +805,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator ==(ComputeOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator !=(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -945,7 +815,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator !=(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -955,7 +825,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ComputeOperation left, ComputeOperation right)
+        public static CompareOperation operator !=(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -965,17 +835,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator !=(ComputeOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator <(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -985,7 +845,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator <(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -995,7 +855,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ComputeOperation left, ComputeOperation right)
+        public static CompareOperation operator <(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1005,17 +865,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <(ComputeOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator >(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1025,7 +875,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator >(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1035,7 +885,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ComputeOperation left, ComputeOperation right)
+        public static CompareOperation operator >(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1045,17 +895,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >(ComputeOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator <=(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1065,7 +905,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator <=(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1075,7 +915,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ComputeOperation left, ComputeOperation right)
+        public static CompareOperation operator <=(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1085,17 +925,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator <=(ComputeOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ComputeOperation left, ColumnOperation right)
+        public static CompareOperation operator >=(ComputeOperation<T> left, ColumnOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1105,7 +935,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ComputeOperation left, ValueOperation right)
+        public static CompareOperation operator >=(ComputeOperation<T> left, ValueOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1115,17 +945,7 @@ namespace StaticExpressionTrees
             };
         }
 
-        public static CompareOperation operator >=(ComputeOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(ComputeOperation left, CompareOperation right)
+        public static CompareOperation operator >=(ComputeOperation<T> left, ComputeOperation<T> right)
         {
             return new CompareOperation
             {
@@ -1138,246 +958,6 @@ namespace StaticExpressionTrees
     }
     partial class CompareOperation
     {
-        public static CompareOperation operator ==(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator ==(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator ==(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator ==(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.EqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator !=(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.NotEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThan  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator <=(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.LessThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(CompareOperation left, ColumnOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(CompareOperation left, ValueOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(CompareOperation left, ComputeOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
-        public static CompareOperation operator >=(CompareOperation left, CompareOperation right)
-        {
-            return new CompareOperation
-            {
-                Type        = AstType.GreaterThanOrEqualTo  ,
-                Left        = left                  ,
-                Right       = right                 ,
-            };
-        }
-
         public static LogicalOperation operator &(CompareOperation left, CompareOperation right)
         {
             return new LogicalOperation

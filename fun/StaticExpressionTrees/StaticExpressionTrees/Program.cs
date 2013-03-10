@@ -15,7 +15,7 @@ using System.Text;
 
 namespace StaticExpressionTrees
 {
-    abstract class Ast
+    abstract partial class Ast
     {
         public AstType      Type    ;
 
@@ -26,16 +26,26 @@ namespace StaticExpressionTrees
             return sb.ToString();
         }
 
-        public abstract void ToString (int indent, StringBuilder sb);
+        internal abstract void ToString (int indent, StringBuilder sb);
+
+        public abstract Type ResultType {get;}
+    }
+
+    abstract partial class Ast<TResult> : Ast
+    {
+        public override Type ResultType
+        {
+            get { return typeof(TResult); }
+        }
 
     }
 
-    partial class BinaryOperation : Ast
+    partial class BinaryOperation<TResult> : Ast<TResult>
     {
-        public Ast              Left        ;
-        public Ast              Right       ;
+        public Ast        Left        ;
+        public Ast        Right       ;
 
-        public override void ToString(int indent, StringBuilder sb)
+        internal override void ToString(int indent, StringBuilder sb)
         {
             sb.Append(' ', indent);
             sb.Append('(');
@@ -66,31 +76,31 @@ namespace StaticExpressionTrees
         }
     }
 
-    partial class ComputeOperation : BinaryOperation
+    partial class ComputeOperation<T> : BinaryOperation<T>
     {
     }
 
-    partial class CompareOperation : BinaryOperation
+    partial class CompareOperation : BinaryOperation<bool>
     {
 
 
     }
 
-    partial class LogicalOperation : BinaryOperation
+    partial class LogicalOperation : BinaryOperation<bool>
     {
 
     }
 
-    partial class ValueOperation : Ast
+    partial class ValueOperation<T> : Ast<T>
     {
-        public object Value;
+        public T Value;
 
-        public static implicit operator ValueOperation(int v)
+        public static implicit operator ValueOperation<T>(T v)
         {
-            return new ValueOperation {Value = v};
+            return new ValueOperation<T> {Value = v};
         }
 
-        public override void ToString(int indent, StringBuilder sb)
+        internal override void ToString(int indent, StringBuilder sb)
         {
             sb.Append(' ', indent);
             sb.Append(Value);
@@ -98,10 +108,11 @@ namespace StaticExpressionTrees
         }
     }
 
-    partial class ColumnOperation : Ast
+    partial class ColumnOperation<T> : Ast<T>
     {
         public string ColumnId;
-        public override void ToString(int indent, StringBuilder sb)
+
+        internal override void ToString(int indent, StringBuilder sb)
         {
             sb.Append(' ', indent);
             sb.Append("ColumnId=");
@@ -115,9 +126,11 @@ namespace StaticExpressionTrees
     {
         static void Main(string[] args)
         {
-            var column = new ColumnOperation {ColumnId = "Name"};
+            var column = new ColumnOperation<int> {ColumnId = "Name"};
 
-            var x = (column + 2 == 4) & (column * 3 == 8);
+            ComputeOperation<int> y = column + 2;
+
+            LogicalOperation x = (column + 2 == 4) & (column * 3 == 8);
 
             Console.WriteLine(x);
 
