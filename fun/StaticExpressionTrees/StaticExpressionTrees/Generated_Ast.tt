@@ -112,31 +112,6 @@ namespace StaticExpressionTrees
 
     }
 
-    class Operation : BaseContainer<Root, Operator>
-    {
-        public string Name      ;
-        public Operation (string name)
-        {
-            Name = name ?? S_NoName;
-        }
-    } 
-
-    class Operator : BaseEntity<Operation>
-    {
-        public string   Name        ;
-        public string[] AppliesTo   ;
-        public Operator (string name, string[] appliesTo)
-        {
-            Name        = name      ?? S_NoName     ;
-            AppliesTo   = appliesTo ?? new string[0];
-        }
-    } 
-
-    static Operator O (string name, params string[] appliesTo)
-    {
-        return new Operator(name, appliesTo);
-    }
-
     static AstType Nop (string name)
     {
         return new AstType
