@@ -27,7 +27,7 @@ public class HumanPlayer implements Player {
 	}
 
 	@Override
-	public void outcome(Outcome outcome) {
+	public void outcome(Play otherPlay, Outcome outcome) {
 	}
 
 	@Override

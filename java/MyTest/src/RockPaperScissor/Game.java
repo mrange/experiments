@@ -80,8 +80,8 @@ public class Game {
 					break;
 				}
 				
-				bluePlayer.outcome(outcome);
-				redPlayer.outcome(outcome);
+				bluePlayer.outcome(redPlay, outcome);
+				redPlayer.outcome(bluePlay, outcome);
 				
 			}
 		}
