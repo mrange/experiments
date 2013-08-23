@@ -11,116 +11,22 @@
 // ----------------------------------------------------------------------------------------------
 
 using System;
-using System.Text;
+using StaticExpressionTrees.FLinq;
 
 namespace StaticExpressionTrees
 {
-    abstract partial class Ast
+
+    class CustomerTableDescriptor
     {
-        public AstType      Type    ;
-
-        public override string ToString()
-        {
-            var sb = new StringBuilder();
-            ToString (0, sb);
-            return sb.ToString();
-        }
-
-        internal abstract void ToString (int indent, StringBuilder sb);
-
-        public abstract Type ResultType {get;}
+        public readonly ColumnOperation<long>    Id         = new ColumnOperation<long>     {ColumnId = "Id"        };
+        public readonly ColumnOperation<string>  FirstName  = new ColumnOperation<string>   {ColumnId = "FirstName" };
+        public readonly ColumnOperation<string>  LastName   = new ColumnOperation<string>   {ColumnId = "LastName"  };
     }
 
-    abstract partial class Ast<TResult> : Ast
+    static class StaticExpressionExtensions
     {
-        public override Type ResultType
-        {
-            get { return typeof(TResult); }
-        }
-
+        public static 
     }
-
-    partial class BinaryOperation<TResult> : Ast<TResult>
-    {
-        public Ast        Left        ;
-        public Ast        Right       ;
-
-        internal override void ToString(int indent, StringBuilder sb)
-        {
-            sb.Append(' ', indent);
-            sb.Append('(');
-            sb.AppendLine();
-            if (Left != null)
-            {
-                Left.ToString(indent + 2, sb);
-            }
-            sb.Append(' ', indent);
-            sb.Append(')');
-            sb.AppendLine();
-
-            sb.Append(' ', indent);
-            sb.Append(Type);
-            sb.AppendLine();
-
-            sb.Append(' ', indent);
-            sb.Append('(');
-            sb.AppendLine();
-            if (Right != null)
-            {
-                Right.ToString(indent + 2, sb);
-            }
-            sb.Append(' ', indent);
-            sb.Append(')');
-            sb.AppendLine();
-
-        }
-    }
-
-    partial class ComputeOperation<T> : BinaryOperation<T>
-    {
-    }
-
-    partial class CompareOperation : BinaryOperation<bool>
-    {
-
-
-    }
-
-    partial class LogicalOperation : BinaryOperation<bool>
-    {
-
-    }
-
-    partial class ValueOperation<T> : Ast<T>
-    {
-        public T Value;
-
-        public static implicit operator ValueOperation<T>(T v)
-        {
-            return new ValueOperation<T> {Value = v};
-        }
-
-        internal override void ToString(int indent, StringBuilder sb)
-        {
-            sb.Append(' ', indent);
-            sb.Append(Value);
-            sb.AppendLine();
-        }
-    }
-
-    partial class ColumnOperation<T> : Ast<T>
-    {
-        public string ColumnId;
-
-        internal override void ToString(int indent, StringBuilder sb)
-        {
-            sb.Append(' ', indent);
-            sb.Append("ColumnId=");
-            sb.Append(ColumnId ?? "");
-            sb.AppendLine();
-        }
-    }
-
 
     class Program
     {

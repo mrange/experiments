@@ -41,17 +41,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Generated_Ast.cs">
+    <Compile Include="FLinq\Ast.cs" />
+    <Compile Include="FLinq\Generated_Ast.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Generated_Ast.tt</DependentUpon>
     </Compile>
+    <Compile Include="FLinq\SelectExpression.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="Generated_Ast.tt">
+    <None Include="FLinq\Generated_Ast.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>Generated_Ast.cs</LastGenOutput>
     </None>

@@ -25,7 +25,7 @@
 
 
 
-namespace StaticExpressionTrees
+namespace StaticExpressionTrees.FLinq
 {
     enum AstType
     {

@@ -42,7 +42,7 @@
             .ToLookup (t => t.Item1, t => t.Item2);
 #>
 
-namespace StaticExpressionTrees
+namespace StaticExpressionTrees.FLinq
 {
     enum AstType
     {
