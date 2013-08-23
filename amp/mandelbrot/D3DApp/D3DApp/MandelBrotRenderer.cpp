@@ -26,27 +26,27 @@ namespace
         return i;
     }
 
-
     void compute_mandelbrot (
-            ID3D11Device    * device
-        ,   ID3D11Texture2D * texture
+            ID3D11Device    *   device
+        ,   ID3D11Texture2D *   texture
+        ,   float               zoom
         )
     {
         try
         {
             auto av = concurrency::direct3d::create_accelerator_view(device);
 
-            const int   iter    = 32                    ;
+            const int   iter    = 128                   ;
 
             float       cx      = 0.001643721971153F    ;
             float       cy      = 0.822467633298876F    ;
 
-            float       dx      = 2.0F                  ;
-            float       dy      = 2.0F                  ;
+            float       dx      = zoom                  ;
+            float       dy      = zoom                  ;
 
             {
                 auto tex    = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
-                auto wotex  = writeonly_texture_view<unorm_4, 2> (tex);
+                auto wotex  = texture_view<unorm_4, 2> (tex);
 
                 auto e      = tex.extent;
 
@@ -179,7 +179,7 @@ void MandelBrotRenderer::CreateDeviceResources()
             textureDesc.ArraySize               = 1;
             textureDesc.SampleDesc.Count        = 1;
             textureDesc.SampleDesc.Quality      = 0;
-            textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE;
+            textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
 
             DX::ThrowIfFailed(
                 m_d3dDevice->CreateTexture2D(
@@ -276,8 +276,6 @@ void MandelBrotRenderer::CreateDeviceResources()
 				    )
 			    );
 
-            compute_mandelbrot (m_d3dDevice.Get(), m_texture.Get());
-
             m_loadingComplete = true;
 	    });
 }
@@ -289,8 +287,15 @@ void MandelBrotRenderer::Update(float timeTotal, float timeDelta)
 	XMVECTOR at = XMVectorSet(0.0f, 00.0f, 0.0f, 0.0f);
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
+    OutputDebugString(L"Gogog\r\n");
+
 	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(0* XM_PIDIV4)));
+
+    auto zoom = 2.0F / static_cast<float> (pow(1.2, timeTotal));
+
+    compute_mandelbrot (m_d3dDevice.Get(), m_texture.Get(), zoom);
+
 }
 
 
