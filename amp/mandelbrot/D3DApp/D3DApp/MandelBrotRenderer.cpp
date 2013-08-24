@@ -10,7 +10,9 @@ using namespace Windows::Foundation;
 using namespace Windows::UI::Core;
 namespace
 {
-    int mandelbrot (float x, float y, int iter) restrict(amp, cpu)
+    typedef double mtype;
+
+    int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
     {
         auto ix = x;
         auto iy = y;
@@ -26,9 +28,61 @@ namespace
         return i;
     }
 
+    void fill_color_lookup (std::vector<unorm_4> & result, unorm_4 from, unorm_4 to, std::size_t steps)
+    {
+        if (steps < 1U)
+        {
+            return;
+        }
+
+        auto diff = norm_4 (to) - norm_4 (from);
+
+        for (auto iter = 0U; iter < steps - 1U; ++iter)
+        {
+            auto ratio = norm_4 (static_cast<float> (iter) / static_cast<float> (steps));
+            result.push_back (unorm_4 (norm_4 (from) + ratio * diff));
+        }
+
+        result.push_back (to);
+    }
+
+
+    unorm_4 black   (0.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 white   (1.0F, 1.0F, 1.0F, 1.0F);
+
+    unorm_4 red     (1.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 yellow  (1.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 green   (0.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 cyan    (0.0F, 1.0F, 1.0F, 1.0F);
+    unorm_4 blue    (0.0F, 0.0F, 1.0F, 1.0F);
+    unorm_4 magenta (1.0F, 0.0F, 1.0F, 1.0F);
+
+    std::vector<unorm_4> create_color_lookup ()
+    {
+        std::vector<unorm_4> result;
+
+        auto filler = [&] (unorm_4 from, unorm_4 to)
+        {
+            fill_color_lookup (result, from, to, 32);
+        };
+
+        filler (red     , yellow    );
+        filler (yellow  , green     );
+        filler (green   , cyan      );
+        filler (cyan    , blue      );
+        filler (blue    , magenta   );
+        filler (magenta , red       );
+
+
+        return result;
+    }
+
+    std::vector<unorm_4> const color_lookup = create_color_lookup ();
+
     void compute_mandelbrot (
             ID3D11Device    *   device
         ,   ID3D11Texture2D *   texture
+        ,   int                 offset
         ,   float               zoom
         )
     {
@@ -36,31 +90,34 @@ namespace
         {
             auto av = concurrency::direct3d::create_accelerator_view(device);
 
-            const int   iter    = 128                   ;
+            unsigned int const  iter    = 128                   ;
 
-            float       cx      = 0.001643721971153F    ;
-            float       cy      = 0.822467633298876F    ;
+            float        const  cx      = 0.001643721971153F    ;
+            float        const  cy      = 0.822467633298876F    ;
 
-            float       dx      = zoom                  ;
-            float       dy      = zoom                  ;
+            float        const  dx      = zoom                  ;
+            float        const  dy      = zoom                  ;
 
             {
-                auto tex    = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
-                auto wotex  = texture_view<unorm_4, 2> (tex);
+                int const lookup_size   = color_lookup.size ();
 
-                auto e      = tex.extent;
+                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+
+                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+                auto wotex              = texture_view<unorm_4, 2> (tex);
+                auto e                  = tex.extent;
 
                 parallel_for_each (
                         av
                     ,   e
                     ,   [=] (index<2> idx) restrict(amp)
                     {
-                        auto x = cx + dx * (((float)idx[0]) / e[0] - 0.5F);
-                        auto y = cy + dy * (((float)idx[1]) / e[1] - 0.5F);
+                        auto x = cx + dx * (((mtype)idx[0]) / e[0] - 0.5);
+                        auto y = cy + dy * (((mtype)idx[1]) / e[1] - 0.5);
 
                         auto result = mandelbrot (x,y, iter);
-                        auto color1 = 1.0F - result * (1.0F/iter); 
-                        auto color = unorm_4(color1, color1, color1, 1.0F);
+
+                        auto color = result == iter ? unorm_4 (0.0F, 0.0F, 0.0F, 1.0F) : lookup[(result + offset) % lookup_size];
 
                         wotex.set(idx,color); 
                     });
@@ -169,8 +226,8 @@ void MandelBrotRenderer::CreateDeviceResources()
             textureSubresourceData.SysMemSlicePitch = 0;
 
             D3D11_TEXTURE2D_DESC textureDesc    = {};
-            textureDesc.Width                   = 256;
-            textureDesc.Height                  = 256;
+            textureDesc.Width                   = 512;
+            textureDesc.Height                  = 512;
             textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
             textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
             textureDesc.CPUAccessFlags          = 0;
@@ -184,7 +241,7 @@ void MandelBrotRenderer::CreateDeviceResources()
             DX::ThrowIfFailed(
                 m_d3dDevice->CreateTexture2D(
                         &textureDesc
-                    ,   &textureSubresourceData
+                    ,   NULL
                     ,   &m_texture
                     )
                 );
@@ -287,14 +344,17 @@ void MandelBrotRenderer::Update(float timeTotal, float timeDelta)
 	XMVECTOR at = XMVectorSet(0.0f, 00.0f, 0.0f, 0.0f);
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-    OutputDebugString(L"Gogog\r\n");
-
 	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(0* XM_PIDIV4)));
 
     auto zoom = 2.0F / static_cast<float> (pow(1.2, timeTotal));
 
-    compute_mandelbrot (m_d3dDevice.Get(), m_texture.Get(), zoom);
+    compute_mandelbrot (
+            m_d3dDevice.Get()
+        ,   m_texture.Get()
+        ,   static_cast<int> (timeTotal * 10)
+        ,   zoom
+        );
 
 }
 
