@@ -3,10 +3,158 @@
 
 #include "..\Common\DirectXHelper.h"	// For ThrowIfFailed and ReadDataAsync
 
+using namespace concurrency;
+using namespace concurrency::graphics;
+
 using namespace MandelbrotApp;
 
 using namespace DirectX;
 using namespace Windows::Foundation;
+
+namespace
+{
+
+    struct MandelBrotPos
+    {
+	    DirectX::XMFLOAT3 pos   ;
+	    DirectX::XMFLOAT3 normal;
+	    DirectX::XMFLOAT2 texpos;
+    };
+
+    typedef double mtype;
+
+    int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
+    {
+        auto ix = x;
+        auto iy = y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        {
+            auto tx = ix * ix - iy * iy + x;
+            iy = 2 * ix * iy + y;
+            ix = tx;
+        }
+        return i;
+    }
+
+    void fill_color_lookup (std::vector<unorm_4> & result, unorm_4 from, unorm_4 to, std::size_t steps)
+    {
+        if (steps < 1U)
+        {
+            return;
+        }
+
+        auto diff = norm_4 (to) - norm_4 (from);
+
+        for (auto iter = 0U; iter < steps - 1U; ++iter)
+        {
+            auto ratio = norm_4 (static_cast<float> (iter) / static_cast<float> (steps));
+            result.push_back (unorm_4 (norm_4 (from) + ratio * diff));
+        }
+
+        result.push_back (to);
+    }
+
+
+    unorm_4 black   (0.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 white   (1.0F, 1.0F, 1.0F, 1.0F);
+
+    unorm_4 red     (1.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 yellow  (1.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 green   (0.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 cyan    (0.0F, 1.0F, 1.0F, 1.0F);
+    unorm_4 blue    (0.0F, 0.0F, 1.0F, 1.0F);
+    unorm_4 magenta (1.0F, 0.0F, 1.0F, 1.0F);
+
+    std::vector<unorm_4> create_color_lookup ()
+    {
+        std::vector<unorm_4> result;
+
+        auto filler = [&] (unorm_4 from, unorm_4 to)
+        {
+            fill_color_lookup (result, from, to, 32);
+        };
+
+        filler (red     , yellow    );
+        filler (yellow  , green     );
+        filler (green   , cyan      );
+        filler (cyan    , blue      );
+        filler (blue    , magenta   );
+        filler (magenta , red       );
+
+
+        return result;
+    }
+
+    std::vector<unorm_4> const color_lookup = create_color_lookup ();
+
+    void compute_mandelbrot (
+            ID3D11Device    *   device
+        ,   ID3D11Texture2D *   texture
+        ,   int                 offset
+        ,   float               zoom
+        )
+    {
+        if (!device)
+        {
+            return;
+        }
+
+        if (!texture)
+        {
+            return;
+        }
+
+        try
+        {
+            auto av = concurrency::direct3d::create_accelerator_view(device);
+
+            unsigned int const  iter    = 256                   ;
+
+            float        const  cx      = 0.001643721971153F    ;
+            float        const  cy      = 0.822467633298876F    ;
+
+            float        const  dx      = zoom                  ;
+            float        const  dy      = zoom                  ;
+
+            {
+                int const lookup_size   = static_cast<int> (color_lookup.size ());
+
+                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+
+                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+                auto wotex              = texture_view<unorm_4, 2> (tex);
+                auto e                  = tex.extent;
+
+                parallel_for_each (
+                        av
+                    ,   e
+                    ,   [=] (index<2> idx) restrict(amp)
+                    {
+                        auto x = cx + dx * (((mtype)idx[0]) / e[0] - 0.5);
+                        auto y = cy + dy * (((mtype)idx[1]) / e[1] - 0.5);
+
+                        auto result = mandelbrot (x,y, iter);
+
+                        auto color = result == iter ? unorm_4 (0.0F, 0.0F, 0.0F, 1.0F) : lookup[(result + offset) % lookup_size];
+
+                        wotex.set(idx,color); 
+                    });
+            }
+        }
+        catch (std::exception const & e)
+        {
+            auto what = e.what();
+            OutputDebugString(L"Known exception\r\n");
+        }
+        catch (...)
+        {
+            OutputDebugString(L"Unknown exception\r\n");
+        }
+    }
+}
 
 // Loads vertex and pixel shaders from files and instantiates the cube geometry.
 Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources) :
@@ -60,18 +208,30 @@ void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 {
 	// Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
-	static const XMVECTORF32 eye = { 0.0f, 0.7f, 1.5f, 0.0f };
-	static const XMVECTORF32 at = { 0.0f, -0.1f, 0.0f, 0.0f };
+	static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.0f, 0.0f };
+	static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
 	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
+
+    auto totalSecs = static_cast<float> (timer.GetTotalSeconds ());
 
 	// Convert degrees to radians, then convert seconds to rotation angle
 	float radiansPerSecond = XMConvertToRadians(m_degreesPerSecond);
-	double totalRotation = timer.GetTotalSeconds() * radiansPerSecond;
+    radiansPerSecond = 0;
+	double totalRotation = totalSecs * radiansPerSecond;
 	float animRadians = (float)fmod(totalRotation, XM_2PI);
 
 	// Prepare to pass the view matrix, and updated model matrix, to the shader
 	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(animRadians)));
+
+    auto zoom = 2.0F / static_cast<float> (pow(1.2, totalSecs));
+
+    compute_mandelbrot (
+            m_deviceResources->GetD3DDevice()
+        ,   m_mandelBrotTexture.Get()
+        ,   static_cast<int> (totalSecs * 10)
+        ,   zoom
+        );
 }
 
 // Renders one frame using the vertex and pixel shaders.
@@ -100,7 +260,7 @@ void Sample3DSceneRenderer::Render()
 		);
 
 	// Each vertex is one instance of the VertexPositionColor struct.
-	UINT stride = sizeof(VertexPositionColor);
+	UINT stride = sizeof(MandelBrotPos);
 	UINT offset = 0;
 	context->IASetVertexBuffers(
 		0,
@@ -141,6 +301,18 @@ void Sample3DSceneRenderer::Render()
 		0
 		);
 
+    context->PSSetShaderResources(
+        0,
+        1,
+        m_mandelBrotTextureView.GetAddressOf()
+        );
+
+    context->PSSetSamplers(
+        0,
+        1,
+        m_mandelBrotSampler.GetAddressOf()
+        );
+
 	// Draw the objects.
 	context->DrawIndexed(
 		m_indexCount,
@@ -168,8 +340,9 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 
 		static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
 		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
 		DX::ThrowIfFailed(
@@ -207,17 +380,71 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 	// Once both shaders are loaded, create the mesh.
 	auto createCubeTask = (createPSTask && createVSTask).then([this] () {
 
+        D3D11_TEXTURE2D_DESC textureDesc    = {};
+        textureDesc.Width                   = 512;
+        textureDesc.Height                  = 512;
+        textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
+        textureDesc.CPUAccessFlags          = 0;
+        textureDesc.MiscFlags               = 0;
+        textureDesc.MipLevels               = 1;
+        textureDesc.ArraySize               = 1;
+        textureDesc.SampleDesc.Count        = 1;
+        textureDesc.SampleDesc.Quality      = 0;
+        textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateTexture2D(
+                    &textureDesc
+                ,   NULL
+                ,   &m_mandelBrotTexture
+                )
+            );
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
+        textureViewDesc.Format                          = textureDesc.Format;
+        textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
+        textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels;
+        textureViewDesc.Texture2D.MostDetailedMip       = 0;
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
+                m_mandelBrotTexture.Get(),
+                &textureViewDesc,
+                &m_mandelBrotTextureView
+                )
+            );
+
+        D3D11_SAMPLER_DESC samplerDesc                  = {};
+
+        samplerDesc.Filter                              = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        samplerDesc.MaxAnisotropy                       = 0;
+        samplerDesc.AddressU                            = D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressV                            = D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressW                            = D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.MipLODBias                          = 0.0f;
+        samplerDesc.MinLOD                              = 0;
+        samplerDesc.MaxLOD                              = D3D11_FLOAT32_MAX;
+        samplerDesc.ComparisonFunc                      = D3D11_COMPARISON_NEVER;
+        samplerDesc.BorderColor[0]                      = 0.0f;
+        samplerDesc.BorderColor[1]                      = 0.0f;
+        samplerDesc.BorderColor[2]                      = 0.0f;
+        samplerDesc.BorderColor[3]                      = 0.0f;
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateSamplerState(
+                &samplerDesc,
+                &m_mandelBrotSampler
+                )
+            );
+
 		// Load mesh vertices. Each vertex has a position and a color.
-		static const VertexPositionColor cubeVertices[] = 
+		static const MandelBrotPos cubeVertices[] = 
 		{
-			{XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, 0.0f)},
-			{XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
-			{XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
-			{XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 1.0f)},
-			{XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
-			{XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 1.0f)},
-			{XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 1.0f, 0.0f)},
-			{XMFLOAT3(0.5f, 0.5f, 0.5f), XMFLOAT3(1.0f, 1.0f, 1.0f)},
+            {XMFLOAT3(-0.5f, -0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f, -0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f,  0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f,  0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
 		};
 
 		D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
@@ -240,23 +467,8 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 		// first triangle of this mesh.
 		static const unsigned short cubeIndices [] =
 		{
-			0,2,1, // -x
-			1,2,3,
-
-			4,5,6, // +x
-			5,7,6,
-
-			0,1,5, // -y
-			0,5,4,
-
-			2,6,7, // +y
-			2,7,3,
-
-			0,4,6, // -z
-			0,6,2,
-
-			1,3,7, // +z
-			1,7,5,
+			2,1,0,
+			0,3,2,
 		};
 
 		m_indexCount = ARRAYSIZE(cubeIndices);

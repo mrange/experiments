@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+#include <amp.h>
+#include <amp_graphics.h>
+#include <ppl.h>
+#include <ppltasks.h>
+
 #include <wrl.h>
 #include <wrl/client.h>
 #include <d3d11_2.h>

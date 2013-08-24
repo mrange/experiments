@@ -6,6 +6,13 @@
 
 namespace MandelbrotApp
 {
+	struct ModelViewProjectionConstantBuffer
+	{
+		DirectX::XMFLOAT4X4 model;
+		DirectX::XMFLOAT4X4 view;
+		DirectX::XMFLOAT4X4 projection;
+	};
+
 	// This sample renderer instantiates a basic rendering pipeline.
 	class Sample3DSceneRenderer
 	{
@@ -28,6 +35,10 @@ namespace MandelbrotApp
 		Microsoft::WRL::ComPtr<ID3D11VertexShader>	m_vertexShader;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader>	m_pixelShader;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_constantBuffer;
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_mandelBrotTexture     ;
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
+        Microsoft::WRL::ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
 
 		// System resources for cube geometry.
 		ModelViewProjectionConstantBuffer m_constantBufferData;
