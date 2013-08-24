@@ -128,17 +128,22 @@ namespace
                 auto wotex              = texture_view<unorm_4, 2> (tex);
                 auto e                  = tex.extent;
 
+                auto width              = static_cast<mtype> (e[0]);
+                auto height             = static_cast<mtype> (e[1]);
+
                 parallel_for_each (
                         av
                     ,   e
                     ,   [=] (index<2> idx) restrict(amp)
                     {
-                        auto x = cx + dx * (((mtype)idx[0]) / e[0] - 0.5);
-                        auto y = cy + dy * (((mtype)idx[1]) / e[1] - 0.5);
+                        auto x = cx + dx * ((idx[0] / width) - 0.5);
+                        auto y = cy + dy * ((idx[1] / height) - 0.5);
 
                         auto result = mandelbrot (x,y, iter);
 
-                        auto color = result == iter ? unorm_4 (0.0F, 0.0F, 0.0F, 1.0F) : lookup[(result + offset) % lookup_size];
+                        auto multiplier = result == iter ? 0.0F : 1.0F;
+
+                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
 
                         wotex.set(idx,color); 
                     });
