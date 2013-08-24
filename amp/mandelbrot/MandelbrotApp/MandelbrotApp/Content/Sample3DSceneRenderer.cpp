@@ -213,15 +213,14 @@ void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 {
 	// Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
-	static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.0f, 0.0f };
-	static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
+	static const XMVECTORF32 eye = { 0.0f, 1.0f, 2.0f, 0.0f };
+	static const XMVECTORF32 at = { 0.0f, 0.2f, 0.0f, 0.0f };
 	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
 
     auto totalSecs = static_cast<float> (timer.GetTotalSeconds ());
 
 	// Convert degrees to radians, then convert seconds to rotation angle
 	float radiansPerSecond = XMConvertToRadians(m_degreesPerSecond);
-    radiansPerSecond = 0;
 	double totalRotation = totalSecs * radiansPerSecond;
 	float animRadians = (float)fmod(totalRotation, XM_2PI);
 
@@ -446,10 +445,37 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 		// Load mesh vertices. Each vertex has a position and a color.
 		static const MandelBrotPos cubeVertices[] = 
 		{
-            {XMFLOAT3(-0.5f, -0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f, -0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f,  0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f,  0.5f,  0.0f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+            {XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+
+            {XMFLOAT3(-0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 0)},
+
+            {XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+            {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+            {XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+            {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+
 		};
 
 		D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
@@ -472,8 +498,24 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 		// first triangle of this mesh.
 		static const unsigned short cubeIndices [] =
 		{
-			2,1,0,
-			0,3,2,
+			0x00 + 2,0x00 + 1,0x00 + 0,
+			0x00 + 0,0x00 + 3,0x00 + 2,
+
+			0x04 + 0,0x04 + 1,0x04 + 2,
+			0x04 + 2,0x04 + 3,0x04 + 0,
+
+			0x08 + 0,0x08 + 1,0x08 + 2,
+			0x08 + 2,0x08 + 3,0x08 + 0,
+
+			0x0C + 2,0x0C + 1,0x0C + 0,
+			0x0C + 0,0x0C + 3,0x0C + 2,
+
+			0x10 + 2,0x10 + 1,0x10 + 0,
+			0x10 + 0,0x10 + 3,0x10 + 2,
+
+			0x14 + 0,0x14 + 1,0x14 + 2,
+			0x14 + 2,0x14 + 3,0x14 + 0,
+
 		};
 
 		m_indexCount = ARRAYSIZE(cubeIndices);

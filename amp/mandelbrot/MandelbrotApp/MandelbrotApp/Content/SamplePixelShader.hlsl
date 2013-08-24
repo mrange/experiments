@@ -14,7 +14,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     // so the lighting vector here will be relative to the world space.
     float3 lightDirection   = normalize(float3(0,0,1));
     float4 texelColor       = simpleTexture.Sample(simpleSampler, input.tex);
-    float lightMagnitude    = 0.8f * saturate(dot( input.norm, -lightDirection)) + 0.2f;
+    float lightMagnitude    = 0.5f * saturate(dot( input.norm, -lightDirection)) + 0.5f;
 
     return texelColor * lightMagnitude;
 //    return texelColor;
