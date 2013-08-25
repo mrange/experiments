@@ -28,6 +28,8 @@ namespace MandelbrotApp
 		// Cached pointer to device resources.
 		std::shared_ptr<DeviceResources> m_deviceResources;
 
+        std::shared_ptr<Concurrency::accelerator_view> m_av;
+
 		// Direct3D resources for cube geometry.
 		Microsoft::WRL::ComPtr<ID3D11InputLayout>	m_inputLayout;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_vertexBuffer;

@@ -91,17 +91,12 @@ namespace
     std::vector<unorm_4> const color_lookup = create_color_lookup ();
 
     void compute_mandelbrot (
-            ID3D11Device    *   device
-        ,   ID3D11Texture2D *   texture
-        ,   int                 offset
-        ,   float               zoom
+            accelerator_view const &    av
+        ,   ID3D11Texture2D *           texture
+        ,   int                         offset
+        ,   float                       zoom
         )
     {
-        if (!device)
-        {
-            return;
-        }
-
         if (!texture)
         {
             return;
@@ -109,7 +104,6 @@ namespace
 
         try
         {
-            auto av = concurrency::direct3d::create_accelerator_view(device);
 
             unsigned int const  iter    = 256                   ;
 
@@ -231,7 +225,7 @@ void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
     auto zoom = 2.0F / static_cast<float> (pow(1.2, totalSecs));
 
     compute_mandelbrot (
-            m_deviceResources->GetD3DDevice()
+            *m_av
         ,   m_mandelBrotTexture.Get()
         ,   static_cast<int> (totalSecs * 10)
         ,   zoom
@@ -532,6 +526,9 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 			&m_indexBuffer
 			)
 			);
+
+        auto av = concurrency::direct3d::create_accelerator_view (m_deviceResources->GetD3DDevice());
+        m_av = std::make_shared<accelerator_view> (av);
 	});
 
 	// Once the cube is loaded, the object is ready to be rendered.
@@ -543,6 +540,7 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 void Sample3DSceneRenderer::ReleaseDeviceDependentResources()
 {
 	m_loadingComplete = false;
+    m_av.reset();
 	m_vertexShader.Reset();
 	m_inputLayout.Reset();
 	m_pixelShader.Reset();
