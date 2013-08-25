@@ -207,7 +207,7 @@ void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 {
 	// Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
-	static const XMVECTORF32 eye = { 0.0f, 1.0f, 2.0f, 0.0f };
+	static const XMVECTORF32 eye = { 0.0f, 1.0f, 1.5f, 0.0f };
 	static const XMVECTORF32 at = { 0.0f, 0.2f, 0.0f, 0.0f };
 	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
 
