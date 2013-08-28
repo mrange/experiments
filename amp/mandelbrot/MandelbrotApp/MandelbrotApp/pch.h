@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <vector>
+
 #include <amp.h>
 #include <amp_graphics.h>
 #include <ppl.h>

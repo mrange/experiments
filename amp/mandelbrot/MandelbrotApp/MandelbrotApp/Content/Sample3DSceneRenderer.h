@@ -24,6 +24,9 @@ namespace MandelbrotApp
 		void Update(DX::StepTimer const& timer);
 		void Render();
 
+        void PointerPressed(Windows::Foundation::Point const & p);
+        void PointerMoved(Windows::Foundation::Point const & p);
+
 	private:
 		// Cached pointer to device resources.
 		std::shared_ptr<DeviceResources> m_deviceResources;
@@ -42,6 +45,9 @@ namespace MandelbrotApp
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
         Microsoft::WRL::ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
 
+        Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_juliaTexture          ;
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
+
 		// System resources for cube geometry.
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		uint32	m_indexCount;
@@ -49,6 +55,9 @@ namespace MandelbrotApp
 		// Variables used with the rendering loop.
 		bool	m_loadingComplete;
 		float	m_degreesPerSecond;
+
+        Windows::Foundation::Point m_currentPoint;
+        Windows::Foundation::Size  m_currentBounds;
 	};
 }
 

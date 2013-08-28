@@ -4,6 +4,7 @@
 #include "Common\DirectXHelper.h"				// For ThrowIfFailed
 #include <windows.ui.xaml.media.dxinterop.h>	// For SwapChainBackgroundPanel native methods
 
+
 using namespace MandelbrotApp;
 
 using namespace D2D1;

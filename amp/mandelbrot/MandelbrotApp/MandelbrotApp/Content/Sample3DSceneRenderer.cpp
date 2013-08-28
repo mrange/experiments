@@ -21,7 +21,19 @@ namespace
 	    DirectX::XMFLOAT2 texpos;
     };
 
-    typedef double mtype;
+    typedef float mtype;
+    unsigned int    const   texture_width   = 1024      ;
+    unsigned int    const   texture_height  = 1024      ;
+    unsigned int    const   max_iter        = 128       ;
+    mtype           const   cx_mandelbrot   = -1        ;
+    mtype           const   cy_mandelbrot   = 0         ;
+    mtype           const   zoom_mandelbrot = 1/3.0F    ;
+
+    mtype           const   cx_julia        = 0         ;
+    mtype           const   cy_julia        = 0         ;
+    mtype           const   zoom_julia      = 1/3.0F    ;
+
+
 
     int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
     {
@@ -34,6 +46,22 @@ namespace
         {
             auto tx = ix * ix - iy * iy + x;
             iy = 2 * ix * iy + y;
+            ix = tx;
+        }
+        return i;
+    }
+
+    int julia (mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp, cpu)
+    {
+        auto ix = x;
+        auto iy = y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        {
+            auto tx = ix * ix - iy * iy + cx;
+            iy = 2 * ix * iy + cy;
             ix = tx;
         }
         return i;
@@ -94,7 +122,9 @@ namespace
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
         ,   int                         offset
-        ,   float                       zoom
+        ,   mtype                       cx
+        ,   mtype                       cy
+        ,   mtype                       zoom
         )
     {
         if (!texture)
@@ -105,13 +135,10 @@ namespace
         try
         {
 
-            unsigned int const  iter    = 256                   ;
+            unsigned int const  iter    = max_iter               ;
 
-            float        const  cx      = 0.001643721971153F    ;
-            float        const  cy      = 0.822467633298876F    ;
-
-            float        const  dx      = zoom                  ;
-            float        const  dy      = zoom                  ;
+            mtype        const  dx      = 1/zoom                ;
+            mtype        const  dy      = 1/zoom                ;
 
             {
                 int const lookup_size   = static_cast<int> (color_lookup.size ());
@@ -130,8 +157,8 @@ namespace
                     ,   e
                     ,   [=] (index<2> idx) restrict(amp)
                     {
-                        auto x = cx + dx * ((idx[0] / width) - 0.5);
-                        auto y = cy + dy * ((idx[1] / height) - 0.5);
+                        auto x = cx + dx * ((idx[1] / width) - 0.5F);
+                        auto y = cy + dy * ((idx[0] / height) - 0.5F);
 
                         auto result = mandelbrot (x,y, iter);
 
@@ -153,6 +180,72 @@ namespace
             OutputDebugString(L"Unknown exception\r\n");
         }
     }
+
+    void compute_julia (
+            accelerator_view const &    av
+        ,   ID3D11Texture2D *           texture
+        ,   int                         offset
+        ,   mtype                       cx
+        ,   mtype                       cy
+        ,   mtype                       ix
+        ,   mtype                       iy
+        ,   mtype                       zoom
+        )
+    {
+        if (!texture)
+        {
+            return;
+        }
+
+        try
+        {
+
+            unsigned int const  iter    = max_iter               ;
+
+            mtype        const  dx      = 1/zoom                ;
+            mtype        const  dy      = 1/zoom                ;
+
+            {
+                int const lookup_size   = static_cast<int> (color_lookup.size ());
+
+                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+
+                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+                auto wotex              = texture_view<unorm_4, 2> (tex);
+                auto e                  = tex.extent;
+
+                auto width              = static_cast<mtype> (e[0]);
+                auto height             = static_cast<mtype> (e[1]);
+
+                parallel_for_each (
+                        av
+                    ,   e
+                    ,   [=] (index<2> idx) restrict(amp)
+                    {
+                        auto x = cx + dx * ((idx[1] / width) - 0.5F);
+                        auto y = cy + dy * ((idx[0] / height) - 0.5F);
+
+                        auto result = julia (x,y, ix, iy, iter);
+
+                        auto multiplier = result == iter ? 0.0F : 1.0F;
+
+                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
+
+                        wotex.set(idx,color); 
+                    });
+            }
+        }
+        catch (std::exception const & e)
+        {
+            auto what = e.what();
+            OutputDebugString(L"Known exception\r\n");
+        }
+        catch (...)
+        {
+            OutputDebugString(L"Unknown exception\r\n");
+        }
+    }
+
 }
 
 // Loads vertex and pixel shaders from files and instantiates the cube geometry.
@@ -169,6 +262,9 @@ Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResourc
 void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 {
 	Size outputBounds = m_deviceResources->GetOutputBounds();
+    m_currentBounds = outputBounds;
+
+    m_currentPoint = Point(outputBounds.Width / 4, outputBounds.Height / 2);
 	float aspectRatio = outputBounds.Width / outputBounds.Height;
 	float fovAngleY = 70.0f * XM_PI / 180.0f;
 
@@ -179,18 +275,11 @@ void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 		fovAngleY *= 2.0f;
 	}
 
-	// Note that the OrientationTransform3D matrix is post-multiplied here
-	// in order to correctly orient the scene to match the display orientation.
-	// This post-multiplication step is required for any draw calls that are
-	// made to the swap chain render target. For draw calls to other targets,
-	// this transform should not be applied.
-
-	// This sample makes use of a right-handed coordinate system using row-major matrices.
-	XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
-		fovAngleY,
-		aspectRatio,
-		0.01f,
-		100.0f
+	XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
+		1 * aspectRatio,
+		1,
+		-10,
+		+10
 		);
 
 	XMFLOAT4X4 orientation = m_deviceResources->GetOrientationTransform3D();
@@ -207,8 +296,8 @@ void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
 void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 {
 	// Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
-	static const XMVECTORF32 eye = { 0.0f, 1.0f, 1.5f, 0.0f };
-	static const XMVECTORF32 at = { 0.0f, 0.2f, 0.0f, 0.0f };
+	static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.5f, 0.0f };
+	static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
 	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
 
     auto totalSecs = static_cast<float> (timer.GetTotalSeconds ());
@@ -216,19 +305,46 @@ void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 	// Convert degrees to radians, then convert seconds to rotation angle
 	float radiansPerSecond = XMConvertToRadians(m_degreesPerSecond);
 	double totalRotation = totalSecs * radiansPerSecond;
+    totalRotation = 0.0;
 	float animRadians = (float)fmod(totalRotation, XM_2PI);
 
 	// Prepare to pass the view matrix, and updated model matrix, to the shader
 	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(animRadians)));
 
-    auto zoom = 2.0F / static_cast<float> (pow(1.2, totalSecs));
+	auto aspectRatio = m_currentBounds.Width / m_currentBounds.Height;
+
+    auto cp = m_currentPoint;
+    auto cb = m_currentBounds;
+
+    if (cp.X > cb.Width / 2)
+    {
+        cp.X = cb.Width / 2;
+    }
+
+    auto centerX = cb.Width / 2 - cb.Height / 2;
+
+    auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / zoom_mandelbrot + cy_mandelbrot;
+    auto cx = ((cp.X - centerX) / cb.Height) / zoom_mandelbrot + cx_mandelbrot;
+
+    compute_julia (
+            *m_av
+        ,   m_juliaTexture.Get()
+        ,   static_cast<int> (totalSecs * 10)
+        ,   cx_julia
+        ,   cy_julia
+        ,   cx
+        ,   cy
+        ,   zoom_julia
+        );
 
     compute_mandelbrot (
             *m_av
         ,   m_mandelBrotTexture.Get()
         ,   static_cast<int> (totalSecs * 10)
-        ,   zoom
+        ,   cx_mandelbrot
+        ,   cy_mandelbrot
+        ,   zoom_mandelbrot
         );
 }
 
@@ -312,11 +428,30 @@ void Sample3DSceneRenderer::Render()
         );
 
 	// Draw the objects.
-	context->DrawIndexed(
-		m_indexCount,
+    context->DrawIndexed(
+		6,
 		0,
 		0
 		);
+
+    context->PSSetShaderResources(
+        0,
+        1,
+        m_juliaTextureView.GetAddressOf()
+        );
+
+    context->PSSetSamplers(
+        0,
+        1,
+        m_mandelBrotSampler.GetAddressOf()
+        );
+
+    context->DrawIndexed(
+		6,
+		6,
+		0
+		);
+
 }
 
 void Sample3DSceneRenderer::CreateDeviceDependentResources()
@@ -379,8 +514,8 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 	auto createCubeTask = (createPSTask && createVSTask).then([this] () {
 
         D3D11_TEXTURE2D_DESC textureDesc    = {};
-        textureDesc.Width                   = 512;
-        textureDesc.Height                  = 512;
+        textureDesc.Width                   = texture_width  ;
+        textureDesc.Height                  = texture_height ;
         textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
         textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
         textureDesc.CPUAccessFlags          = 0;
@@ -399,6 +534,14 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
                 )
             );
 
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateTexture2D(
+                    &textureDesc
+                ,   NULL
+                ,   &m_juliaTexture
+                )
+            );
+
         D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
         textureViewDesc.Format                          = textureDesc.Format;
         textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -410,6 +553,14 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
                 m_mandelBrotTexture.Get(),
                 &textureViewDesc,
                 &m_mandelBrotTextureView
+                )
+            );
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
+                m_juliaTexture.Get(),
+                &textureViewDesc,
+                &m_juliaTextureView
                 )
             );
 
@@ -439,37 +590,15 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 		// Load mesh vertices. Each vertex has a position and a color.
 		static const MandelBrotPos cubeVertices[] = 
 		{
-            {XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+            {XMFLOAT3(-1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3(-1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
 
-            {XMFLOAT3(-0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 0)},
-
-            {XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 0)},
-
-            {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 0)},
-
-            {XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
-
-            {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
-
-
+            {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			{XMFLOAT3( 1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			{XMFLOAT3( 1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			{XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
 		};
 
 		D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
@@ -494,22 +623,8 @@ void Sample3DSceneRenderer::CreateDeviceDependentResources()
 		{
 			0x00 + 2,0x00 + 1,0x00 + 0,
 			0x00 + 0,0x00 + 3,0x00 + 2,
-
-			0x04 + 0,0x04 + 1,0x04 + 2,
-			0x04 + 2,0x04 + 3,0x04 + 0,
-
-			0x08 + 0,0x08 + 1,0x08 + 2,
-			0x08 + 2,0x08 + 3,0x08 + 0,
-
-			0x0C + 2,0x0C + 1,0x0C + 0,
-			0x0C + 0,0x0C + 3,0x0C + 2,
-
-			0x10 + 2,0x10 + 1,0x10 + 0,
-			0x10 + 0,0x10 + 3,0x10 + 2,
-
-			0x14 + 0,0x14 + 1,0x14 + 2,
-			0x14 + 2,0x14 + 3,0x14 + 0,
-
+			0x04 + 2,0x04 + 1,0x04 + 0,
+			0x04 + 0,0x04 + 3,0x04 + 2,
 		};
 
 		m_indexCount = ARRAYSIZE(cubeIndices);
@@ -547,4 +662,14 @@ void Sample3DSceneRenderer::ReleaseDeviceDependentResources()
 	m_constantBuffer.Reset();
 	m_vertexBuffer.Reset();
 	m_indexBuffer.Reset();
+}
+
+void Sample3DSceneRenderer::PointerPressed(Point const & p)
+{
+    m_currentPoint = p;
+}
+
+void Sample3DSceneRenderer::PointerMoved(Point const & p)
+{
+    m_currentPoint = p;
 }

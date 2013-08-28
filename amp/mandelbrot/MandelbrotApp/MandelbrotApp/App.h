@@ -35,7 +35,11 @@ namespace MandelbrotApp
 		void OnOrientationChanged(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
 		void OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
 
-	private:
+        // 
+        void OnPointerPressed(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args);
+        void OnPointerMoved(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args);
+
+    private:
 		std::shared_ptr<DeviceResources> m_deviceResources;
 		std::unique_ptr<MandelbrotAppMain> m_main;
 		bool m_windowClosed;

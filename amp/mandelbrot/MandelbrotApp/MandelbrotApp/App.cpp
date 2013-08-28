@@ -81,6 +81,10 @@ void App::SetWindow(CoreWindow^ window)
 	pointerVisualizationSettings->IsContactFeedbackEnabled = false; 
 	pointerVisualizationSettings->IsBarrelButtonFeedbackEnabled = false;
 
+    window->PointerPressed +=ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerPressed);
+
+    window->PointerMoved +=ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerMoved); 
+
 	m_deviceResources->SetWindow(window);
 }
 
@@ -189,4 +193,14 @@ void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
 	m_deviceResources->ValidateDevice();
+}
+
+void App::OnPointerPressed(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args)
+{
+    m_main->PointerPressed(args->CurrentPoint->Position);
+}
+
+void App::OnPointerMoved(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args)
+{
+    m_main->PointerMoved(args->CurrentPoint->Position);
 }

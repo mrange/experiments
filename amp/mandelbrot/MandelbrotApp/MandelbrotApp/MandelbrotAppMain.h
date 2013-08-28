@@ -21,6 +21,9 @@ namespace MandelbrotApp
 		virtual void OnDeviceLost();
 		virtual void OnDeviceRecreated();
 
+        void PointerPressed(Windows::Foundation::Point const & p);
+        void PointerMoved(Windows::Foundation::Point const & p);
+
 	private:
 		// Cached pointer to device resources.
 		std::shared_ptr<DeviceResources> m_deviceResources;
