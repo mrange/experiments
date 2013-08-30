@@ -13,12 +13,20 @@ using namespace Windows::Foundation;
 
 namespace
 {
+    typedef float mtype;
+
+	struct ModelViewProjectionConstantBuffer
+	{
+		XMFLOAT4X4 model;
+		XMFLOAT4X4 view;
+		XMFLOAT4X4 projection;
+	};
 
     struct MandelBrotPos
     {
-	    DirectX::XMFLOAT3 pos   ;
-	    DirectX::XMFLOAT3 normal;
-	    DirectX::XMFLOAT2 texpos;
+	    XMFLOAT3 pos   ;
+	    XMFLOAT3 normal;
+	    XMFLOAT2 texpos;
     };
 
     unsigned int    const   texture_width   = 1024      ;
@@ -247,431 +255,513 @@ namespace
 
 }
 
-// Loads vertex and pixel shaders from files and instantiates the cube geometry.
-Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources) :
-	m_loadingComplete(false),
-	m_degreesPerSecond(45),
-	m_indexCount(0),
-	m_deviceResources(deviceResources),
-    m_cx(cx_mandelbrot),
-    m_cy(cy_mandelbrot),
-    m_zoom(zoom_mandelbrot)
+struct Sample3DSceneRenderer::Impl
 {
-	CreateDeviceDependentResources();
-}
-
-// Initializes view parameters when the window size changes.
-void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
-{
-	Size outputBounds = m_deviceResources->GetOutputBounds();
-    m_currentBounds = outputBounds;
-
-    m_currentPoint = Point(outputBounds.Width / 4, outputBounds.Height / 2);
-	float aspectRatio = outputBounds.Width / outputBounds.Height;
-	float fovAngleY = 70.0f * XM_PI / 180.0f;
-
-	// This is a simple example of change that can be made when the app is in
-	// portrait or snapped view.
-	if (aspectRatio < 1.0f)
-	{
-		fovAngleY *= 2.0f;
-	}
-
-	XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
-		1 * aspectRatio,
-		1,
-		-10,
-		+10
-		);
-
-	XMFLOAT4X4 orientation = m_deviceResources->GetOrientationTransform3D();
-
-	XMMATRIX orientationMatrix = XMLoadFloat4x4(&orientation);
-
-	XMStoreFloat4x4(
-		&m_constantBufferData.projection,
-		XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
-		);
-}
-
-// Called once per frame, rotates the cube and calculates the model and view matrices.
-void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
-{
-	// Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
-	static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.5f, 0.0f };
-	static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
-	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
-
-    auto totalSecs = static_cast<float> (timer.GetTotalSeconds ());
-
-	// Convert degrees to radians, then convert seconds to rotation angle
-	float radiansPerSecond = XMConvertToRadians(m_degreesPerSecond);
-	double totalRotation = totalSecs * radiansPerSecond;
-    totalRotation = 0.0;
-	float animRadians = (float)fmod(totalRotation, XM_2PI);
-
-	// Prepare to pass the view matrix, and updated model matrix, to the shader
-	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
-	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(animRadians)));
-
-	auto aspectRatio = m_currentBounds.Width / m_currentBounds.Height;
-
-    auto cp = m_currentPoint;
-    auto cb = m_currentBounds;
-
-    if (cp.X > cb.Width / 2)
+    Impl(std::shared_ptr<DeviceResources> const & deviceResources)
+	    :   m_loadingComplete(false)
+	    ,   m_degreesPerSecond(45)
+	    ,   m_indexCount(0)
+	    ,   m_deviceResources(deviceResources)
+        ,   m_cx(cx_mandelbrot)
+        ,   m_cy(cy_mandelbrot)
+        ,   m_zoom(zoom_mandelbrot)
     {
-        cp.X = cb.Width / 2;
+        CreateDeviceDependentResources();
     }
 
-    auto centerX = cb.Width / 2 - cb.Height / 2;
+    ~Impl()
+    {
+    }
 
-    auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / m_zoom + m_cy;
-    auto cx = ((cp.X - centerX) / cb.Height) / m_zoom + m_cx;
+    // Initializes view parameters when the window size changes.
+    void CreateWindowSizeDependentResources()
+    {
+	    Size outputBounds = m_deviceResources->GetOutputBounds();
+        m_currentBounds = outputBounds;
 
-    compute_julia (
-            *m_av
-        ,   m_juliaTexture.Get()
-        ,   static_cast<int> (totalSecs * 10)
-        ,   cx_julia
-        ,   cy_julia
-        ,   cx
-        ,   cy
-        ,   zoom_julia
-        );
+        m_currentPoint = Point(outputBounds.Width / 4, outputBounds.Height / 2);
+	    float aspectRatio = outputBounds.Width / outputBounds.Height;
+	    float fovAngleY = 70.0f * XM_PI / 180.0f;
 
-    compute_mandelbrot (
-            *m_av
-        ,   m_mandelBrotTexture.Get()
-        ,   static_cast<int> (totalSecs * 10)
-        ,   m_cx
-        ,   m_cy
-        ,   zoom_mandelbrot
-        );
+	    // This is a simple example of change that can be made when the app is in
+	    // portrait or snapped view.
+	    if (aspectRatio < 1.0f)
+	    {
+		    fovAngleY *= 2.0f;
+	    }
+
+	    XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
+		    1 * aspectRatio,
+		    1,
+		    -10,
+		    +10
+		    );
+
+	    XMFLOAT4X4 orientation = m_deviceResources->GetOrientationTransform3D();
+
+	    XMMATRIX orientationMatrix = XMLoadFloat4x4(&orientation);
+
+	    XMStoreFloat4x4(
+		    &m_constantBufferData.projection,
+		    XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
+		    );
+    }
+
+    // Called once per frame, rotates the cube and calculates the model and view matrices.
+    void Update(DX::StepTimer const& timer)
+    {
+	    // Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
+	    static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.5f, 0.0f };
+	    static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
+	    static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
+
+        auto totalSecs = static_cast<float> (timer.GetTotalSeconds ());
+
+	    // Convert degrees to radians, then convert seconds to rotation angle
+	    float radiansPerSecond = XMConvertToRadians(m_degreesPerSecond);
+	    double totalRotation = totalSecs * radiansPerSecond;
+        totalRotation = 0.0;
+	    float animRadians = (float)fmod(totalRotation, XM_2PI);
+
+	    // Prepare to pass the view matrix, and updated model matrix, to the shader
+	    XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+	    XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(animRadians)));
+
+	    auto aspectRatio = m_currentBounds.Width / m_currentBounds.Height;
+
+        auto cp = m_currentPoint;
+        auto cb = m_currentBounds;
+
+        if (cp.X > cb.Width / 2)
+        {
+            cp.X = cb.Width / 2;
+        }
+
+        auto centerX = cb.Width / 2 - cb.Height / 2;
+
+        auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / m_zoom + m_cy;
+        auto cx = ((cp.X - centerX) / cb.Height) / m_zoom + m_cx;
+
+        compute_julia (
+                *m_av
+            ,   m_juliaTexture.Get()
+            ,   static_cast<int> (totalSecs * 10)
+            ,   cx_julia
+            ,   cy_julia
+            ,   cx
+            ,   cy
+            ,   zoom_julia
+            );
+
+        compute_mandelbrot (
+                *m_av
+            ,   m_mandelBrotTexture.Get()
+            ,   static_cast<int> (totalSecs * 10)
+            ,   m_cx
+            ,   m_cy
+            ,   zoom_mandelbrot
+            );
+    }
+
+    // Renders one frame using the vertex and pixel shaders.
+    void Render()
+    {
+	    // Loading is asynchronous. Only draw geometry after it's loaded.
+	    if (!m_loadingComplete)
+	    {
+		    return;
+	    }
+
+	    auto context = m_deviceResources->GetD3DDeviceContext();
+
+	    // Set render targets to the screen.
+	    ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
+	    context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
+
+	    // Prepare the constant buffer to send it to the Graphics device.
+	    context->UpdateSubresource(
+		    m_constantBuffer.Get(),
+		    0,
+		    NULL,
+		    &m_constantBufferData,
+		    0,
+		    0
+		    );
+
+	    // Each vertex is one instance of the VertexPositionColor struct.
+	    UINT stride = sizeof(MandelBrotPos);
+	    UINT offset = 0;
+	    context->IASetVertexBuffers(
+		    0,
+		    1,
+		    m_vertexBuffer.GetAddressOf(),
+		    &stride,
+		    &offset
+		    );
+
+	    context->IASetIndexBuffer(
+		    m_indexBuffer.Get(),
+		    DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
+		    0
+		    );
+
+	    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	    context->IASetInputLayout(m_inputLayout.Get());
+
+	    // Attach our vertex shader.
+	    context->VSSetShader(
+		    m_vertexShader.Get(),
+		    nullptr,
+		    0
+		    );
+
+	    // Send the constant buffer to the Graphics device.
+	    context->VSSetConstantBuffers(
+		    0,
+		    1,
+		    m_constantBuffer.GetAddressOf()
+		    );
+
+	    // Attach our pixel shader.
+	    context->PSSetShader(
+		    m_pixelShader.Get(),
+		    nullptr,
+		    0
+		    );
+
+        context->PSSetShaderResources(
+            0,
+            1,
+            m_mandelBrotTextureView.GetAddressOf()
+            );
+
+        context->PSSetSamplers(
+            0,
+            1,
+            m_mandelBrotSampler.GetAddressOf()
+            );
+
+	    // Draw the objects.
+        context->DrawIndexed(
+		    6,
+		    0,
+		    0
+		    );
+
+        context->PSSetShaderResources(
+            0,
+            1,
+            m_juliaTextureView.GetAddressOf()
+            );
+
+        context->PSSetSamplers(
+            0,
+            1,
+            m_mandelBrotSampler.GetAddressOf()
+            );
+
+        context->DrawIndexed(
+		    6,
+		    6,
+		    0
+		    );
+
+    }
+
+    void CreateDeviceDependentResources()
+    {
+	    // Load shaders asynchronously.
+	    auto loadVSTask = DX::ReadDataAsync(L"SampleVertexShader.cso");
+	    auto loadPSTask = DX::ReadDataAsync(L"SamplePixelShader.cso");
+
+	    // After the vertex shader file is loaded, create the shader and input layout.
+	    auto createVSTask = loadVSTask.then([this](const std::vector<byte>& fileData) {
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreateVertexShader(
+			    &fileData[0],
+			    fileData.size(),
+			    nullptr,
+			    &m_vertexShader
+			    )
+			    );
+
+		    static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
+		    {
+                { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		    };
+
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreateInputLayout(
+			    vertexDesc,
+			    ARRAYSIZE(vertexDesc),
+			    &fileData[0],
+			    fileData.size(),
+			    &m_inputLayout
+			    )
+			    );
+	    });
+
+	    // After the pixel shader file is loaded, create the shader and constant buffer.
+	    auto createPSTask = loadPSTask.then([this](const std::vector<byte>& fileData) {
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreatePixelShader(
+			    &fileData[0],
+			    fileData.size(),
+			    nullptr,
+			    &m_pixelShader
+			    )
+			    );
+
+		    CD3D11_BUFFER_DESC constantBufferDesc(sizeof(ModelViewProjectionConstantBuffer) , D3D11_BIND_CONSTANT_BUFFER);
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreateBuffer(
+			    &constantBufferDesc,
+			    nullptr,
+			    &m_constantBuffer
+			    )
+			    );
+	    });
+
+	    // Once both shaders are loaded, create the mesh.
+	    auto createCubeTask = (createPSTask && createVSTask).then([this] () {
+
+            D3D11_TEXTURE2D_DESC textureDesc    = {};
+            textureDesc.Width                   = texture_width  ;
+            textureDesc.Height                  = texture_height ;
+            textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+            textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
+            textureDesc.CPUAccessFlags          = 0;
+            textureDesc.MiscFlags               = 0;
+            textureDesc.MipLevels               = 1;
+            textureDesc.ArraySize               = 1;
+            textureDesc.SampleDesc.Count        = 1;
+            textureDesc.SampleDesc.Quality      = 0;
+            textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD3DDevice()->CreateTexture2D(
+                        &textureDesc
+                    ,   NULL
+                    ,   &m_mandelBrotTexture
+                    )
+                );
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD3DDevice()->CreateTexture2D(
+                        &textureDesc
+                    ,   NULL
+                    ,   &m_juliaTexture
+                    )
+                );
+
+            D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
+            textureViewDesc.Format                          = textureDesc.Format;
+            textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
+            textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels;
+            textureViewDesc.Texture2D.MostDetailedMip       = 0;
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
+                    m_mandelBrotTexture.Get(),
+                    &textureViewDesc,
+                    &m_mandelBrotTextureView
+                    )
+                );
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
+                    m_juliaTexture.Get(),
+                    &textureViewDesc,
+                    &m_juliaTextureView
+                    )
+                );
+
+            D3D11_SAMPLER_DESC samplerDesc                  = {};
+
+            samplerDesc.Filter                              = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+            samplerDesc.MaxAnisotropy                       = 0;
+            samplerDesc.AddressU                            = D3D11_TEXTURE_ADDRESS_WRAP;
+            samplerDesc.AddressV                            = D3D11_TEXTURE_ADDRESS_WRAP;
+            samplerDesc.AddressW                            = D3D11_TEXTURE_ADDRESS_WRAP;
+            samplerDesc.MipLODBias                          = 0.0f;
+            samplerDesc.MinLOD                              = 0;
+            samplerDesc.MaxLOD                              = D3D11_FLOAT32_MAX;
+            samplerDesc.ComparisonFunc                      = D3D11_COMPARISON_NEVER;
+            samplerDesc.BorderColor[0]                      = 0.0f;
+            samplerDesc.BorderColor[1]                      = 0.0f;
+            samplerDesc.BorderColor[2]                      = 0.0f;
+            samplerDesc.BorderColor[3]                      = 0.0f;
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD3DDevice()->CreateSamplerState(
+                    &samplerDesc,
+                    &m_mandelBrotSampler
+                    )
+                );
+
+		    // Load mesh vertices. Each vertex has a position and a color.
+		    static const MandelBrotPos cubeVertices[] = 
+		    {
+                {XMFLOAT3(-1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			    {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			    {XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			    {XMFLOAT3(-1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+
+                {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+			    {XMFLOAT3( 1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+			    {XMFLOAT3( 1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+			    {XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+		    };
+
+		    D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
+		    vertexBufferData.pSysMem = cubeVertices;
+		    vertexBufferData.SysMemPitch = 0;
+		    vertexBufferData.SysMemSlicePitch = 0;
+		    CD3D11_BUFFER_DESC vertexBufferDesc(sizeof(cubeVertices), D3D11_BIND_VERTEX_BUFFER);
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreateBuffer(
+			    &vertexBufferDesc,
+			    &vertexBufferData,
+			    &m_vertexBuffer
+			    )
+			    );
+
+		    // Load mesh indices. Each triple of indices represents
+		    // a triangle to be rendered on the screen.
+		    // For example, 0,2,1 means that the vertices with indexes
+		    // 0, 2 and 1 from the vertex buffer compose the 
+		    // first triangle of this mesh.
+		    static const unsigned short cubeIndices [] =
+		    {
+			    0x00 + 2,0x00 + 1,0x00 + 0,
+			    0x00 + 0,0x00 + 3,0x00 + 2,
+			    0x04 + 2,0x04 + 1,0x04 + 0,
+			    0x04 + 0,0x04 + 3,0x04 + 2,
+		    };
+
+		    m_indexCount = ARRAYSIZE(cubeIndices);
+
+		    D3D11_SUBRESOURCE_DATA indexBufferData = {0};
+		    indexBufferData.pSysMem = cubeIndices;
+		    indexBufferData.SysMemPitch = 0;
+		    indexBufferData.SysMemSlicePitch = 0;
+		    CD3D11_BUFFER_DESC indexBufferDesc(sizeof(cubeIndices), D3D11_BIND_INDEX_BUFFER);
+		    DX::ThrowIfFailed(
+			    m_deviceResources->GetD3DDevice()->CreateBuffer(
+			    &indexBufferDesc,
+			    &indexBufferData,
+			    &m_indexBuffer
+			    )
+			    );
+
+            auto av = concurrency::direct3d::create_accelerator_view (m_deviceResources->GetD3DDevice());
+            m_av = std::make_shared<accelerator_view> (av);
+	    });
+
+	    // Once the cube is loaded, the object is ready to be rendered.
+	    createCubeTask.then([this] () {
+		    m_loadingComplete = true;
+	    });
+    }
+
+    void ReleaseDeviceDependentResources()
+    {
+	    m_loadingComplete = false;
+        m_av.reset();
+	    m_vertexShader.Reset();
+	    m_inputLayout.Reset();
+	    m_pixelShader.Reset();
+	    m_constantBuffer.Reset();
+	    m_vertexBuffer.Reset();
+	    m_indexBuffer.Reset();
+    }
+
+    void PointerWheelChanged(Point const & p, int delta)
+    {
+        m_currentPoint = p;
+    }
+
+    void PointerMoved(Point const & p)
+    {
+        m_currentPoint = p;
+    }
+    // Cached pointer to device resources.
+    std::shared_ptr<DeviceResources> m_deviceResources;
+
+    std::shared_ptr<Concurrency::accelerator_view> m_av;
+
+    // Direct3D resources for cube geometry.
+    Microsoft::WRL::ComPtr<ID3D11InputLayout>	m_inputLayout;
+    Microsoft::WRL::ComPtr<ID3D11Buffer>		m_vertexBuffer;
+    Microsoft::WRL::ComPtr<ID3D11Buffer>		m_indexBuffer;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader>	m_vertexShader;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader>	m_pixelShader;
+    Microsoft::WRL::ComPtr<ID3D11Buffer>		m_constantBuffer;
+
+    Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_mandelBrotTexture     ;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
+    Microsoft::WRL::ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
+
+    Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_juliaTexture          ;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
+
+    // System resources for cube geometry.
+    ModelViewProjectionConstantBuffer m_constantBufferData;
+    uint32	m_indexCount;
+
+    // Variables used with the rendering loop.
+    bool	m_loadingComplete;
+    float	m_degreesPerSecond;
+
+    mtype   m_cx    ;
+    mtype   m_cy    ;
+    mtype   m_zoom  ;
+
+
+    Point m_currentPoint;
+    Size  m_currentBounds;
+};
+
+// Loads vertex and pixel shaders from files and instantiates the cube geometry.
+Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources)
+    : m_impl(new Impl(deviceResources))
+{
 }
 
-// Renders one frame using the vertex and pixel shaders.
-void Sample3DSceneRenderer::Render()
+Sample3DSceneRenderer::~Sample3DSceneRenderer()
 {
-	// Loading is asynchronous. Only draw geometry after it's loaded.
-	if (!m_loadingComplete)
-	{
-		return;
-	}
-
-	auto context = m_deviceResources->GetD3DDeviceContext();
-
-	// Set render targets to the screen.
-	ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-	context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
-
-	// Prepare the constant buffer to send it to the Graphics device.
-	context->UpdateSubresource(
-		m_constantBuffer.Get(),
-		0,
-		NULL,
-		&m_constantBufferData,
-		0,
-		0
-		);
-
-	// Each vertex is one instance of the VertexPositionColor struct.
-	UINT stride = sizeof(MandelBrotPos);
-	UINT offset = 0;
-	context->IASetVertexBuffers(
-		0,
-		1,
-		m_vertexBuffer.GetAddressOf(),
-		&stride,
-		&offset
-		);
-
-	context->IASetIndexBuffer(
-		m_indexBuffer.Get(),
-		DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
-		0
-		);
-
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	context->IASetInputLayout(m_inputLayout.Get());
-
-	// Attach our vertex shader.
-	context->VSSetShader(
-		m_vertexShader.Get(),
-		nullptr,
-		0
-		);
-
-	// Send the constant buffer to the Graphics device.
-	context->VSSetConstantBuffers(
-		0,
-		1,
-		m_constantBuffer.GetAddressOf()
-		);
-
-	// Attach our pixel shader.
-	context->PSSetShader(
-		m_pixelShader.Get(),
-		nullptr,
-		0
-		);
-
-    context->PSSetShaderResources(
-        0,
-        1,
-        m_mandelBrotTextureView.GetAddressOf()
-        );
-
-    context->PSSetSamplers(
-        0,
-        1,
-        m_mandelBrotSampler.GetAddressOf()
-        );
-
-	// Draw the objects.
-    context->DrawIndexed(
-		6,
-		0,
-		0
-		);
-
-    context->PSSetShaderResources(
-        0,
-        1,
-        m_juliaTextureView.GetAddressOf()
-        );
-
-    context->PSSetSamplers(
-        0,
-        1,
-        m_mandelBrotSampler.GetAddressOf()
-        );
-
-    context->DrawIndexed(
-		6,
-		6,
-		0
-		);
-
 }
 
 void Sample3DSceneRenderer::CreateDeviceDependentResources()
 {
-	// Load shaders asynchronously.
-	auto loadVSTask = DX::ReadDataAsync(L"SampleVertexShader.cso");
-	auto loadPSTask = DX::ReadDataAsync(L"SamplePixelShader.cso");
-
-	// After the vertex shader file is loaded, create the shader and input layout.
-	auto createVSTask = loadVSTask.then([this](const std::vector<byte>& fileData) {
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreateVertexShader(
-			&fileData[0],
-			fileData.size(),
-			nullptr,
-			&m_vertexShader
-			)
-			);
-
-		static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
-		{
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreateInputLayout(
-			vertexDesc,
-			ARRAYSIZE(vertexDesc),
-			&fileData[0],
-			fileData.size(),
-			&m_inputLayout
-			)
-			);
-	});
-
-	// After the pixel shader file is loaded, create the shader and constant buffer.
-	auto createPSTask = loadPSTask.then([this](const std::vector<byte>& fileData) {
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreatePixelShader(
-			&fileData[0],
-			fileData.size(),
-			nullptr,
-			&m_pixelShader
-			)
-			);
-
-		CD3D11_BUFFER_DESC constantBufferDesc(sizeof(ModelViewProjectionConstantBuffer) , D3D11_BIND_CONSTANT_BUFFER);
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreateBuffer(
-			&constantBufferDesc,
-			nullptr,
-			&m_constantBuffer
-			)
-			);
-	});
-
-	// Once both shaders are loaded, create the mesh.
-	auto createCubeTask = (createPSTask && createVSTask).then([this] () {
-
-        D3D11_TEXTURE2D_DESC textureDesc    = {};
-        textureDesc.Width                   = texture_width  ;
-        textureDesc.Height                  = texture_height ;
-        textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
-        textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
-        textureDesc.CPUAccessFlags          = 0;
-        textureDesc.MiscFlags               = 0;
-        textureDesc.MipLevels               = 1;
-        textureDesc.ArraySize               = 1;
-        textureDesc.SampleDesc.Count        = 1;
-        textureDesc.SampleDesc.Quality      = 0;
-        textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateTexture2D(
-                    &textureDesc
-                ,   NULL
-                ,   &m_mandelBrotTexture
-                )
-            );
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateTexture2D(
-                    &textureDesc
-                ,   NULL
-                ,   &m_juliaTexture
-                )
-            );
-
-        D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
-        textureViewDesc.Format                          = textureDesc.Format;
-        textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
-        textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels;
-        textureViewDesc.Texture2D.MostDetailedMip       = 0;
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
-                m_mandelBrotTexture.Get(),
-                &textureViewDesc,
-                &m_mandelBrotTextureView
-                )
-            );
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
-                m_juliaTexture.Get(),
-                &textureViewDesc,
-                &m_juliaTextureView
-                )
-            );
-
-        D3D11_SAMPLER_DESC samplerDesc                  = {};
-
-        samplerDesc.Filter                              = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        samplerDesc.MaxAnisotropy                       = 0;
-        samplerDesc.AddressU                            = D3D11_TEXTURE_ADDRESS_WRAP;
-        samplerDesc.AddressV                            = D3D11_TEXTURE_ADDRESS_WRAP;
-        samplerDesc.AddressW                            = D3D11_TEXTURE_ADDRESS_WRAP;
-        samplerDesc.MipLODBias                          = 0.0f;
-        samplerDesc.MinLOD                              = 0;
-        samplerDesc.MaxLOD                              = D3D11_FLOAT32_MAX;
-        samplerDesc.ComparisonFunc                      = D3D11_COMPARISON_NEVER;
-        samplerDesc.BorderColor[0]                      = 0.0f;
-        samplerDesc.BorderColor[1]                      = 0.0f;
-        samplerDesc.BorderColor[2]                      = 0.0f;
-        samplerDesc.BorderColor[3]                      = 0.0f;
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateSamplerState(
-                &samplerDesc,
-                &m_mandelBrotSampler
-                )
-            );
-
-		// Load mesh vertices. Each vertex has a position and a color.
-		static const MandelBrotPos cubeVertices[] = 
-		{
-            {XMFLOAT3(-1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3(-1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
-
-            {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-			{XMFLOAT3( 1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-			{XMFLOAT3( 1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-			{XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
-		};
-
-		D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
-		vertexBufferData.pSysMem = cubeVertices;
-		vertexBufferData.SysMemPitch = 0;
-		vertexBufferData.SysMemSlicePitch = 0;
-		CD3D11_BUFFER_DESC vertexBufferDesc(sizeof(cubeVertices), D3D11_BIND_VERTEX_BUFFER);
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreateBuffer(
-			&vertexBufferDesc,
-			&vertexBufferData,
-			&m_vertexBuffer
-			)
-			);
-
-		// Load mesh indices. Each triple of indices represents
-		// a triangle to be rendered on the screen.
-		// For example, 0,2,1 means that the vertices with indexes
-		// 0, 2 and 1 from the vertex buffer compose the 
-		// first triangle of this mesh.
-		static const unsigned short cubeIndices [] =
-		{
-			0x00 + 2,0x00 + 1,0x00 + 0,
-			0x00 + 0,0x00 + 3,0x00 + 2,
-			0x04 + 2,0x04 + 1,0x04 + 0,
-			0x04 + 0,0x04 + 3,0x04 + 2,
-		};
-
-		m_indexCount = ARRAYSIZE(cubeIndices);
-
-		D3D11_SUBRESOURCE_DATA indexBufferData = {0};
-		indexBufferData.pSysMem = cubeIndices;
-		indexBufferData.SysMemPitch = 0;
-		indexBufferData.SysMemSlicePitch = 0;
-		CD3D11_BUFFER_DESC indexBufferDesc(sizeof(cubeIndices), D3D11_BIND_INDEX_BUFFER);
-		DX::ThrowIfFailed(
-			m_deviceResources->GetD3DDevice()->CreateBuffer(
-			&indexBufferDesc,
-			&indexBufferData,
-			&m_indexBuffer
-			)
-			);
-
-        auto av = concurrency::direct3d::create_accelerator_view (m_deviceResources->GetD3DDevice());
-        m_av = std::make_shared<accelerator_view> (av);
-	});
-
-	// Once the cube is loaded, the object is ready to be rendered.
-	createCubeTask.then([this] () {
-		m_loadingComplete = true;
-	});
+    m_impl->CreateDeviceDependentResources();
 }
 
+void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
+{
+    m_impl->CreateWindowSizeDependentResources();
+}
 void Sample3DSceneRenderer::ReleaseDeviceDependentResources()
 {
-	m_loadingComplete = false;
-    m_av.reset();
-	m_vertexShader.Reset();
-	m_inputLayout.Reset();
-	m_pixelShader.Reset();
-	m_constantBuffer.Reset();
-	m_vertexBuffer.Reset();
-	m_indexBuffer.Reset();
+    m_impl->ReleaseDeviceDependentResources();
+}
+void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
+{
+    m_impl->Update(timer);
+}
+void Sample3DSceneRenderer::Render()
+{
+    m_impl->Render();
 }
 
 void Sample3DSceneRenderer::PointerWheelChanged(Point const & p, int delta)
 {
-    m_currentPoint = p;
+    m_impl->PointerWheelChanged(p, delta);
 }
-
 void Sample3DSceneRenderer::PointerMoved(Point const & p)
 {
-    m_currentPoint = p;
+    m_impl->PointerMoved(p);
 }
