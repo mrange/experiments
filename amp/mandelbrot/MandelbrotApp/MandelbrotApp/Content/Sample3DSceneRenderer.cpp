@@ -5,6 +5,7 @@
 
 using namespace concurrency;
 using namespace concurrency::graphics;
+using namespace concurrency::fast_math;
 
 using namespace MandelbrotApp;
 
@@ -54,6 +55,12 @@ namespace
     mtype           const   cy_julia        = 0         ;
     mtype           const   zoom_julia      = 1/3.0F    ;
 
+    inline bool test(mtype x, mtype y) restrict(amp, cpu)
+    {
+//        return (x * x + y * y) < 4;
+        return fabs(x) < 2 & fabs(y) < 2;
+    }
+
     int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
     {
         auto ix = x;
@@ -61,7 +68,7 @@ namespace
 
         auto i = 0;
 
-        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        for (; (i < iter) & test (ix, iy); ++i)
         {
             auto tx = ix * ix - iy * iy + x;
             iy = 2 * ix * iy + y;
@@ -77,7 +84,7 @@ namespace
 
         auto i = 0;
 
-        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        for (; (i < iter) & test (ix, iy); ++i)
         {
             auto tx = ix * ix - iy * iy + cx;
             iy = 2 * ix * iy + cy;

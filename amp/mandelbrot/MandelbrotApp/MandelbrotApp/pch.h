@@ -4,6 +4,7 @@
 
 #include <amp.h>
 #include <amp_graphics.h>
+#include <amp_math.h>
 #include <ppl.h>
 #include <ppltasks.h>
 
