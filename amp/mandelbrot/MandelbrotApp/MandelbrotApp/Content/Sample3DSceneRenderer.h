@@ -6,6 +6,7 @@
 
 namespace MandelbrotApp
 {
+    typedef float mtype;
 	struct ModelViewProjectionConstantBuffer
 	{
 		DirectX::XMFLOAT4X4 model;
@@ -24,7 +25,7 @@ namespace MandelbrotApp
 		void Update(DX::StepTimer const& timer);
 		void Render();
 
-        void PointerPressed(Windows::Foundation::Point const & p);
+        void PointerWheelChanged(Windows::Foundation::Point const & p, int delta);
         void PointerMoved(Windows::Foundation::Point const & p);
 
 	private:
@@ -55,6 +56,11 @@ namespace MandelbrotApp
 		// Variables used with the rendering loop.
 		bool	m_loadingComplete;
 		float	m_degreesPerSecond;
+
+        mtype   m_cx    ;
+        mtype   m_cy    ;
+        mtype   m_zoom  ;
+
 
         Windows::Foundation::Point m_currentPoint;
         Windows::Foundation::Size  m_currentBounds;

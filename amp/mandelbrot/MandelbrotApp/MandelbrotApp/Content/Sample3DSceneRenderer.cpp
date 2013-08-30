@@ -21,10 +21,9 @@ namespace
 	    DirectX::XMFLOAT2 texpos;
     };
 
-    typedef float mtype;
     unsigned int    const   texture_width   = 1024      ;
     unsigned int    const   texture_height  = 1024      ;
-    unsigned int    const   max_iter        = 128       ;
+    unsigned int    const   max_iter        = 256       ;
     mtype           const   cx_mandelbrot   = -1        ;
     mtype           const   cy_mandelbrot   = 0         ;
     mtype           const   zoom_mandelbrot = 1/3.0F    ;
@@ -253,7 +252,10 @@ Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResourc
 	m_loadingComplete(false),
 	m_degreesPerSecond(45),
 	m_indexCount(0),
-	m_deviceResources(deviceResources)
+	m_deviceResources(deviceResources),
+    m_cx(cx_mandelbrot),
+    m_cy(cy_mandelbrot),
+    m_zoom(zoom_mandelbrot)
 {
 	CreateDeviceDependentResources();
 }
@@ -324,8 +326,8 @@ void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
 
     auto centerX = cb.Width / 2 - cb.Height / 2;
 
-    auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / zoom_mandelbrot + cy_mandelbrot;
-    auto cx = ((cp.X - centerX) / cb.Height) / zoom_mandelbrot + cx_mandelbrot;
+    auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / m_zoom + m_cy;
+    auto cx = ((cp.X - centerX) / cb.Height) / m_zoom + m_cx;
 
     compute_julia (
             *m_av
@@ -342,8 +344,8 @@ void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
             *m_av
         ,   m_mandelBrotTexture.Get()
         ,   static_cast<int> (totalSecs * 10)
-        ,   cx_mandelbrot
-        ,   cy_mandelbrot
+        ,   m_cx
+        ,   m_cy
         ,   zoom_mandelbrot
         );
 }
@@ -664,7 +666,7 @@ void Sample3DSceneRenderer::ReleaseDeviceDependentResources()
 	m_indexBuffer.Reset();
 }
 
-void Sample3DSceneRenderer::PointerPressed(Point const & p)
+void Sample3DSceneRenderer::PointerWheelChanged(Point const & p, int delta)
 {
     m_currentPoint = p;
 }

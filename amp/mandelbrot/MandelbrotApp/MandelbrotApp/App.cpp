@@ -81,9 +81,8 @@ void App::SetWindow(CoreWindow^ window)
 	pointerVisualizationSettings->IsContactFeedbackEnabled = false; 
 	pointerVisualizationSettings->IsBarrelButtonFeedbackEnabled = false;
 
-    window->PointerPressed +=ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerPressed);
-
     window->PointerMoved +=ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerMoved); 
+    window->PointerWheelChanged +=ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerWheelChanged); 
 
 	m_deviceResources->SetWindow(window);
 }
@@ -195,9 +194,9 @@ void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 	m_deviceResources->ValidateDevice();
 }
 
-void App::OnPointerPressed(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args)
+void App::OnPointerWheelChanged(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args)
 {
-    m_main->PointerPressed(args->CurrentPoint->Position);
+    m_main->PointerWheelChanged(args->CurrentPoint->Position, args->CurrentPoint->Properties->MouseWheelDelta);
 }
 
 void App::OnPointerMoved(_In_ Windows::UI::Core::CoreWindow^ sender, _In_ Windows::UI::Core::PointerEventArgs^ args)

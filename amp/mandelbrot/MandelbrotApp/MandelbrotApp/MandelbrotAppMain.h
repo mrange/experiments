@@ -21,7 +21,7 @@ namespace MandelbrotApp
 		virtual void OnDeviceLost();
 		virtual void OnDeviceRecreated();
 
-        void PointerPressed(Windows::Foundation::Point const & p);
+        void PointerWheelChanged(Windows::Foundation::Point const & p, int delta);
         void PointerMoved(Windows::Foundation::Point const & p);
 
 	private:

@@ -97,12 +97,12 @@ void MandelbrotAppMain::OnDeviceRecreated()
 	CreateWindowSizeDependentResources();
 }
 
-void MandelbrotAppMain::PointerPressed(Windows::Foundation::Point const & p)
+void MandelbrotAppMain::PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
 {
-    m_sceneRenderer->PointerPressed(p);
+    m_sceneRenderer->PointerWheelChanged(p, delta);
 }
 
 void MandelbrotAppMain::PointerMoved(Windows::Foundation::Point const & p)
 {
-    m_sceneRenderer->PointerPressed(p);
+    m_sceneRenderer->PointerMoved(p);
 }
