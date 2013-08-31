@@ -350,6 +350,11 @@ struct SceneRenderer::Impl
     // Called once per frame, rotates the cube and calculates the model and view matrices.
     void Update(DX::StepTimer const& timer)
     {
+        if (!m_loadingComplete)
+        {
+            return;
+        }
+
         // Eye is at (0,0.7,1.5), looking at point (0,-0.1,0) with the up-vector along the y-axis.
         static const XMVECTORF32 eye = { 0.0f, 0.0f, 1.5f, 0.0f };
         static const XMVECTORF32 at = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -766,12 +771,12 @@ struct SceneRenderer::Impl
 
             DX::ThrowIfFailed(
                 m_deviceResources->GetDWriteFactory()->CreateTextFormat(
-                L"Segoe UI",
+                L"Consolas",
                 nullptr,
                 DWRITE_FONT_WEIGHT_LIGHT,
                 DWRITE_FONT_STYLE_NORMAL,
                 DWRITE_FONT_STRETCH_NORMAL,
-                32.0f,
+                24.0f,
                 L"en-US",
                 &m_textFormat
                 )
