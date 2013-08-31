@@ -54,7 +54,7 @@ namespace
 
     unsigned int    const   texture_width   = 800       ;
     unsigned int    const   texture_height  = 800       ;
-    mtype           const   cx_mandelbrot   = -1        ;
+    mtype           const   cx_mandelbrot   = -0.75     ;
     mtype           const   cy_mandelbrot   = 0         ;
     mtype           const   zoom_mandelbrot = 1/3.0F    ;
 
@@ -169,9 +169,6 @@ namespace
         try
         {
 
-            mtype        const  dx      = 1/zoom                ;
-            mtype        const  dy      = 1/zoom                ;
-
             {
                 int const lookup_size   = static_cast<int> (color_lookup.size ());
 
@@ -181,8 +178,13 @@ namespace
                 auto wotex              = texture_view<unorm_4, 2> (tex);
                 auto e                  = tex.extent;
 
-                auto width              = static_cast<mtype> (e[0]);
-                auto height             = static_cast<mtype> (e[1]);
+                auto width              = static_cast<mtype> (e[1]);
+                auto height             = static_cast<mtype> (e[0]);
+
+                auto aspect             = width / height;
+
+                auto dx                 = aspect * 1/zoom       ;
+                auto dy                 = 1/zoom                ;
 
                 parallel_for_each (
                         av
@@ -232,9 +234,6 @@ namespace
 
         try
         {
-            mtype        const  dx      = 1/zoom                ;
-            mtype        const  dy      = 1/zoom                ;
-
             {
                 int const lookup_size   = static_cast<int> (color_lookup.size ());
 
@@ -244,8 +243,13 @@ namespace
                 auto wotex              = texture_view<unorm_4, 2> (tex);
                 auto e                  = tex.extent;
 
-                auto width              = static_cast<mtype> (e[0]);
-                auto height             = static_cast<mtype> (e[1]);
+                auto width              = static_cast<mtype> (e[1]);
+                auto height             = static_cast<mtype> (e[0]);
+
+                auto aspect             = width / height;
+
+                auto dx                 = aspect * 1/zoom       ;
+                auto dy                 = 1/zoom                ;
 
                 parallel_for_each (
                         av
@@ -298,6 +302,16 @@ struct SceneRenderer::Impl
     {
     }
 
+    bool IsInitialized()
+    {
+        return      m_loadingComplete 
+                &&  m_mandelBrotTexture
+                &&  m_mandelBrotTextureView
+                &&  m_juliaTexture
+                &&  m_juliaTextureView
+                ;
+    }
+
     // Initializes view parameters when the window size changes.
     void CreateWindowSizeDependentResources()
     {
@@ -316,7 +330,7 @@ struct SceneRenderer::Impl
         }
 
         XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
-            1 * aspectRatio,
+            2,
             1,
             -10,
             +10
@@ -330,6 +344,9 @@ struct SceneRenderer::Impl
             &m_constantBufferData.projection,
             XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
             );
+
+        InitializeTextures();
+
     }
 
     MandelbrotPoint GetPointFromScreenCoord(Point cp) const
@@ -341,9 +358,10 @@ struct SceneRenderer::Impl
             cp.X = cb.Width / 2;
         }
 
-        auto centerX = cb.Width / 2 - cb.Height / 2;
+        auto centerX = cb.Width / 4;
+        auto centerY = cb.Height / 2;
 
-        auto cy = ((cp.Y - cb.Height / 2) / cb.Height) / m_zoom + m_center.y;
+        auto cy = ((cp.Y - centerY) / cb.Height) / m_zoom + m_center.y;
         auto cx = ((cp.X - centerX) / cb.Height) / m_zoom + m_center.x;
 
         return MandelbrotPoint(cx,cy);
@@ -353,7 +371,7 @@ struct SceneRenderer::Impl
     // Called once per frame, rotates the cube and calculates the model and view matrices.
     void Update(DX::StepTimer const& timer)
     {
-        if (!m_loadingComplete)
+        if (!IsInitialized())
         {
             return;
         }
@@ -440,7 +458,7 @@ struct SceneRenderer::Impl
     void Render()
     {
         // Loading is asynchronous. Only draw geometry after it's loaded.
-        if (!m_loadingComplete)
+        if (!IsInitialized())
         {
             return;
         }
@@ -513,7 +531,7 @@ struct SceneRenderer::Impl
             context->PSSetSamplers(
                 0,
                 1,
-                m_mandelBrotSampler.GetAddressOf()
+                m_sampler.GetAddressOf()
                 );
 
             // Draw the objects.
@@ -532,7 +550,7 @@ struct SceneRenderer::Impl
             context->PSSetSamplers(
                 0,
                 1,
-                m_mandelBrotSampler.GetAddressOf()
+                m_sampler.GetAddressOf()
                 );
 
             context->DrawIndexed(
@@ -577,6 +595,61 @@ struct SceneRenderer::Impl
 
             context->RestoreDrawingState(m_stateBlock.Get());
         }
+    }
+
+    std::pair<ComPtr<ID3D11Texture2D>, ComPtr<ID3D11ShaderResourceView>> CreateTextureAndView()
+    {
+        ComPtr<ID3D11Texture2D> texture;
+        D3D11_TEXTURE2D_DESC textureDesc    = {};
+        textureDesc.Width                   = m_currentBounds.Width / 2 ;
+        textureDesc.Height                  = m_currentBounds.Height    ;
+        textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
+        textureDesc.CPUAccessFlags          = 0;
+        textureDesc.MiscFlags               = 0;
+        textureDesc.MipLevels               = 1;
+        textureDesc.ArraySize               = 1;
+        textureDesc.SampleDesc.Count        = 1;
+        textureDesc.SampleDesc.Quality      = 0;
+        textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateTexture2D(
+                    &textureDesc
+                ,   NULL
+                ,   &texture
+                )
+            );
+
+        ComPtr<ID3D11ShaderResourceView> view;
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
+        textureViewDesc.Format                          = textureDesc.Format;
+        textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
+        textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels;
+        textureViewDesc.Texture2D.MostDetailedMip       = 0;
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
+                texture.Get(),
+                &textureViewDesc,
+                &view
+                )
+            );
+
+        return std::make_pair(texture, view);
+    }
+
+    void InitializeTextures()
+    {
+        auto mandelbrot = CreateTextureAndView();
+        auto julia = CreateTextureAndView();
+
+        m_mandelBrotTexture         = mandelbrot.first  ;
+        m_mandelBrotTextureView     = mandelbrot.second ;
+
+        m_juliaTexture              = julia.first       ;
+        m_juliaTextureView          = julia.second      ;
     }
 
     void CreateDeviceDependentResources()
@@ -636,58 +709,7 @@ struct SceneRenderer::Impl
         });
 
         // Once both shaders are loaded, create the mesh.
-        auto createCubeTask = (createPSTask && createVSTask).then([this] () {
-
-            D3D11_TEXTURE2D_DESC textureDesc    = {};
-            textureDesc.Width                   = texture_width  ;
-            textureDesc.Height                  = texture_height ;
-            textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
-            textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
-            textureDesc.CPUAccessFlags          = 0;
-            textureDesc.MiscFlags               = 0;
-            textureDesc.MipLevels               = 1;
-            textureDesc.ArraySize               = 1;
-            textureDesc.SampleDesc.Count        = 1;
-            textureDesc.SampleDesc.Quality      = 0;
-            textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
-
-            DX::ThrowIfFailed(
-                m_deviceResources->GetD3DDevice()->CreateTexture2D(
-                        &textureDesc
-                    ,   NULL
-                    ,   &m_mandelBrotTexture
-                    )
-                );
-
-            DX::ThrowIfFailed(
-                m_deviceResources->GetD3DDevice()->CreateTexture2D(
-                        &textureDesc
-                    ,   NULL
-                    ,   &m_juliaTexture
-                    )
-                );
-
-            D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {};
-            textureViewDesc.Format                          = textureDesc.Format;
-            textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D;
-            textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels;
-            textureViewDesc.Texture2D.MostDetailedMip       = 0;
-
-            DX::ThrowIfFailed(
-                m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
-                    m_mandelBrotTexture.Get(),
-                    &textureViewDesc,
-                    &m_mandelBrotTextureView
-                    )
-                );
-
-            DX::ThrowIfFailed(
-                m_deviceResources->GetD3DDevice()->CreateShaderResourceView(
-                    m_juliaTexture.Get(),
-                    &textureViewDesc,
-                    &m_juliaTextureView
-                    )
-                );
+        auto createTask = (createPSTask && createVSTask).then([this] () {
 
             D3D11_SAMPLER_DESC samplerDesc                  = {};
 
@@ -708,7 +730,7 @@ struct SceneRenderer::Impl
             DX::ThrowIfFailed(
                 m_deviceResources->GetD3DDevice()->CreateSamplerState(
                     &samplerDesc,
-                    &m_mandelBrotSampler
+                    &m_sampler
                     )
                 );
 
@@ -798,7 +820,7 @@ struct SceneRenderer::Impl
         });
 
         // Once the cube is loaded, the object is ready to be rendered.
-        createCubeTask.then([this] () {
+        createTask.then([this] () {
             m_loadingComplete = true;
         });
     }
@@ -870,9 +892,10 @@ struct SceneRenderer::Impl
     ComPtr<ID3D11PixelShader>           m_pixelShader           ;
     ComPtr<ID3D11Buffer>                m_constantBuffer        ;
 
+    ComPtr<ID3D11SamplerState>          m_sampler               ;
+
     ComPtr<ID3D11Texture2D>             m_mandelBrotTexture     ;
     ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
-    ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
 
     ComPtr<ID3D11Texture2D>             m_juliaTexture          ;
     ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
