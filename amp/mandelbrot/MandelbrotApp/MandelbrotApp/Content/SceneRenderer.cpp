@@ -74,7 +74,7 @@ namespace
 
         auto i = 0;
 
-        for (; (i < iter) & (ix*ix + iy*iy) < 4; ++i)
+        for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
         {
             auto tx = ix * ix - iy * iy + cx;
             iy = 2 * ix * iy + cy;
@@ -192,7 +192,7 @@ namespace
             ,   e
             ,   [=] (index<2> idx) restrict(amp)
             {
-                mtype_2 texpos (idx[1], idx[0]);
+                mtype_2 texpos (static_cast<mtype> (idx[1]), static_cast<mtype> (idx[0]));
                 auto coord = m * texpos + t;
 
                 auto result = predicate (coord, center, iter);
@@ -342,7 +342,7 @@ struct SceneRenderer::Impl
             ,   m_center.x
             ,   m_center.y
             ,   m_zoom
-            ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return julia(coord, coord, iter);}
+            ,   [=](mtype_2 coord, mtype_2, int iter) restrict(amp) {return julia(coord, coord, iter);}
             );
 
         uint32 fps = timer.GetFramesPerSecond();
@@ -527,8 +527,8 @@ struct SceneRenderer::Impl
     {
         ComPtr<ID3D11Texture2D> texture;
         D3D11_TEXTURE2D_DESC textureDesc    = {};
-        textureDesc.Width                   = m_currentBounds.Width / 2 ;
-        textureDesc.Height                  = m_currentBounds.Height    ;
+        textureDesc.Width                   = static_cast<UINT> (m_currentBounds.Width / 2 );
+        textureDesc.Height                  = static_cast<UINT> (m_currentBounds.Height    );
         textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
         textureDesc.Usage                   = D3D11_USAGE_DEFAULT;
         textureDesc.CPUAccessFlags          = 0;
