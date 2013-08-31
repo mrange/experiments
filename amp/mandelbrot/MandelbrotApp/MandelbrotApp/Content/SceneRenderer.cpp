@@ -321,7 +321,7 @@ struct SceneRenderer::Impl
         auto offset = static_cast<int> (totalSecs * 10);
 
         compute_set (
-                *m_av
+                *m_acceleratorView
             ,   m_juliaTexture.Get()
             ,   offset
             ,   m_iter
@@ -334,7 +334,7 @@ struct SceneRenderer::Impl
             );
 
         compute_set (
-                *m_av
+                *m_acceleratorView
             ,   m_mandelBrotTexture.Get()
             ,   offset
             ,   m_iter
@@ -716,7 +716,7 @@ struct SceneRenderer::Impl
                 ));
 
             auto av = concurrency::direct3d::create_accelerator_view (m_deviceResources->GetD3DDevice());
-            m_av = std::make_shared<accelerator_view> (av);
+            m_acceleratorView = std::make_shared<accelerator_view> (av);
 
 
             DX::ThrowIfFailed(
@@ -760,7 +760,7 @@ struct SceneRenderer::Impl
         m_textFormat.Reset();
         m_stateBlock.Reset();
 
-        m_av.reset();
+        m_acceleratorView.reset();
         m_vertexShader.Reset();
         m_inputLayout.Reset();
         m_pixelShader.Reset();
@@ -809,7 +809,7 @@ struct SceneRenderer::Impl
     // Cached pointer to device resources.
     std::shared_ptr<DeviceResources>                    m_deviceResources       ;
 
-    std::shared_ptr<Concurrency::accelerator_view>      m_av                    ;
+    std::shared_ptr<Concurrency::accelerator_view>      m_acceleratorView       ;
 
     // Direct3D resources for cube geometry.
     ComPtr<ID3D11InputLayout>           m_inputLayout           ;
