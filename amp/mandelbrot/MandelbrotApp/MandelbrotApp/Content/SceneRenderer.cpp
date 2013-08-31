@@ -64,8 +64,8 @@ namespace
 
     inline bool test(mtype x, mtype y) restrict(amp, cpu)
     {
-//        return (x * x + y * y) < 4;
-        return (fabs(x) < 2) & (fabs(y) < 2);
+        return (x * x + y * y) < 4;
+//        return (fabs(x) < 2) & (fabs(y) < 2);
     }
 
     int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
@@ -403,11 +403,11 @@ struct SceneRenderer::Impl
 
         uint32 fps = timer.GetFramesPerSecond();
 
-        wchar_t text [128];
+        wchar_t text [256];
 
         auto text_length = swprintf_s(
                 text
-            ,   L"FPS:%i I:%d\r\nZ:%f\r\nCX:%f CY:%f\r\nX:%f Y:%f"
+            ,   L"Mouse wheel to zoom\r\nA,Z:Controls iterations\r\nFPS:%i I:%d\r\nZ:%f\r\nCX:%f CY:%f\r\nX:%f Y:%f"
             ,   fps
             ,   m_iter
             ,   m_zoom
