@@ -3,6 +3,9 @@
 
 #include <ppltasks.h>    // For create_task
 
+#include "DeviceResources.h"
+#include "MandelbrotAppMain.h"
+
 using namespace MandelbrotApp;
 
 using namespace concurrency;

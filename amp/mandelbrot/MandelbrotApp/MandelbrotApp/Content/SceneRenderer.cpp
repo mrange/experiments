@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "SceneRenderer.h"
 
-#include "..\Common\DirectXHelper.h"    // For ThrowIfFailed and ReadDataAsync
+#include "ShaderStructures.h"
 
 using namespace concurrency;
 using namespace concurrency::graphics;
@@ -284,6 +284,8 @@ struct SceneRenderer::Impl
         ,   m_center(cx_mandelbrot, cy_mandelbrot)
         ,   m_zoom(zoom_mandelbrot)
     {
+        ZeroMemory(&m_textMetrics, sizeof(DWRITE_TEXT_METRICS));
+
         CreateDeviceDependentResources();
     }
 
@@ -388,6 +390,28 @@ struct SceneRenderer::Impl
             ,   m_center.y
             ,   m_zoom
             );
+
+        uint32 fps = timer.GetFramesPerSecond();
+
+        auto text = (fps > 0) ? std::to_wstring(fps) + L" FPS" : L" - FPS";
+
+        m_textLayout.Reset();
+
+        DX::ThrowIfFailed(
+            m_deviceResources->GetDWriteFactory()->CreateTextLayout(
+                text.c_str(),
+                (uint32) text.length(),
+                m_textFormat.Get(),
+                m_currentBounds.Width, // Max width of the input text.
+                50.0f, // Max height of the input text.
+                &m_textLayout
+                )
+            );
+
+        DX::ThrowIfFailed(
+            m_textLayout->GetMetrics(&m_textMetrics)
+            );
+
     }
 
     // Renders one frame using the vertex and pixel shaders.
@@ -399,101 +423,138 @@ struct SceneRenderer::Impl
             return;
         }
 
-        auto context = m_deviceResources->GetD3DDeviceContext();
+        {
+            auto context = m_deviceResources->GetD3DDeviceContext();
 
-        // Set render targets to the screen.
-        ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-        context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
+            // Set render targets to the screen.
+            ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
+            context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
 
-        // Prepare the constant buffer to send it to the Graphics device.
-        context->UpdateSubresource(
-            m_constantBuffer.Get(),
-            0,
-            NULL,
-            &m_constantBufferData,
-            0,
-            0
-            );
+            // Prepare the constant buffer to send it to the Graphics device.
+            context->UpdateSubresource(
+                m_constantBuffer.Get(),
+                0,
+                NULL,
+                &m_constantBufferData,
+                0,
+                0
+                );
 
-        // Each vertex is one instance of the VertexPositionColor struct.
-        UINT stride = sizeof(MandelbrotPos);
-        UINT offset = 0;
-        context->IASetVertexBuffers(
-            0,
-            1,
-            m_vertexBuffer.GetAddressOf(),
-            &stride,
-            &offset
-            );
+            // Each vertex is one instance of the VertexPositionColor struct.
+            UINT stride = sizeof(MandelbrotPos);
+            UINT offset = 0;
+            context->IASetVertexBuffers(
+                0,
+                1,
+                m_vertexBuffer.GetAddressOf(),
+                &stride,
+                &offset
+                );
 
-        context->IASetIndexBuffer(
-            m_indexBuffer.Get(),
-            DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
-            0
-            );
+            context->IASetIndexBuffer(
+                m_indexBuffer.Get(),
+                DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
+                0
+                );
 
-        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-        context->IASetInputLayout(m_inputLayout.Get());
+            context->IASetInputLayout(m_inputLayout.Get());
 
-        // Attach our vertex shader.
-        context->VSSetShader(
-            m_vertexShader.Get(),
-            nullptr,
-            0
-            );
+            // Attach our vertex shader.
+            context->VSSetShader(
+                m_vertexShader.Get(),
+                nullptr,
+                0
+                );
 
-        // Send the constant buffer to the Graphics device.
-        context->VSSetConstantBuffers(
-            0,
-            1,
-            m_constantBuffer.GetAddressOf()
-            );
+            // Send the constant buffer to the Graphics device.
+            context->VSSetConstantBuffers(
+                0,
+                1,
+                m_constantBuffer.GetAddressOf()
+                );
 
-        // Attach our pixel shader.
-        context->PSSetShader(
-            m_pixelShader.Get(),
-            nullptr,
-            0
-            );
+            // Attach our pixel shader.
+            context->PSSetShader(
+                m_pixelShader.Get(),
+                nullptr,
+                0
+                );
 
-        context->PSSetShaderResources(
-            0,
-            1,
-            m_mandelBrotTextureView.GetAddressOf()
-            );
+            context->PSSetShaderResources(
+                0,
+                1,
+                m_mandelBrotTextureView.GetAddressOf()
+                );
 
-        context->PSSetSamplers(
-            0,
-            1,
-            m_mandelBrotSampler.GetAddressOf()
-            );
+            context->PSSetSamplers(
+                0,
+                1,
+                m_mandelBrotSampler.GetAddressOf()
+                );
 
-        // Draw the objects.
-        context->DrawIndexed(
-            6,
-            0,
-            0
-            );
+            // Draw the objects.
+            context->DrawIndexed(
+                6,
+                0,
+                0
+                );
 
-        context->PSSetShaderResources(
-            0,
-            1,
-            m_juliaTextureView.GetAddressOf()
-            );
+            context->PSSetShaderResources(
+                0,
+                1,
+                m_juliaTextureView.GetAddressOf()
+                );
 
-        context->PSSetSamplers(
-            0,
-            1,
-            m_mandelBrotSampler.GetAddressOf()
-            );
+            context->PSSetSamplers(
+                0,
+                1,
+                m_mandelBrotSampler.GetAddressOf()
+                );
 
-        context->DrawIndexed(
-            6,
-            6,
-            0
-            );
+            context->DrawIndexed(
+                6,
+                6,
+                0
+                );
+        }
 
+        {
+            ID2D1DeviceContext* context = m_deviceResources->GetD2DDeviceContext();
+            Windows::Foundation::Size outputBounds = m_deviceResources->GetOutputBounds();
+
+            context->SaveDrawingState(m_stateBlock.Get());
+            context->BeginDraw();
+
+            // Position on the bottom right corner
+            D2D1::Matrix3x2F screenTranslation = D2D1::Matrix3x2F::Translation(
+                outputBounds.Width - m_textMetrics.layoutWidth,
+                outputBounds.Height - m_textMetrics.height
+                );
+
+            context->SetTransform(screenTranslation * m_deviceResources->GetOrientationTransform2D());
+
+            DX::ThrowIfFailed(
+                m_textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING)
+                );
+
+            context->DrawTextLayout(
+                D2D1::Point2F(0.f, 0.f),
+                m_textLayout.Get(),
+                m_whiteBrush.Get()
+                );
+
+            // We ignore D2DERR_RECREATE_TARGET here. This error indicates that the device
+            // is lost. It will be handled during the next call to Present.
+            HRESULT hr = context->EndDraw();
+            if (hr != D2DERR_RECREATE_TARGET)
+            {
+                DX::ThrowIfFailed(hr);
+            }
+
+            context->RestoreDrawingState(m_stateBlock.Get());
+        }
     }
 
     void CreateDeviceDependentResources()
@@ -685,6 +746,33 @@ struct SceneRenderer::Impl
 
             auto av = concurrency::direct3d::create_accelerator_view (m_deviceResources->GetD3DDevice());
             m_av = std::make_shared<accelerator_view> (av);
+
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD2DDeviceContext()->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &m_whiteBrush)
+                );
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetDWriteFactory()->CreateTextFormat(
+                L"Segoe UI",
+                nullptr,
+                DWRITE_FONT_WEIGHT_LIGHT,
+                DWRITE_FONT_STYLE_NORMAL,
+                DWRITE_FONT_STRETCH_NORMAL,
+                32.0f,
+                L"en-US",
+                &m_textFormat
+                )
+                );
+
+            DX::ThrowIfFailed(
+                m_textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR)
+                );
+
+            DX::ThrowIfFailed(
+                m_deviceResources->GetD2DFactory()->CreateDrawingStateBlock(&m_stateBlock)
+                );
+
         });
 
         // Once the cube is loaded, the object is ready to be rendered.
@@ -696,6 +784,11 @@ struct SceneRenderer::Impl
     void ReleaseDeviceDependentResources()
     {
         m_loadingComplete = false;
+
+        m_whiteBrush.Reset();
+        m_textFormat.Reset();
+        m_stateBlock.Reset();
+
         m_av.reset();
         m_vertexShader.Reset();
         m_inputLayout.Reset();
@@ -759,6 +852,14 @@ struct SceneRenderer::Impl
 
     Point                                               m_currentPoint          ;
     Size                                                m_currentBounds         ;
+
+
+    DWRITE_TEXT_METRICS                                 m_textMetrics           ;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush>        m_whiteBrush            ;
+    Microsoft::WRL::ComPtr<ID2D1DrawingStateBlock>      m_stateBlock            ;
+    Microsoft::WRL::ComPtr<IDWriteTextLayout>           m_textLayout            ;
+    Microsoft::WRL::ComPtr<IDWriteTextFormat>           m_textFormat            ;
+
 };
 
 // Loads vertex and pixel shaders from files and instantiates the cube geometry.

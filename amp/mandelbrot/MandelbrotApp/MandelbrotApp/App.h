@@ -1,8 +1,6 @@
 ﻿#pragma once
 
 #include "pch.h"
-#include "DeviceResources.h"
-#include "MandelbrotAppMain.h"
 
 namespace MandelbrotApp
 {

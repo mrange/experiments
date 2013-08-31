@@ -4,6 +4,9 @@
 #include <DirectXColors.h>            // For named colors    
 #include "Common\DirectXHelper.h"    // For ThrowIfFailed
 
+#include "Common\StepTimer.h"
+#include "Content\SceneRenderer.h"
+
 using namespace MandelbrotApp;
 
 namespace
@@ -16,10 +19,8 @@ struct MandelbrotAppMain::Impl
         :   m_deviceResources(deviceResources)
     {
         // TODO: Replace this with your app content initialization.
-        m_sceneRenderer = std::unique_ptr<SceneRenderer>(new SceneRenderer(m_deviceResources));
+        m_sceneRenderer = std::unique_ptr<SceneRenderer>(std::make_unique<SceneRenderer>(m_deviceResources));
         m_sceneRenderer->CreateWindowSizeDependentResources();
-
-        m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
 
     }
 
@@ -42,7 +43,6 @@ struct MandelbrotAppMain::Impl
         {
             // TODO: Replace this with your app content update functions.
             m_sceneRenderer->Update(m_timer);
-            m_fpsTextRenderer->Update(m_timer);
         });
     }
 
@@ -71,7 +71,6 @@ struct MandelbrotAppMain::Impl
         // Render the scene objects.
         // TODO: Replace this with your app content rendering functions.
         m_sceneRenderer->Render();
-        m_fpsTextRenderer->Render();
 
         return true;
     }
@@ -79,12 +78,10 @@ struct MandelbrotAppMain::Impl
     void OnDeviceLost()
     {
         m_sceneRenderer->ReleaseDeviceDependentResources();
-        m_fpsTextRenderer->ReleaseDeviceDependentResources();
     }
     void OnDeviceRecreated()
     {
         m_sceneRenderer->CreateDeviceDependentResources();
-        m_fpsTextRenderer->CreateDeviceDependentResources();
         CreateWindowSizeDependentResources();
     }
 
@@ -103,7 +100,6 @@ struct MandelbrotAppMain::Impl
 
     // TODO: Replace with your own content.
     std::unique_ptr<SceneRenderer> m_sceneRenderer;
-    std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
 
     // Rendering loop timer.
     DX::StepTimer m_timer;

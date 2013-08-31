@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "..\DeviceResources.h"
-#include "ShaderStructures.h"
+#include "..\Common\DirectXHelper.h"    // For ThrowIfFailed and ReadDataAsync
 #include "..\Common\StepTimer.h"
+#include "..\DeviceResources.h"
 
 namespace MandelbrotApp
 {

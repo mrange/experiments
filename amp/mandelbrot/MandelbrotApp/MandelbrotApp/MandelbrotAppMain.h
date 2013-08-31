@@ -1,9 +1,6 @@
 ﻿#pragma once
 
-#include "Common\StepTimer.h"
 #include "DeviceResources.h"
-#include "Content\SceneRenderer.h"
-#include "Content\SampleFpsTextRenderer.h"
 
 // Renders Direct2D and 3D content on the screen.
 namespace MandelbrotApp
