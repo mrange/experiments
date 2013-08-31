@@ -68,7 +68,7 @@ namespace
 //        return (fabs(x) < 2) & (fabs(y) < 2);
     }
 
-    int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
+    inline int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
     {
         auto ix = x;
         auto iy = y;
@@ -84,7 +84,7 @@ namespace
         return i;
     }
 
-    int julia (mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp, cpu)
+    inline int julia (mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp, cpu)
     {
         auto ix = x;
         auto iy = y;
@@ -151,71 +151,8 @@ namespace
 
     std::vector<unorm_4> const color_lookup = create_color_lookup ();
 
-    void compute_mandelbrot (
-            accelerator_view const &    av
-        ,   ID3D11Texture2D *           texture
-        ,   int                         offset
-        ,   int                         iter
-        ,   mtype                       cx
-        ,   mtype                       cy
-        ,   mtype                       zoom
-        )
-    {
-        if (!texture)
-        {
-            return;
-        }
-
-        try
-        {
-
-            {
-                int const lookup_size   = static_cast<int> (color_lookup.size ());
-
-                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
-
-                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
-                auto wotex              = texture_view<unorm_4, 2> (tex);
-                auto e                  = tex.extent;
-
-                auto width              = static_cast<mtype> (e[1]);
-                auto height             = static_cast<mtype> (e[0]);
-
-                auto aspect             = width / height;
-
-                auto dx                 = aspect * 1/zoom       ;
-                auto dy                 = 1/zoom                ;
-
-                parallel_for_each (
-                        av
-                    ,   e
-                    ,   [=] (index<2> idx) restrict(amp)
-                    {
-                        auto x = cx + dx * ((idx[1] / width) - 0.5F);
-                        auto y = cy + dy * ((idx[0] / height) - 0.5F);
-
-                        auto result = mandelbrot (x,y, iter);
-
-                        auto multiplier = result == iter ? 0.0F : 1.0F;
-
-                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
-
-                        wotex.set(idx,color); 
-                    });
-            }
-        }
-        catch (std::exception const & e)
-        {
-            auto what = e.what();
-            OutputDebugString(L"Known exception\r\n");
-        }
-        catch (...)
-        {
-            OutputDebugString(L"Unknown exception\r\n");
-        }
-    }
-
-    void compute_julia (
+    template<typename TPredicate>
+    void compute_set (
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
         ,   int                         offset
@@ -225,6 +162,7 @@ namespace
         ,   mtype                       ix
         ,   mtype                       iy
         ,   mtype                       zoom
+        ,   TPredicate                  const & predicate
         )
     {
         if (!texture)
@@ -232,54 +170,39 @@ namespace
             return;
         }
 
-        try
-        {
+        int const lookup_size   = static_cast<int> (color_lookup.size ());
+
+        auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+
+        auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+        auto texv               = texture_view<unorm_4, 2> (tex);
+        auto e                  = tex.extent;
+
+        auto width              = static_cast<mtype> (e[1]);
+        auto height             = static_cast<mtype> (e[0]);
+
+        auto aspect             = width / height;
+
+        auto dx                 = aspect * 1/zoom       ;
+        auto dy                 = 1/zoom                ;
+
+        parallel_for_each (
+                av
+            ,   e
+            ,   [=] (index<2> idx) restrict(amp)
             {
-                int const lookup_size   = static_cast<int> (color_lookup.size ());
+                auto x = cx + dx * ((idx[1] / width) - 0.5F);
+                auto y = cy + dy * ((idx[0] / height) - 0.5F);
 
-                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+                auto result = predicate (x,y, ix, iy, iter);
 
-                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
-                auto wotex              = texture_view<unorm_4, 2> (tex);
-                auto e                  = tex.extent;
+                auto multiplier = result == iter ? 0.0F : 1.0F;
 
-                auto width              = static_cast<mtype> (e[1]);
-                auto height             = static_cast<mtype> (e[0]);
+                auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
 
-                auto aspect             = width / height;
-
-                auto dx                 = aspect * 1/zoom       ;
-                auto dy                 = 1/zoom                ;
-
-                parallel_for_each (
-                        av
-                    ,   e
-                    ,   [=] (index<2> idx) restrict(amp)
-                    {
-                        auto x = cx + dx * ((idx[1] / width) - 0.5F);
-                        auto y = cy + dy * ((idx[0] / height) - 0.5F);
-
-                        auto result = julia (x,y, ix, iy, iter);
-
-                        auto multiplier = result == iter ? 0.0F : 1.0F;
-
-                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
-
-                        wotex.set(idx,color); 
-                    });
-            }
-        }
-        catch (std::exception const & e)
-        {
-            auto what = e.what();
-            OutputDebugString(L"Known exception\r\n");
-        }
-        catch (...)
-        {
-            OutputDebugString(L"Unknown exception\r\n");
-        }
+                texv.set(idx,color); 
+            });
     }
-
 }
 
 struct SceneRenderer::Impl
@@ -397,7 +320,7 @@ struct SceneRenderer::Impl
 
         auto offset = static_cast<int> (totalSecs * 10);
 
-        compute_julia (
+        compute_set (
                 *m_av
             ,   m_juliaTexture.Get()
             ,   offset
@@ -407,16 +330,20 @@ struct SceneRenderer::Impl
             ,   coord.x
             ,   coord.y
             ,   zoom_julia
+            ,   [=](mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp) {return julia(x,y,cx,cy,iter);}
             );
 
-        compute_mandelbrot (
+        compute_set (
                 *m_av
             ,   m_mandelBrotTexture.Get()
             ,   offset
             ,   m_iter
             ,   m_center.x
             ,   m_center.y
+            ,   m_center.x
+            ,   m_center.y
             ,   m_zoom
+            ,   [=](mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp) {return mandelbrot(x,y,iter);}
             );
 
         uint32 fps = timer.GetFramesPerSecond();
