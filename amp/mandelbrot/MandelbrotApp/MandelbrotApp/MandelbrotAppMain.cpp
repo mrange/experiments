@@ -6,103 +6,159 @@
 
 using namespace MandelbrotApp;
 
-// Loads and initializes application assets when the application is loaded.
-MandelbrotAppMain::MandelbrotAppMain(const std::shared_ptr<DeviceResources>& deviceResources) :
-	m_deviceResources(deviceResources)
+namespace
 {
-	// TODO: Replace this with your app content initialization.
-	m_sceneRenderer = std::unique_ptr<Sample3DSceneRenderer>(new Sample3DSceneRenderer(m_deviceResources));
-	m_sceneRenderer->CreateWindowSizeDependentResources();
+}
 
-	m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
+struct MandelbrotAppMain::Impl
+{
+    Impl(const std::shared_ptr<DeviceResources>& deviceResources)
+	    :   m_deviceResources(deviceResources)
+    {
+	    // TODO: Replace this with your app content initialization.
+	    m_sceneRenderer = std::unique_ptr<Sample3DSceneRenderer>(new Sample3DSceneRenderer(m_deviceResources));
+	    m_sceneRenderer->CreateWindowSizeDependentResources();
 
-	// TODO: Change timer settings if you want something other than the default variable timestep mode.
-	// eg. for 60 FPS fixed timestep update logic, call:
-	/*
-	m_timer.SetFixedTimeStep(true);
-	m_timer.SetTargetElapsedSeconds(1.0 / 60);
-	*/
-	m_deviceResources->RegisterDeviceNotify(this);
+	    m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
+
+    }
+
+    ~Impl()
+    {
+        // Deregister from device notification
+        m_deviceResources->RegisterDeviceNotify(nullptr);
+    }
+
+    void CreateWindowSizeDependentResources()
+    {
+	    // TODO: Replace this with the size-dependent initialization of your app content.
+	    m_sceneRenderer->CreateWindowSizeDependentResources();
+    }
+
+    void Update()
+    {
+	    // Update scene objects.
+	    m_timer.Tick([&]()
+	    {
+		    // TODO: Replace this with your app content update functions.
+		    m_sceneRenderer->Update(m_timer);
+		    m_fpsTextRenderer->Update(m_timer);
+	    });
+    }
+
+    bool Render()
+    {
+	    // Don't try to render anything before the first Update.
+	    if (m_timer.GetFrameCount() == 0)
+	    {
+		    return false;
+	    }
+
+	    auto context = m_deviceResources->GetD3DDeviceContext();
+
+	    // Reset the viewport to target the whole screen.
+	    auto viewport = m_deviceResources->GetScreenViewport();
+	    context->RSSetViewports(1, &viewport);
+
+	    // Reset render targets to the screen.
+	    ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
+	    context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
+
+	    // Clear the back buffer and depth stencil view.
+	    context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
+	    context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	    // Render the scene objects.
+	    // TODO: Replace this with your app content rendering functions.
+	    m_sceneRenderer->Render();
+	    m_fpsTextRenderer->Render();
+
+	    return true;
+    }
+
+    void OnDeviceLost()
+    {
+	    m_sceneRenderer->ReleaseDeviceDependentResources();
+	    m_fpsTextRenderer->ReleaseDeviceDependentResources();
+    }
+    void OnDeviceRecreated()
+    {
+	    m_sceneRenderer->CreateDeviceDependentResources();
+	    m_fpsTextRenderer->CreateDeviceDependentResources();
+	    CreateWindowSizeDependentResources();
+    }
+
+    void PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
+    {
+        m_sceneRenderer->PointerWheelChanged(p, delta);
+    }
+
+    void PointerMoved(Windows::Foundation::Point const & p)
+    {
+        m_sceneRenderer->PointerMoved(p);
+    }
+
+    // Cached pointer to device resources.
+    std::shared_ptr<DeviceResources> m_deviceResources;
+
+    // TODO: Replace with your own content.
+    std::unique_ptr<Sample3DSceneRenderer> m_sceneRenderer;
+    std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
+
+    // Rendering loop timer.
+    DX::StepTimer m_timer;
+};
+
+MandelbrotAppMain::MandelbrotAppMain(const std::shared_ptr<DeviceResources>& deviceResources)
+    : m_impl(std::make_unique<Impl> (deviceResources))
+{
+    // TODO: Change timer settings if you want something other than the default variable timestep mode.
+    // eg. for 60 FPS fixed timestep update logic, call:
+    /*
+    m_timer.SetFixedTimeStep(true);
+    m_timer.SetTargetElapsedSeconds(1.0 / 60);
+    */
+    m_impl->m_deviceResources->RegisterDeviceNotify(this);
 }
 
 MandelbrotAppMain::~MandelbrotAppMain()
 {
-	// Deregister from device notification
-	m_deviceResources->RegisterDeviceNotify(nullptr);
+
 }
 
-// Updates application state when the window size changes (e.g. device orientation change)
-void MandelbrotAppMain::CreateWindowSizeDependentResources() 
+void MandelbrotAppMain::CreateWindowSizeDependentResources()
 {
-	// TODO: Replace this with the size-dependent initialization of your app content.
-	m_sceneRenderer->CreateWindowSizeDependentResources();
+    m_impl->CreateWindowSizeDependentResources();
 }
 
-// Updates the application state once per frame.
-void MandelbrotAppMain::Update() 
+void MandelbrotAppMain::Update()
 {
-	// Update scene objects.
-	m_timer.Tick([&]()
-	{
-		// TODO: Replace this with your app content update functions.
-		m_sceneRenderer->Update(m_timer);
-		m_fpsTextRenderer->Update(m_timer);
-	});
+    m_impl->Update();
 }
 
-// Renders the current frame according to the current application state.
-// Returns true if the frame was rendered and is ready to be displayed.
-bool MandelbrotAppMain::Render() 
+bool MandelbrotAppMain::Render()
 {
-	// Don't try to render anything before the first Update.
-	if (m_timer.GetFrameCount() == 0)
-	{
-		return false;
-	}
-
-	auto context = m_deviceResources->GetD3DDeviceContext();
-
-	// Reset the viewport to target the whole screen.
-	auto viewport = m_deviceResources->GetScreenViewport();
-	context->RSSetViewports(1, &viewport);
-
-	// Reset render targets to the screen.
-	ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-	context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
-
-	// Clear the back buffer and depth stencil view.
-	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
-	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	// Render the scene objects.
-	// TODO: Replace this with your app content rendering functions.
-	m_sceneRenderer->Render();
-	m_fpsTextRenderer->Render();
-
-	return true;
+    return m_impl->Render();
 }
 
 // Notifies renderers that device resources need to be released.
 void MandelbrotAppMain::OnDeviceLost()
 {
-	m_sceneRenderer->ReleaseDeviceDependentResources();
-	m_fpsTextRenderer->ReleaseDeviceDependentResources();
+    m_impl->OnDeviceLost();
 }
 
 // Notifies renderers that device resources may now be recreated.
 void MandelbrotAppMain::OnDeviceRecreated()
 {
-	m_sceneRenderer->CreateDeviceDependentResources();
-	m_fpsTextRenderer->CreateDeviceDependentResources();
-	CreateWindowSizeDependentResources();
+    m_impl->OnDeviceRecreated();
 }
 
 void MandelbrotAppMain::PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
 {
-    m_sceneRenderer->PointerWheelChanged(p, delta);
+    m_impl->PointerWheelChanged(p, delta);
 }
 
 void MandelbrotAppMain::PointerMoved(Windows::Foundation::Point const & p)
 {
-    m_sceneRenderer->PointerMoved(p);
+    m_impl->PointerMoved(p);
 }

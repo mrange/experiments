@@ -25,14 +25,9 @@ namespace MandelbrotApp
         void PointerMoved(Windows::Foundation::Point const & p);
 
 	private:
-		// Cached pointer to device resources.
-		std::shared_ptr<DeviceResources> m_deviceResources;
+        struct Impl;
 
-		// TODO: Replace with your own content.
-		std::unique_ptr<Sample3DSceneRenderer> m_sceneRenderer;
-		std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
+        std::unique_ptr<Impl> m_impl;
 
-		// Rendering loop timer.
-		DX::StepTimer m_timer;
 	};
 }
