@@ -21,7 +21,7 @@ using namespace Windows::Graphics::Display;
 
 namespace
 {
-    ref class App sealed : public Windows::ApplicationModel::Core::IFrameworkView
+    ref class App sealed : public IFrameworkView
     {
     public:
         App()

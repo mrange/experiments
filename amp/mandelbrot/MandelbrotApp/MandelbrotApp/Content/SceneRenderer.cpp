@@ -8,7 +8,7 @@ using namespace concurrency::graphics;
 using namespace concurrency::fast_math;
 
 using namespace MandelbrotApp;
-
+using namespace Microsoft::WRL;
 using namespace DirectX;
 using namespace Windows::Foundation;
 
@@ -393,17 +393,29 @@ struct SceneRenderer::Impl
 
         uint32 fps = timer.GetFramesPerSecond();
 
-        auto text = (fps > 0) ? std::to_wstring(fps) + L" FPS" : L" - FPS";
+        wchar_t text [128];
+
+        auto text_length = swprintf_s(
+                text
+            ,   L"FPS:%i I:%d\r\nZ:%f\r\nCX:%f CY:%f\r\nX:%f Y:%f"
+            ,   fps
+            ,   max_iter
+            ,   m_zoom
+            ,   m_center.x
+            ,   m_center.y
+            ,   coord.x
+            ,   coord.y
+            );
 
         m_textLayout.Reset();
 
         DX::ThrowIfFailed(
             m_deviceResources->GetDWriteFactory()->CreateTextLayout(
-                text.c_str(),
-                (uint32) text.length(),
+                text,
+                text_length,
                 m_textFormat.Get(),
-                m_currentBounds.Width, // Max width of the input text.
-                50.0f, // Max height of the input text.
+                m_currentBounds.Width   / 2, // Max width of the input text.
+                m_currentBounds.Height  / 2, // Max height of the input text.
                 &m_textLayout
                 )
             );
@@ -825,19 +837,19 @@ struct SceneRenderer::Impl
     std::shared_ptr<Concurrency::accelerator_view>      m_av                    ;
 
     // Direct3D resources for cube geometry.
-    Microsoft::WRL::ComPtr<ID3D11InputLayout>           m_inputLayout           ;
-    Microsoft::WRL::ComPtr<ID3D11Buffer>                m_vertexBuffer          ;
-    Microsoft::WRL::ComPtr<ID3D11Buffer>                m_indexBuffer           ;
-    Microsoft::WRL::ComPtr<ID3D11VertexShader>          m_vertexShader          ;
-    Microsoft::WRL::ComPtr<ID3D11PixelShader>           m_pixelShader           ;
-    Microsoft::WRL::ComPtr<ID3D11Buffer>                m_constantBuffer        ;
+    ComPtr<ID3D11InputLayout>           m_inputLayout           ;
+    ComPtr<ID3D11Buffer>                m_vertexBuffer          ;
+    ComPtr<ID3D11Buffer>                m_indexBuffer           ;
+    ComPtr<ID3D11VertexShader>          m_vertexShader          ;
+    ComPtr<ID3D11PixelShader>           m_pixelShader           ;
+    ComPtr<ID3D11Buffer>                m_constantBuffer        ;
 
-    Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_mandelBrotTexture     ;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
-    Microsoft::WRL::ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
+    ComPtr<ID3D11Texture2D>             m_mandelBrotTexture     ;
+    ComPtr<ID3D11ShaderResourceView>    m_mandelBrotTextureView ;
+    ComPtr<ID3D11SamplerState>          m_mandelBrotSampler     ;
 
-    Microsoft::WRL::ComPtr<ID3D11Texture2D>             m_juliaTexture          ;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
+    ComPtr<ID3D11Texture2D>             m_juliaTexture          ;
+    ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
 
     // System resources for cube geometry.
     ModelViewProjectionConstantBuffer                   m_constantBufferData    ;
@@ -855,10 +867,10 @@ struct SceneRenderer::Impl
 
 
     DWRITE_TEXT_METRICS                                 m_textMetrics           ;
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush>        m_whiteBrush            ;
-    Microsoft::WRL::ComPtr<ID2D1DrawingStateBlock>      m_stateBlock            ;
-    Microsoft::WRL::ComPtr<IDWriteTextLayout>           m_textLayout            ;
-    Microsoft::WRL::ComPtr<IDWriteTextFormat>           m_textFormat            ;
+    ComPtr<ID2D1SolidColorBrush>        m_whiteBrush            ;
+    ComPtr<ID2D1DrawingStateBlock>      m_stateBlock            ;
+    ComPtr<IDWriteTextLayout>           m_textLayout            ;
+    ComPtr<IDWriteTextFormat>           m_textFormat            ;
 
 };
 
