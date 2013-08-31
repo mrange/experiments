@@ -7,6 +7,7 @@
 #include <utility>
 
 using namespace concurrency;
+using namespace concurrency::direct3d;
 using namespace concurrency::graphics;
 using namespace concurrency::fast_math;
 
@@ -63,40 +64,23 @@ namespace
     mtype           const   cy_julia        = 0         ;
     mtype           const   zoom_julia      = 1/3.0F    ;
 
-    inline bool test(mtype x, mtype y) restrict(amp, cpu)
+    inline bool test(mtype_2 coord) restrict(amp)
     {
-        return (x * x + y * y) < 4;
+        auto x = coord * coord;
+        return (coord.x + coord.y) < 4;
 //        return (fabs(x) < 2) & (fabs(y) < 2);
     }
 
-    inline int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
+    inline int julia (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
     {
-        auto ix = x;
-        auto iy = y;
-
         auto i = 0;
 
-        for (; (i < iter) & test (ix, iy); ++i)
+        for (; (i < iter) & test (coord); ++i)
         {
-            auto tx = ix * ix - iy * iy + x;
-            iy = 2 * ix * iy + y;
-            ix = tx;
-        }
-        return i;
-    }
-
-    inline int julia (mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp, cpu)
-    {
-        auto ix = x;
-        auto iy = y;
-
-        auto i = 0;
-
-        for (; (i < iter) & test (ix, iy); ++i)
-        {
-            auto tx = ix * ix - iy * iy + cx;
-            iy = 2 * ix * iy + cy;
-            ix = tx;
+            auto c2 = coord*coord;
+            coord.y = 2*coord.x*coord.y;
+            coord.x = c2.x - c2.y;
+            coord += center;
         }
         return i;
     }
@@ -203,6 +187,8 @@ namespace
         mtype_2 t = c - d*o;
         mtype_2 m = d*div;
 
+        mtype_2 center(ix, iy);
+
         parallel_for_each (
                 av
             ,   e
@@ -211,7 +197,7 @@ namespace
                 mtype_2 texpos (idx[1], idx[0]);
                 auto coord = m * texpos + t;
 
-                auto result = predicate (coord.x,coord.y, ix, iy, iter);
+                auto result = predicate (coord, center, iter);
 
                 auto color = lookup_view[result];
 
@@ -345,7 +331,7 @@ struct SceneRenderer::Impl
             ,   coord.x
             ,   coord.y
             ,   zoom_julia
-            ,   [=](mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp) {return julia(x,y,cx,cy,iter);}
+            ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return julia(coord, center, iter);}
             );
 
         compute_set (
@@ -358,7 +344,7 @@ struct SceneRenderer::Impl
             ,   m_center.x
             ,   m_center.y
             ,   m_zoom
-            ,   [=](mtype x, mtype y, mtype , mtype , int iter) restrict(amp) {return mandelbrot(x,y,iter);}
+            ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return julia(coord, coord, iter);}
             );
 
         uint32 fps = timer.GetFramesPerSecond();
