@@ -64,24 +64,21 @@ namespace
     mtype           const   cy_julia        = 0         ;
     mtype           const   zoom_julia      = 1/3.0F    ;
 
-    inline bool test(mtype_2 coord) restrict(amp)
-    {
-        auto x = coord * coord;
-        return (x.x + x.y) < 4;
-        //return (coord.x*coord.x + coord.y*coord.y) < 4;
-//        return (fabs(coord.x) < 2) & (fabs(coord.y) < 2);
-    }
-
     inline int julia (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
     {
+        auto ix = coord.x;
+        auto iy = coord.y;
+
+        auto cx = center.x;
+        auto cy = center.y;
+
         auto i = 0;
 
-        for (; (i < iter) & test (coord); ++i)
+        for (; (i < iter) & (ix*ix + iy*iy) < 4; ++i)
         {
-            auto c2 = coord*coord;
-            coord.y = 2*coord.x*coord.y;
-            coord.x = c2.x - c2.y;
-            coord += center;
+            auto tx = ix * ix - iy * iy + cx;
+            iy = 2 * ix * iy + cy;
+            ix = tx;
         }
         return i;
     }
