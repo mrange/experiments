@@ -67,8 +67,9 @@ namespace
     inline bool test(mtype_2 coord) restrict(amp)
     {
         auto x = coord * coord;
-        return (coord.x + coord.y) < 4;
-//        return (fabs(x) < 2) & (fabs(y) < 2);
+        return (x.x + x.y) < 4;
+        //return (coord.x*coord.x + coord.y*coord.y) < 4;
+//        return (fabs(coord.x) < 2) & (fabs(coord.y) < 2);
     }
 
     inline int julia (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
