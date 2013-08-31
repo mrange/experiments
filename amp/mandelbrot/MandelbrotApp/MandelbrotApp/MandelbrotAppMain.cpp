@@ -16,7 +16,7 @@ struct MandelbrotAppMain::Impl
 	    :   m_deviceResources(deviceResources)
     {
 	    // TODO: Replace this with your app content initialization.
-	    m_sceneRenderer = std::unique_ptr<Sample3DSceneRenderer>(new Sample3DSceneRenderer(m_deviceResources));
+	    m_sceneRenderer = std::unique_ptr<SceneRenderer>(new SceneRenderer(m_deviceResources));
 	    m_sceneRenderer->CreateWindowSizeDependentResources();
 
 	    m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
@@ -102,7 +102,7 @@ struct MandelbrotAppMain::Impl
     std::shared_ptr<DeviceResources> m_deviceResources;
 
     // TODO: Replace with your own content.
-    std::unique_ptr<Sample3DSceneRenderer> m_sceneRenderer;
+    std::unique_ptr<SceneRenderer> m_sceneRenderer;
     std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
 
     // Rendering loop timer.

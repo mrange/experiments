@@ -7,10 +7,10 @@
 namespace MandelbrotApp
 {
 	// This sample renderer instantiates a basic rendering pipeline.
-	struct Sample3DSceneRenderer
+	struct SceneRenderer
 	{
-		Sample3DSceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources);
-        ~Sample3DSceneRenderer();
+		SceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources);
+        ~SceneRenderer();
 
 		void CreateDeviceDependentResources();
 		void CreateWindowSizeDependentResources();

@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "Sample3DSceneRenderer.h"
+#include "SceneRenderer.h"
 
 #include "..\Common\DirectXHelper.h"    // For ThrowIfFailed and ReadDataAsync
 
@@ -58,7 +58,7 @@ namespace
     inline bool test(mtype x, mtype y) restrict(amp, cpu)
     {
 //        return (x * x + y * y) < 4;
-        return fabs(x) < 2 & fabs(y) < 2;
+        return (fabs(x) < 2) & (fabs(y) < 2);
     }
 
     int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
@@ -274,7 +274,7 @@ namespace
 
 }
 
-struct Sample3DSceneRenderer::Impl
+struct SceneRenderer::Impl
 {
     Impl(std::shared_ptr<DeviceResources> const & deviceResources)
         :   m_loadingComplete(false)
@@ -712,7 +712,7 @@ struct Sample3DSceneRenderer::Impl
         auto dx = m_center.x - mp.x;
         auto dy = m_center.y - mp.y;
 
-        auto zoomratio = std::pow(1.1, delta/120.0);
+        auto zoomratio = static_cast<mtype> (std::pow(1.1, delta/120.0));
 
         m_zoom *= zoomratio;
 
@@ -762,42 +762,42 @@ struct Sample3DSceneRenderer::Impl
 };
 
 // Loads vertex and pixel shaders from files and instantiates the cube geometry.
-Sample3DSceneRenderer::Sample3DSceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources)
+SceneRenderer::SceneRenderer(const std::shared_ptr<DeviceResources>& deviceResources)
     : m_impl(std::make_unique<Impl> ((deviceResources)))
 {
 }
 
-Sample3DSceneRenderer::~Sample3DSceneRenderer()
+SceneRenderer::~SceneRenderer()
 {
 }
 
-void Sample3DSceneRenderer::CreateDeviceDependentResources()
+void SceneRenderer::CreateDeviceDependentResources()
 {
     m_impl->CreateDeviceDependentResources();
 }
 
-void Sample3DSceneRenderer::CreateWindowSizeDependentResources()
+void SceneRenderer::CreateWindowSizeDependentResources()
 {
     m_impl->CreateWindowSizeDependentResources();
 }
-void Sample3DSceneRenderer::ReleaseDeviceDependentResources()
+void SceneRenderer::ReleaseDeviceDependentResources()
 {
     m_impl->ReleaseDeviceDependentResources();
 }
-void Sample3DSceneRenderer::Update(DX::StepTimer const& timer)
+void SceneRenderer::Update(DX::StepTimer const& timer)
 {
     m_impl->Update(timer);
 }
-void Sample3DSceneRenderer::Render()
+void SceneRenderer::Render()
 {
     m_impl->Render();
 }
 
-void Sample3DSceneRenderer::PointerWheelChanged(Point const & p, int delta)
+void SceneRenderer::PointerWheelChanged(Point const & p, int delta)
 {
     m_impl->PointerWheelChanged(p, delta);
 }
-void Sample3DSceneRenderer::PointerMoved(Point const & p)
+void SceneRenderer::PointerMoved(Point const & p)
 {
     m_impl->PointerMoved(p);
 }
