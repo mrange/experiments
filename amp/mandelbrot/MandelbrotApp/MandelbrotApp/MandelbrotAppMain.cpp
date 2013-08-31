@@ -1,8 +1,8 @@
 ﻿#include "pch.h"
 #include "MandelbrotAppMain.h"
 
-#include <DirectXColors.h>			// For named colors	
-#include "Common\DirectXHelper.h"	// For ThrowIfFailed
+#include <DirectXColors.h>            // For named colors    
+#include "Common\DirectXHelper.h"    // For ThrowIfFailed
 
 using namespace MandelbrotApp;
 
@@ -13,13 +13,13 @@ namespace
 struct MandelbrotAppMain::Impl
 {
     Impl(const std::shared_ptr<DeviceResources>& deviceResources)
-	    :   m_deviceResources(deviceResources)
+        :   m_deviceResources(deviceResources)
     {
-	    // TODO: Replace this with your app content initialization.
-	    m_sceneRenderer = std::unique_ptr<SceneRenderer>(new SceneRenderer(m_deviceResources));
-	    m_sceneRenderer->CreateWindowSizeDependentResources();
+        // TODO: Replace this with your app content initialization.
+        m_sceneRenderer = std::unique_ptr<SceneRenderer>(new SceneRenderer(m_deviceResources));
+        m_sceneRenderer->CreateWindowSizeDependentResources();
 
-	    m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
+        m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
 
     }
 
@@ -31,61 +31,61 @@ struct MandelbrotAppMain::Impl
 
     void CreateWindowSizeDependentResources()
     {
-	    // TODO: Replace this with the size-dependent initialization of your app content.
-	    m_sceneRenderer->CreateWindowSizeDependentResources();
+        // TODO: Replace this with the size-dependent initialization of your app content.
+        m_sceneRenderer->CreateWindowSizeDependentResources();
     }
 
     void Update()
     {
-	    // Update scene objects.
-	    m_timer.Tick([&]()
-	    {
-		    // TODO: Replace this with your app content update functions.
-		    m_sceneRenderer->Update(m_timer);
-		    m_fpsTextRenderer->Update(m_timer);
-	    });
+        // Update scene objects.
+        m_timer.Tick([&]()
+        {
+            // TODO: Replace this with your app content update functions.
+            m_sceneRenderer->Update(m_timer);
+            m_fpsTextRenderer->Update(m_timer);
+        });
     }
 
     bool Render()
     {
-	    // Don't try to render anything before the first Update.
-	    if (m_timer.GetFrameCount() == 0)
-	    {
-		    return false;
-	    }
+        // Don't try to render anything before the first Update.
+        if (m_timer.GetFrameCount() == 0)
+        {
+            return false;
+        }
 
-	    auto context = m_deviceResources->GetD3DDeviceContext();
+        auto context = m_deviceResources->GetD3DDeviceContext();
 
-	    // Reset the viewport to target the whole screen.
-	    auto viewport = m_deviceResources->GetScreenViewport();
-	    context->RSSetViewports(1, &viewport);
+        // Reset the viewport to target the whole screen.
+        auto viewport = m_deviceResources->GetScreenViewport();
+        context->RSSetViewports(1, &viewport);
 
-	    // Reset render targets to the screen.
-	    ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-	    context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
+        // Reset render targets to the screen.
+        ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
+        context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
 
-	    // Clear the back buffer and depth stencil view.
-	    context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
-	    context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        // Clear the back buffer and depth stencil view.
+        context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
+        context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	    // Render the scene objects.
-	    // TODO: Replace this with your app content rendering functions.
-	    m_sceneRenderer->Render();
-	    m_fpsTextRenderer->Render();
+        // Render the scene objects.
+        // TODO: Replace this with your app content rendering functions.
+        m_sceneRenderer->Render();
+        m_fpsTextRenderer->Render();
 
-	    return true;
+        return true;
     }
 
     void OnDeviceLost()
     {
-	    m_sceneRenderer->ReleaseDeviceDependentResources();
-	    m_fpsTextRenderer->ReleaseDeviceDependentResources();
+        m_sceneRenderer->ReleaseDeviceDependentResources();
+        m_fpsTextRenderer->ReleaseDeviceDependentResources();
     }
     void OnDeviceRecreated()
     {
-	    m_sceneRenderer->CreateDeviceDependentResources();
-	    m_fpsTextRenderer->CreateDeviceDependentResources();
-	    CreateWindowSizeDependentResources();
+        m_sceneRenderer->CreateDeviceDependentResources();
+        m_fpsTextRenderer->CreateDeviceDependentResources();
+        CreateWindowSizeDependentResources();
     }
 
     void PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
