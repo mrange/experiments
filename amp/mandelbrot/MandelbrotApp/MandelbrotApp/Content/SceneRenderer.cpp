@@ -18,7 +18,8 @@ using namespace Windows::System;
 
 namespace
 {
-    typedef float mtype;
+    typedef float   mtype   ;
+    typedef float_2 mtype_2 ;
 
     struct ModelViewProjectionConstantBuffer
     {
@@ -194,15 +195,23 @@ namespace
         auto dx                 = aspect * 1/zoom       ;
         auto dy                 = 1/zoom                ;
 
+        mtype_2 c(cx, cy);
+        mtype_2 d(dx, dy);
+        mtype_2 div(1/width, 1/height);
+        mtype_2 o(0.5F, 0.5F);
+
+        mtype_2 t = c - d*o;
+        mtype_2 m = d*div;
+
         parallel_for_each (
                 av
             ,   e
             ,   [=] (index<2> idx) restrict(amp)
             {
-                auto x = cx + dx * ((idx[1] / width) - 0.5F);
-                auto y = cy + dy * ((idx[0] / height) - 0.5F);
+                mtype_2 texpos (idx[1], idx[0]);
+                auto coord = m * texpos + t;
 
-                auto result = predicate (x,y, ix, iy, iter);
+                auto result = predicate (coord.x,coord.y, ix, iy, iter);
 
                 auto color = lookup_view[result];
 
@@ -349,7 +358,7 @@ struct SceneRenderer::Impl
             ,   m_center.x
             ,   m_center.y
             ,   m_zoom
-            ,   [=](mtype x, mtype y, mtype cx, mtype cy, int iter) restrict(amp) {return mandelbrot(x,y,iter);}
+            ,   [=](mtype x, mtype y, mtype , mtype , int iter) restrict(amp) {return mandelbrot(x,y,iter);}
             );
 
         uint32 fps = timer.GetFramesPerSecond();
