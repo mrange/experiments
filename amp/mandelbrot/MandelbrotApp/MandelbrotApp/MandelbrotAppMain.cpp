@@ -8,10 +8,8 @@
 #include "Content\SceneRenderer.h"
 
 using namespace MandelbrotApp;
-
-namespace
-{
-}
+using namespace Windows::Foundation;
+using namespace Windows::System;
 
 struct MandelbrotAppMain::Impl
 {
@@ -85,14 +83,19 @@ struct MandelbrotAppMain::Impl
         CreateWindowSizeDependentResources();
     }
 
-    void PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
+    void PointerWheelChanged(Point const & p, int delta)
     {
         m_sceneRenderer->PointerWheelChanged(p, delta);
     }
 
-    void PointerMoved(Windows::Foundation::Point const & p)
+    void PointerMoved(Point const & p)
     {
         m_sceneRenderer->PointerMoved(p);
+    }
+
+    void KeyUp(VirtualKey vk)
+    {
+        m_sceneRenderer->KeyUp(vk);
     }
 
     // Cached pointer to device resources.
@@ -149,12 +152,17 @@ void MandelbrotAppMain::OnDeviceRecreated()
     m_impl->OnDeviceRecreated();
 }
 
-void MandelbrotAppMain::PointerWheelChanged(Windows::Foundation::Point const & p, int delta)
+void MandelbrotAppMain::PointerWheelChanged(Point const & p, int delta)
 {
     m_impl->PointerWheelChanged(p, delta);
 }
 
-void MandelbrotAppMain::PointerMoved(Windows::Foundation::Point const & p)
+void MandelbrotAppMain::PointerMoved(Point const & p)
 {
     m_impl->PointerMoved(p);
+}
+
+void MandelbrotAppMain::KeyUp(VirtualKey vk)
+{
+    m_impl->KeyUp(vk);
 }

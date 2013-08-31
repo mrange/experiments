@@ -20,6 +20,7 @@ namespace MandelbrotApp
 
         void PointerWheelChanged(Windows::Foundation::Point const & p, int delta);
         void PointerMoved(Windows::Foundation::Point const & p);
+        void KeyUp(Windows::System::VirtualKey vk);
 
     private:
 

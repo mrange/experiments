@@ -3,6 +3,9 @@
 
 #include "ShaderStructures.h"
 
+#include <algorithm>
+#include <utility>
+
 using namespace concurrency;
 using namespace concurrency::graphics;
 using namespace concurrency::fast_math;
@@ -11,6 +14,7 @@ using namespace MandelbrotApp;
 using namespace Microsoft::WRL;
 using namespace DirectX;
 using namespace Windows::Foundation;
+using namespace Windows::System;
 
 namespace
 {
@@ -44,9 +48,12 @@ namespace
 
 
 
+    int             const   step_iter       = 8         ;
+    int             const   max_iter        = 1024      ;
+    int             const   min_iter        = 8         ;
+
     unsigned int    const   texture_width   = 800       ;
     unsigned int    const   texture_height  = 800       ;
-    unsigned int    const   max_iter        = 256       ;
     mtype           const   cx_mandelbrot   = -1        ;
     mtype           const   cy_mandelbrot   = 0         ;
     mtype           const   zoom_mandelbrot = 1/3.0F    ;
@@ -148,6 +155,7 @@ namespace
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
         ,   int                         offset
+        ,   int                         iter
         ,   mtype                       cx
         ,   mtype                       cy
         ,   mtype                       zoom
@@ -160,8 +168,6 @@ namespace
 
         try
         {
-
-            unsigned int const  iter    = max_iter               ;
 
             mtype        const  dx      = 1/zoom                ;
             mtype        const  dy      = 1/zoom                ;
@@ -211,6 +217,7 @@ namespace
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
         ,   int                         offset
+        ,   int                         iter
         ,   mtype                       cx
         ,   mtype                       cy
         ,   mtype                       ix
@@ -225,9 +232,6 @@ namespace
 
         try
         {
-
-            unsigned int const  iter    = max_iter               ;
-
             mtype        const  dx      = 1/zoom                ;
             mtype        const  dy      = 1/zoom                ;
 
@@ -283,6 +287,7 @@ struct SceneRenderer::Impl
         ,   m_deviceResources(deviceResources)
         ,   m_center(cx_mandelbrot, cy_mandelbrot)
         ,   m_zoom(zoom_mandelbrot)
+        ,   m_iter(128)
     {
         ZeroMemory(&m_textMetrics, sizeof(DWRITE_TEXT_METRICS));
 
@@ -329,8 +334,6 @@ struct SceneRenderer::Impl
 
     MandelbrotPoint GetPointFromScreenCoord(Point cp) const
     {
-        auto aspectRatio = m_currentBounds.Width / m_currentBounds.Height;
-
         auto cb = m_currentBounds;
 
         if (cp.X > cb.Width / 2)
@@ -380,6 +383,7 @@ struct SceneRenderer::Impl
                 *m_av
             ,   m_juliaTexture.Get()
             ,   offset
+            ,   m_iter
             ,   cx_julia
             ,   cy_julia
             ,   coord.x
@@ -391,6 +395,7 @@ struct SceneRenderer::Impl
                 *m_av
             ,   m_mandelBrotTexture.Get()
             ,   offset
+            ,   m_iter
             ,   m_center.x
             ,   m_center.y
             ,   m_zoom
@@ -404,7 +409,7 @@ struct SceneRenderer::Impl
                 text
             ,   L"FPS:%i I:%d\r\nZ:%f\r\nCX:%f CY:%f\r\nX:%f Y:%f"
             ,   fps
-            ,   max_iter
+            ,   m_iter
             ,   m_zoom
             ,   m_center.x
             ,   m_center.y
@@ -836,6 +841,22 @@ struct SceneRenderer::Impl
     {
         m_currentPoint = p;
     }
+
+    void KeyUp(VirtualKey vk)
+    {
+        switch (vk)
+        {
+        case VirtualKey::A:
+            m_iter = std::min(m_iter + step_iter, max_iter);
+            break;
+        case VirtualKey::Z:
+            m_iter = std::max(m_iter - step_iter, min_iter);
+            break;
+        default:
+            break;
+        }
+    }
+
     // Cached pointer to device resources.
     std::shared_ptr<DeviceResources>                    m_deviceResources       ;
 
@@ -857,21 +878,21 @@ struct SceneRenderer::Impl
     ComPtr<ID3D11ShaderResourceView>    m_juliaTextureView      ;
 
     // System resources for cube geometry.
-    ModelViewProjectionConstantBuffer                   m_constantBufferData    ;
-    uint32                                              m_indexCount            ;
+    ModelViewProjectionConstantBuffer   m_constantBufferData    ;
+    uint32                              m_indexCount            ;
 
     // Variables used with the rendering loop.
-    bool                                                m_loadingComplete       ;
-    float                                               m_degreesPerSecond      ;
+    bool                                m_loadingComplete       ;
+    float                               m_degreesPerSecond      ;
 
-    MandelbrotPoint                                     m_center                ;
-    mtype                                               m_zoom                  ;
+    MandelbrotPoint                     m_center                ;
+    mtype                               m_zoom                  ;
+    int                                 m_iter                  ;
 
-    Point                                               m_currentPoint          ;
-    Size                                                m_currentBounds         ;
+    Point                               m_currentPoint          ;
+    Size                                m_currentBounds         ;
 
-
-    DWRITE_TEXT_METRICS                                 m_textMetrics           ;
+    DWRITE_TEXT_METRICS                 m_textMetrics           ;
     ComPtr<ID2D1SolidColorBrush>        m_whiteBrush            ;
     ComPtr<ID2D1DrawingStateBlock>      m_stateBlock            ;
     ComPtr<IDWriteTextLayout>           m_textLayout            ;
@@ -918,4 +939,9 @@ void SceneRenderer::PointerWheelChanged(Point const & p, int delta)
 void SceneRenderer::PointerMoved(Point const & p)
 {
     m_impl->PointerMoved(p);
+}
+
+void SceneRenderer::KeyUp(VirtualKey vk)
+{
+    m_impl->KeyUp(vk);
 }

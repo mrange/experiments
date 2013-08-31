@@ -209,6 +209,7 @@ namespace
 
         virtual void OnKeyUp(_In_ CoreWindow^ sender, _In_ KeyEventArgs^ args)
         {
+            m_main->KeyUp(args->VirtualKey);
         }
 
     private:
