@@ -44,9 +44,9 @@ namespace
 
 
 
-    unsigned int    const   texture_width   = 1024      ;
-    unsigned int    const   texture_height  = 1024      ;
-    unsigned int    const   max_iter        = 512       ;
+    unsigned int    const   texture_width   = 800       ;
+    unsigned int    const   texture_height  = 800       ;
+    unsigned int    const   max_iter        = 256       ;
     mtype           const   cx_mandelbrot   = -1        ;
     mtype           const   cy_mandelbrot   = 0         ;
     mtype           const   zoom_mandelbrot = 1/3.0F    ;
@@ -128,7 +128,7 @@ namespace
 
         auto filler = [&] (unorm_4 from, unorm_4 to)
         {
-            fill_color_lookup (result, from, to, 32);
+            fill_color_lookup (result, from, to, 16);
         };
 
         filler (red     , yellow    );
