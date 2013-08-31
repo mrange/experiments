@@ -155,8 +155,8 @@ namespace
     void compute_set (
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
-        ,   int                         offset
-        ,   int                         iter
+        ,   unsigned int                offset
+        ,   unsigned int                iter
         ,   mtype                       cx
         ,   mtype                       cy
         ,   mtype                       ix
@@ -170,9 +170,17 @@ namespace
             return;
         }
 
-        int const lookup_size   = static_cast<int> (color_lookup.size ());
+        auto color_lookup_size = color_lookup.size ();
 
-        auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+        std::vector<unorm_4>    lookup  ;
+        lookup.resize (iter);
+
+        for (auto i = 0U; i < iter - 1; ++i)
+        {
+            lookup[i] = color_lookup [(i + offset) % color_lookup_size];
+        }
+
+        auto lookup_view        = array_view<unorm_4 const, 1> (lookup);
 
         auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
         auto texv               = texture_view<unorm_4, 2> (tex);
@@ -196,9 +204,7 @@ namespace
 
                 auto result = predicate (x,y, ix, iy, iter);
 
-                auto multiplier = result == iter ? 0.0F : 1.0F;
-
-                auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
+                auto color = lookup_view[result];
 
                 texv.set(idx,color); 
             });
