@@ -64,7 +64,7 @@ namespace
     mtype           const   cy_julia        = 0         ;
     mtype           const   zoom_julia      = 1/3.0F    ;
 
-    inline int julia (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
+    inline int mandelbrot2 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
     {
         auto ix = coord.x;
         auto iy = coord.y;
@@ -76,6 +76,78 @@ namespace
 
         for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
         {
+            auto tx = ix * ix - iy * iy + cx;
+            iy = 2 * ix * iy + cy;
+            ix = tx;
+        }
+        return i;
+    }
+
+
+    inline int mandelbrot3 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
+    {
+        auto ix = coord.x;
+        auto iy = coord.y;
+
+        auto cx = center.x;
+        auto cy = center.y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
+        {
+            auto tx = ix * ix - iy * iy;
+            auto ty = 2 * ix * iy;
+
+            auto ttx = tx * ix - ty * iy;
+            auto tty = tx * iy + ix * ty;
+
+            ix = ttx + cx;
+            iy = tty + cy;
+        }
+        return i;
+    }
+
+    inline int mandelbrot4 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
+    {
+        auto ix = coord.x;
+        auto iy = coord.y;
+
+        auto cx = center.x;
+        auto cy = center.y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
+        {
+            auto tx = ix * ix - iy * iy;
+            auto ty = 2 * ix * iy;
+
+            auto ttx = tx * tx - ty * ty;
+            auto tty = 2 * tx * ty;
+
+
+            ix = ttx + cx;
+            iy = tty + cy;
+        }
+        return i;
+    }
+
+
+    inline int burning_ship (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
+    {
+        auto ix = coord.x;
+        auto iy = coord.y;
+
+        auto cx = center.x;
+        auto cy = center.y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
+        {
+            ix = fabs(ix);
+            iy = fabs(iy);
             auto tx = ix * ix - iy * iy + cx;
             iy = 2 * ix * iy + cy;
             ix = tx;
@@ -329,7 +401,7 @@ struct SceneRenderer::Impl
             ,   coord.x
             ,   coord.y
             ,   zoom_julia
-            ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return julia(coord, center, iter);}
+            ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return mandelbrot2 (coord, center, iter);}
             );
 
         compute_set (
@@ -342,7 +414,7 @@ struct SceneRenderer::Impl
             ,   m_center.x
             ,   m_center.y
             ,   m_zoom
-            ,   [=](mtype_2 coord, mtype_2, int iter) restrict(amp) {return julia(coord, coord, iter);}
+            ,   [=](mtype_2 coord, mtype_2, int iter) restrict(amp) {return mandelbrot2 (coord, coord, iter);}
             );
 
         uint32 fps = timer.GetFramesPerSecond();
