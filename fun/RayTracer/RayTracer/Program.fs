@@ -5,22 +5,32 @@ module Util =
     let sign d = if d < 0. then -1. else 1.
     let pi = Math.PI
 
+    let clamp x min max = 
+        if x < min then min
+        elif x > max then max
+        else x
+
+    let norm x = clamp x -1. 1.
+    let unorm x = clamp x 0. 1.
+            
+
 type Color = 
     {
         Red     : double
         Green   : double
         Blue    : double
     }
-    static member New red green blue = {Red = red; Green = green; Blue = blue}
+    static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
 
 type Material = 
     {
         Color       : Color
+        Opacity     : double
         Diffusion   : double
         Refraction  : double
         Reflection  : double
     }
-    static member New color diffusion refraction reflection = {Color = color; Diffusion = diffusion; Refraction = refraction; Reflection = reflection}
+    static member New color opacity diffusion refraction reflection = {Color = color; Opacity = unorm opacity; Diffusion = unorm diffusion; Refraction = unorm refraction; Reflection = unorm reflection}
 
 type Vector2 = 
     {
@@ -38,6 +48,8 @@ type Vector2 =
     member x.Scale s    = Vector2.New (s * x.X) (s * x.Y)
     member x.L2         = x * x
     member x.L1         = sqrt x.L2
+    member x.Min y      = Vector2.New (min x.X y.X) (min x.Y y.Y)
+    member x.Max y      = Vector2.New (max x.X y.X) (max x.Y y.Y)
 
 type Vector3 = 
     {
@@ -57,7 +69,18 @@ type Vector3 =
     member x.Scale s    = Vector3.New (s * x.X) (s * x.Y) (s * x.Z)
     member x.L2         = x * x
     member x.L1         = sqrt x.L2
+    member x.Min y      = Vector3.New (min x.X y.X) (min x.Y y.Y) (min x.Z y.Z)
+    member x.Max y      = Vector3.New (max x.X y.X) (max x.Y y.Y) (max x.Z y.Z)
 
+type ViewPort = 
+    {
+        Corner          : Vector3
+        OppositeCorner  : Vector3
+    }
+    static member New (c :Vector3) (oc : Vector3) = {Corner = c.Min oc; OppositeCorner = c.Max oc}
+
+
+type Surface = Vector2 -> Material
 
 type Intersection =
     {
@@ -66,6 +89,13 @@ type Intersection =
         Material    : Material
     }
     static member New normal point material = {Normal = normal; Point = point; Material = material}
+
+type Light = 
+    {
+        Color   : Color
+        Origin  : Vector3
+    }
+    static member New color origin = {Color = color; Origin = origin}
 
 type Ray = 
     {
@@ -77,12 +107,14 @@ type Ray =
 
 
 [<AbstractClass>]
-type Shape (material: Vector2 -> Material) = 
-    member x.Material with get () = material
+type Shape (surface: Surface) = 
+    member x.Surface with get () = surface
+    member x.AsShape with get () = x
     abstract Intersect  : Ray -> Intersection option
 
-type Sphere (material: Vector2 -> Material, center : Vector3, radius : double) =
-    inherit Shape (material)
+
+type Sphere (surface: Surface, center : Vector3, radius : double) =
+    inherit Shape (surface)
 
     member x.NormalAndMaterial p =
         let n' = (p - center) 
@@ -92,7 +124,7 @@ type Sphere (material: Vector2 -> Material, center : Vector3, radius : double) =
         let x' = Vector3.New n.X center.Y center.Z
         let x = (sign (n.Z - center.Z)) * acos ((x' * y') / (x'.L1 * y'.L1)) / (2. * pi) + 0.5
 
-        let m = material <| Vector2.New x y
+        let m = base.Surface <| Vector2.New x y
 
         n,m
 
@@ -119,8 +151,8 @@ type Sphere (material: Vector2 -> Material, center : Vector3, radius : double) =
                 let n,m = x.NormalAndMaterial p
                 Some <| Intersection.New n p m
 
-type Plane (material: Vector2 -> Material, offset : double, normal : Vector3)=
-    inherit Shape (material)
+type Plane (surface: Surface, offset : double, normal : Vector3)=
+    inherit Shape (surface)
 
     let N = 
         let n = normal.L1
@@ -149,11 +181,38 @@ type Plane (material: Vector2 -> Material, offset : double, normal : Vector3)=
 
             let c = Vector2.New (X * p) (Y * p)
 
-            let m = material c
+            let m = base.Surface c
 
             Some <| Intersection.New N p m
 
+let White   = Color.New 1. 1. 1.
+let Red     = Color.New 1. 0. 0.
+let Green   = Color.New 0. 1. 0.
+let Blue    = Color.New 0. 0. 1.
+let Black   = Color.New 0. 0. 0.
+let Matte c = Material.New c 1. 1. 0. 0.
+
+let UniformSurface (material : Material) : Surface = fun v -> material
 
 [<EntryPoint>]
 let main argv = 
+
+    let lights = 
+       [
+            Light.New White (Vector3.New 2. 2. 2.)
+       ]
+
+    let world = 
+        [
+            Plane(UniformSurface <| Matte Blue, 0., Vector3.New 0. 1. 0.).AsShape
+            Sphere(UniformSurface <| Matte Red, Vector3.New 1. 1. 1., 1.).AsShape
+        ]
+
+    let eye         = Vector3.New 5. 1. 1.
+    let viewPort    = ViewPort.New (Vector3.New 4. 0. 0.) (Vector3.New 6. 2. 2.)
+
+    
+
+
+
     0
