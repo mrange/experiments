@@ -30,9 +30,9 @@ module Util =
 
 type Color = 
     {
-        Red     : double
-        Green   : double
-        Blue    : double
+        Red     : float
+        Green   : float
+        Blue    : float
     }
     static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
     member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
@@ -43,17 +43,17 @@ type Color =
 type Material = 
     {
         Color       : Color
-        Opacity     : double
-        Diffusion   : double
-        Refraction  : double
-        Reflection  : double
+        Opacity     : float
+        Diffusion   : float
+        Refraction  : float
+        Reflection  : float
     }
     static member New color opacity diffusion refraction reflection = {Color = color; Opacity = unorm opacity; Diffusion = unorm diffusion; Refraction = unorm refraction; Reflection = unorm reflection}
 
 type Vector2 = 
     {
-        X   : double
-        Y   : double
+        X   : float
+        Y   : float
     }
 
 
@@ -72,9 +72,9 @@ type Vector2 =
 
 type Vector3 = 
     {
-        X   : double
-        Y   : double
-        Z   : double
+        X   : float
+        Y   : float
+        Z   : float
     }
 
 
@@ -98,8 +98,8 @@ type ViewPort =
         Normal          : Vector3
         Axis0           : Vector3
         Axis1           : Vector3
-        Width           : double
-        Height          : double
+        Width           : float
+        Height          : float
         Corner0         : Vector3
         Corner1         : Vector3
         Corner2         : Vector3
@@ -150,7 +150,7 @@ type Ray =
         Origin      : Vector3
     }
     member x.Trace t = (x.Direction.Scale t) + x.Origin
-    static member New direction origin = {Direction = direction; Origin = origin}
+    static member New (direction : Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
 
 
 [<AbstractClass>]
@@ -160,7 +160,7 @@ type Shape (surface: Surface) =
     abstract Intersect  : Ray -> Intersection option
 
 
-type Sphere (surface: Surface, center : Vector3, radius : double) =
+type Sphere (surface: Surface, center : Vector3, radius : float) =
     inherit Shape (surface)
 
     member x.NormalAndMaterial p =
@@ -198,7 +198,7 @@ type Sphere (surface: Surface, center : Vector3, radius : double) =
                 let n,m = x.NormalAndMaterial p
                 Some <| Intersection.New n p m
 
-type Plane (surface: Surface, offset : double, normal : Vector3)=
+type Plane (surface: Surface, offset : float, normal : Vector3)=
     inherit Shape (surface)
 
     let N = normal.Normalize
@@ -236,20 +236,25 @@ let Matte c = Material.New c 1. 1. 0. 0.
 
 let UniformSurface (material : Material) : Surface = fun v -> material
 
+let trace (ray : Ray) (world : Shape[]) (lights : Light[]) (ambientLight : Color) =
+    ambientLight
+
 [<EntryPoint>]
 [<STAThread>]
 let main argv = 
 
     let lights = 
-       [
+       [|
             Light.New White (Vector3.New 2. 2. 2.)
-       ]
+       |]
 
     let world = 
-        [
+        [|
             Plane(UniformSurface <| Matte Blue, 0., Vector3.New 0. 1. 0.).AsShape
             Sphere(UniformSurface <| Matte Red, Vector3.New 1. 1. 1., 1.).AsShape
-        ]
+        |]
+
+    let ambientLight = White.Dim 0.75
 
     let eye         = Vector3.New 5. 1. 1.
     let at          = Vector3.New 0. 0. 0.
@@ -259,7 +264,6 @@ let main argv =
     let clipCenter  = eye + clipNormal.Scale clipDistance
     let fov         = degree2rad 90.
 
-    let ambientLight = White.Dim 0.75
 
    
     let window = new Window()
@@ -293,15 +297,17 @@ let main argv =
 
                 for x in 0..iwidth - 1 do
                     for y in 0..iheight - 1 do
-                        row.[y] <- White
+                        let vp = viewPort.Corner0 + viewPort.Axis0.Scale (viewPort.Width * float x / width) + viewPort.Axis1.Scale (viewPort.Height * float y / height)
+                        let ray = Ray.New (vp - eye) eye
+                        row.[y] <- trace ray world lights ambientLight
     
                     dispatch window.Dispatcher (fun () -> 
                         let pixels = 
                             [| for i in row do
-                                yield byte 255
-                                yield asByte i.Red 
-                                yield asByte i.Green
                                 yield asByte i.Blue
+                                yield asByte i.Green
+                                yield asByte i.Red 
+                                yield byte 255
                             |]
                         wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
                         )
