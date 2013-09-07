@@ -82,18 +82,20 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
         if discriminant < 0. then None
         else
             let root = sqrt discriminant
-            let t1 = (-2. * vd + root) / 2.
-            let t2 = (-2. * vd - root) / 2.
+            let t1 = -vd + root
+            let t2 = -vd - root
 
 
-            if t1 < 0. && t2 < 0. then None
+            if t1 < 0. || t2 < 0. then None
             elif t1 < t2 then Some (t1, t2)
             else Some (t2, t1)
 
     override x.Blocks r =
-        match x.ComputeIntersection r with
-        |   None -> false
-        |   Some (t1, t2) -> t2 >= 0.
+        let c = x.ComputeIntersection r
+        match c with
+        |   None                                -> false
+        |   Some (t1, t2) when t1 >= 0.         -> true
+        |   Some (t1, t2)                       -> false
 
     override x.Intersect r =
         match x.ComputeIntersection r with
