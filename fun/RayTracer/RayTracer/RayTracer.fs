@@ -33,15 +33,22 @@ type Ray =
     member x.Trace t = (x.Direction.Scale t) + x.Origin
     static member New (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
 
-type Intersection =
+[<AbstractClass>]
+type Shape (surface: Surface) = 
+    member x.Surface with get () = surface
+    member x.AsShape with get () = x
+    abstract Blocks     : Ray -> bool
+    abstract Intersect  : Ray -> Intersection option
+and Intersection =
     {
+        Shape       : Shape
         Ray         : Ray
         Distance    : float
         Normal      : Vector3
         Point       : Vector3
         Material    : Material
     }
-    static member New ray distance normal point material = {Ray = ray; Distance = distance; Normal = normal; Point = point; Material = material}
+    static member New shape ray distance normal point material = {Shape = shape; Ray = ray; Distance = distance; Normal = normal; Point = point; Material = material}
 
 type LightSource = 
     {
@@ -49,13 +56,6 @@ type LightSource =
         Origin  : Vector3
     }
     static member New color origin = {Color = color; Origin = origin}
-
-[<AbstractClass>]
-type Shape (surface: Surface) = 
-    member x.Surface with get () = surface
-    member x.AsShape with get () = x
-    abstract Intersect  : Ray -> Intersection option
-
 
 type Sphere (surface: Surface, center : Vector3, radius : float) =
     inherit Shape (surface)
@@ -72,28 +72,36 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
 
         n,m
 
-    override x.Intersect r = 
+    member x.ComputeIntersection (r :Ray) = 
         let v = r.Origin - center
-        let _2vd = 2. * (v * r.Direction)
+        let vd = v * r.Direction
         let v2 = v.L2
         let r2 = radius * radius
 
-        let discriminant = _2vd + v2 - r2
+        let discriminant = vd*vd - v2 + r2
         if discriminant < 0. then None
         else
             let root = sqrt discriminant
-            let t1 = (_2vd + root) / 2.
-            let t2 = (_2vd - root) / 2.
+            let t1 = (-2. * vd + root) / 2.
+            let t2 = (-2. * vd - root) / 2.
 
-            if t1 <= 0. && t2 <= 0. then None
-            elif t1 > 0. && t1 < t2 then 
-                let p = r.Trace t1
-                let n,m = x.NormalAndMaterial p
-                Some <| Intersection.New r t1 n p m
-            else 
-                let p = r.Trace t2
-                let n,m = x.NormalAndMaterial p
-                Some <| Intersection.New r t2 n p m
+
+            if t1 < 0. && t2 < 0. then None
+            elif t1 < t2 then Some (t1, t2)
+            else Some (t2, t1)
+
+    override x.Blocks r =
+        match x.ComputeIntersection r with
+        |   None -> false
+        |   Some (t1, t2) -> t2 >= 0.
+
+    override x.Intersect r =
+        match x.ComputeIntersection r with
+        |   None -> None
+        |   Some (t1, _) ->
+            let p = r.Trace t1
+            let n,m = x.NormalAndMaterial p
+            Some <| Intersection.New x r t1 n p m
 
 type Plane (surface: Surface, offset : float, normal : Vector3)=
     inherit Shape (surface)
@@ -104,18 +112,27 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
 
     let Y = N *+* X
 
-    override x.Intersect r = 
+    member x.ComputeIntersection (r :Ray) = 
         let t = -(r.Origin*N + offset) / (r.Direction*normal)
+        if t < 0. then None
+        else Some t
 
-        if t <= 0. then None
-        else
+    override x.Blocks r =
+        match x.ComputeIntersection r with
+        |   None   -> false
+        |   Some t -> t > 0.000001
+
+    override x.Intersect r = 
+        match x.ComputeIntersection r with
+        |   Some t  ->
             let p = r.Trace t
 
             let c = Vector2.New (X * p) (Y * p)
 
             let m = base.Surface c
 
-            Some <| Intersection.New r t N p m
+            Some <| Intersection.New x r t N p m
+        |   None    -> None
 
 type ViewPort = 
     {
@@ -135,7 +152,7 @@ type ViewPort =
         let clipNormal  = (at - eye).Normalize
         let clipCenter  = eye + clipNormal.Scale clipDistance
 
-        let width       = clipDistance / tan (fov / 2.)
+        let width       = clipDistance * tan (fov / 2.)
         let height      = width * ratio
 
         let xaxis = (up *+* clipNormal).Normalize
@@ -165,14 +182,11 @@ module RayTracerUtil =
 
     let Matte c = Material.New c 1. 1. 0. 0.
 
-    let Diffusion (i : Intersection) (shapes : Shape[]) (lights : LightSource[]) (ambientLight : Color) =
+    let Diffusion (i : Intersection) (shapes : Shape[]) (lights : LightSource[]) =
         if i.Material.Opacity > 0. && i.Material.Diffusion > 0. then
             let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
                 let lightRay = Ray.New i.Point light.Origin
-                let intersection = shape.Intersect lightRay
-                match intersection with
-                |   Some _  ->  true
-                |   _       ->  false
+                shape.Blocks lightRay
             let isLightVisible (light : LightSource) = 
                 let someShapeAreBlockLight = 
                     shapes
@@ -200,7 +214,7 @@ module RayTracerUtil =
             
 
 
-    let rec TraceImpl (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) (ambientLight : Color) = 
+    let rec TraceImpl (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 
         
         let mutable closestIntersection : Intersection option = None
         for shape in shapes do
@@ -214,11 +228,11 @@ module RayTracerUtil =
 
         match closestIntersection with
             |   Some i      ->
-                let diffusion = Diffusion i shapes lights ambientLight
+                let diffusion = Diffusion i shapes lights
 
-                diffusion.Dim i.Material.Diffusion
-            |   _           -> ambientLight
+                (diffusion.Dim i.Material.Diffusion)
+            |   _           -> Color.Zero
         
-    let Trace (ray : Ray) (world : Shape[]) (lights : LightSource[]) (ambientLight : Color) =
-        TraceImpl ray world lights ambientLight
+    let Trace (ray : Ray) (world : Shape[]) (lights : LightSource[])=
+        TraceImpl ray world lights
 

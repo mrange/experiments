@@ -22,22 +22,23 @@ let main argv =
 
     let lights = 
        [|
-            LightSource.New White (Vector3.New 2. 2. 2.)
+            LightSource.New (White.Dim 0.75) (Vector3.New 2. 3. 2.)
+            LightSource.New (White.Dim 0.25) (Vector3.New 2. 1.5 0.)
        |]
 
     let world = 
         [|
-            Plane(UniformSurface <| Matte Blue, 0., Vector3.New 0. 1. 0.).AsShape
-            Sphere(UniformSurface <| Matte Red, Vector3.New 1. 1. 1., 1.).AsShape
+            Plane(UniformSurface  <| Matte (White.Dim 0.5) , 0., Vector3.New 0. 1. 0.).AsShape
+            Sphere(UniformSurface <| Matte Red  , Vector3.New 1. 1. 1., 1.).AsShape
+            Sphere(UniformSurface <| Matte Green, Vector3.New 2. 0.25 0., 0.5).AsShape
+            Sphere(UniformSurface <| Matte Blue , Vector3.New 3. 0.25 0., 0.5).AsShape
         |]
 
-    let ambientLight = White.Dim 0.75
-
-    let eye         = Vector3.New 5. 0.5 0.
+    let eye         = Vector3.New 5. 1.5 0.
     let at          = Vector3.New 0. 0.5 0.
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 1. 0.
-    let fov         = degree2rad 90.
+    let fov         = degree2rad 120.
 
     let window = new Window()
     window.MinWidth <- 640.
@@ -45,8 +46,8 @@ let main argv =
 
 
     use loaded = window.Loaded.Subscribe (fun v -> 
-        let width   = window.Width
-        let height  = window.Height
+        let width   = window.Width / 4.
+        let height  = window.Height /4.
         let ratio   = width / height
 
         let wb = new WriteableBitmap(int width, int height, 96., 96., PixelFormats.Bgr32, null)
@@ -65,7 +66,7 @@ let main argv =
                     for y in 0..iheight - 1 do
                         let vp = viewPort.Corner3 + viewPort.Axis0.Scale (viewPort.Width * float x / width) - viewPort.Axis1.Scale (viewPort.Height * float y / height)
                         let ray = Ray.New eye vp
-                        row.[y] <- Trace ray world lights ambientLight
+                        row.[y] <- Trace ray world lights
     
                     dispatch window.Dispatcher (fun () -> 
                         let pixels = 
