@@ -31,7 +31,8 @@ type Ray =
         Origin      : Vector3
     }
     member x.Trace t = (x.Direction.Scale t) + x.Origin
-    static member New (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
+    static member FromTo (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
+    static member DirectionOrigin (direction: Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
 
 [<AbstractClass>]
 type Shape (surface: Surface) = 
@@ -86,7 +87,7 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
             let t2 = -vd - root
 
 
-            if t1 < 0. || t2 < 0. then None
+            if t1 < cutoff || t2 < cutoff then None
             elif t1 < t2 then Some (t1, t2)
             else Some (t2, t1)
 
@@ -94,7 +95,7 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
         let c = x.ComputeIntersection r
         match c with
         |   None                                -> false
-        |   Some (t1, t2) when t1 >= 0.         -> true
+        |   Some (t1, t2) when t1 >= cutoff     -> true
         |   Some (t1, t2)                       -> false
 
     override x.Intersect r =
@@ -122,7 +123,7 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
     override x.Blocks r =
         match x.ComputeIntersection r with
         |   None   -> false
-        |   Some t -> t > 0.000001
+        |   Some t -> t > cutoff
 
     override x.Intersect r = 
         match x.ComputeIntersection r with
@@ -183,58 +184,64 @@ module RayTracerUtil =
     let UniformSurface (material : Material) : Surface = fun v -> material
 
     let Matte c = Material.New c 1. 1. 0. 0.
+    let Reflective r c = Material.New c 1. (1. - r) 0. r 
 
     let Diffusion (i : Intersection) (shapes : Shape[]) (lights : LightSource[]) =
-        if i.Material.Opacity > 0. && i.Material.Diffusion > 0. then
-            let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
-                let lightRay = Ray.New i.Point light.Origin
-                shape.Blocks lightRay
-            let isLightVisible (light : LightSource) = 
-                let someShapeAreBlockLight = 
-                    shapes
-                    |> Array.exists (isShapeBlockingLight light)
-                not someShapeAreBlockLight
+        let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
+            let lightRay = Ray.FromTo i.Point light.Origin
+            shape.Blocks lightRay
+        let isLightVisible (light : LightSource) = 
+            let someShapeAreBlockLight = 
+                shapes
+                |> Array.exists (isShapeBlockingLight light)
+            not someShapeAreBlockLight
 
-            let visibleLights = 
-                lights 
-                |> Array.filter isLightVisible
+        let visibleLights = 
+            lights 
+            |> Array.filter isLightVisible
 
-            let illumination (light : LightSource) = 
-                let direction = (light.Origin - i.Point).Normalize
-                let c = direction * i.Normal
-                light.Color.Dim (c * i.Material.Diffusion)
+        let illumination (light : LightSource) = 
+            let direction = (light.Origin - i.Point).Normalize
+            let c = direction * i.Normal
+            light.Color.Dim (c * i.Material.Diffusion)
 
-            let sumOfIllumination =
-                visibleLights
-                |>  Array.map illumination
-                |>  Array.sum
+        let sumOfIllumination =
+            visibleLights
+            |>  Array.map illumination
+            |>  Array.sum
 
-            sumOfIllumination * i.Material.Color
-        else
-            i.Material.Color
+        sumOfIllumination * i.Material.Color
 
             
-
-
-    let rec TraceImpl (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 
+    let rec TraceImpl (remaining : int) (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 
+        if remaining < 1 then Color.Zero
+        else
         
-        let mutable closestIntersection : Intersection option = None
-        for shape in shapes do
-            let intersection = shape.Intersect ray
-            closestIntersection <- 
-                match intersection, closestIntersection with
-                |   Some i, Some ci when i.Distance < ci.Distance 
-                                    -> Some i
-                |   Some i, _       -> Some i
-                |   _               -> closestIntersection
+            let mutable closestIntersection : Intersection option = None
+            for shape in shapes do
+                let intersection = shape.Intersect ray
+                closestIntersection <- 
+                    match intersection, closestIntersection with
+                    |   Some i, Some ci when i.Distance < ci.Distance 
+                                        -> Some i
+                    |   Some i, _       -> Some i
+                    |   _               -> closestIntersection
 
-        match closestIntersection with
-            |   Some i      ->
-                let diffusion = Diffusion i shapes lights
+            match closestIntersection with
+                |   Some i      ->
+                    let diffusion = 
+                        if i.Material.Diffusion > 0. then Diffusion i shapes lights
+                        else Color.Zero
 
-                (diffusion.Dim i.Material.Diffusion)
-            |   _           -> Color.Zero
+                    let reflection = 
+                        if i.Material.Reflection > 0. then 
+                            let reflectRay = Ray.DirectionOrigin (ray.Direction.Reflect i.Normal) i.Point
+                            TraceImpl (remaining - 1) reflectRay shapes lights
+                        else Color.Zero
+
+                    (diffusion.Dim i.Material.Diffusion) + (reflection.Dim i.Material.Reflection)
+                |   _           -> Color.Zero
         
     let Trace (ray : Ray) (world : Shape[]) (lights : LightSource[])=
-        TraceImpl ray world lights
+        TraceImpl 4 ray world lights
 

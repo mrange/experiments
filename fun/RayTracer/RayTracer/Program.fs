@@ -29,12 +29,12 @@ let main argv =
     let world = 
         [|
             Plane(UniformSurface  <| Matte (White.Dim 0.5) , 0., Vector3.New 0. 1. 0.).AsShape
-            Sphere(UniformSurface <| Matte Red  , Vector3.New 0. 1. 0., 1.).AsShape
-            Sphere(UniformSurface <| Matte Green, Vector3.New 2. 0.25 1., 0.5).AsShape
-            Sphere(UniformSurface <| Matte Blue , Vector3.New 3. 0.25 0., 0.5).AsShape
+            Sphere(UniformSurface <| Reflective 0.40 Red  , Vector3.New 0. 1. 0., 1.).AsShape
+            Sphere(UniformSurface <| Reflective 0.40 Green, Vector3.New 2. 0.25 1., 0.5).AsShape
+            Sphere(UniformSurface <| Reflective 0.40 Blue , Vector3.New 3. 0.25 0., 0.5).AsShape
         |]
 
-    let eye         = Vector3.New 6. 3. 0.
+    let eye         = Vector3.New 6. 1. 0.
     let at          = Vector3.New 0. 1. 0.
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 1. 0.
@@ -65,7 +65,7 @@ let main argv =
                 for x in 0..iwidth - 1 do
                     for y in 0..iheight - 1 do
                         let vp = viewPort.Corner3 + viewPort.Axis0.Scale (viewPort.Width * float x / width) - viewPort.Axis1.Scale (viewPort.Height * float y / height)
-                        let ray = Ray.New eye vp
+                        let ray = Ray.FromTo eye vp
                         row.[y] <- Trace ray world lights
     
                     dispatch window.Dispatcher (fun () -> 

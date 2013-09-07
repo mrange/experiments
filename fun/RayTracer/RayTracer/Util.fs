@@ -5,6 +5,9 @@ open System.Windows.Threading
 
 [<AutoOpen>]
 module Util =
+
+    let cutoff = 0.000001
+
     let sign d = if d < 0. then -1. else 1.
     let pi = Math.PI
     let pi2 = 2. * pi

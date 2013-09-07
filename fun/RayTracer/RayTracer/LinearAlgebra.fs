@@ -24,6 +24,8 @@ type Vector2 =
     member x.Min y      = Vector2.New (min x.X y.X) (min x.Y y.Y)
     member x.Max y      = Vector2.New (max x.X y.X) (max x.Y y.Y)
 
+    member x.Reflect (n : Vector2)  = (n.Scale (2.*(x * n))) - x
+
     override x.ToString () = 
         let sb = new StringBuilder()
         sb
@@ -56,6 +58,8 @@ type Vector3 =
     member x.L1         = sqrt x.L2
     member x.Min y      = Vector3.New (min x.X y.X) (min x.Y y.Y) (min x.Z y.Z)
     member x.Max y      = Vector3.New (max x.X y.X) (max x.Y y.Y) (max x.Z y.Z)
+
+    member x.Reflect (n : Vector3)  = x - (n.Scale (2.*(x * n)))
 
     member x.ComputeNormal () = 
         if x.X <> 0. then Vector3.New (-(x.Y + x.Z) / x.X) 1. 1.
