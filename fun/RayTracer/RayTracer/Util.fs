@@ -9,8 +9,8 @@ module Util =
     let pi = Math.PI
     let pi2 = 2. * pi
 
-    let degree2rad d = d / pi2
-    let rad2degree r = r * pi2
+    let degree2rad d = pi * d / 180.
+    let rad2degree r = r * 180. / pi
 
     let clamp x min max = 
         if x < min then min

@@ -33,8 +33,8 @@ let main argv =
 
     let ambientLight = White.Dim 0.75
 
-    let eye         = Vector3.New 5. 1. 1.
-    let at          = Vector3.New 0. 0. 0.
+    let eye         = Vector3.New 5. 0.5 0.
+    let at          = Vector3.New 0. 0.5 0.
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 1. 0.
     let fov         = degree2rad 90.
@@ -63,7 +63,7 @@ let main argv =
 
                 for x in 0..iwidth - 1 do
                     for y in 0..iheight - 1 do
-                        let vp = viewPort.Corner0 + viewPort.Axis0.Scale (viewPort.Width * float x / width) + viewPort.Axis1.Scale (viewPort.Height * float y / height)
+                        let vp = viewPort.Corner3 + viewPort.Axis0.Scale (viewPort.Width * float x / width) - viewPort.Axis1.Scale (viewPort.Height * float y / height)
                         let ray = Ray.New eye vp
                         row.[y] <- Trace ray world lights ambientLight
     

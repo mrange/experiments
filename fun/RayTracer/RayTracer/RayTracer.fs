@@ -9,6 +9,7 @@ type Color =
     static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
     static member Zero = Color.New 0. 0. 0.
     static member (+) (x : Color, y : Color) = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
+    static member (*) (x : Color, y : Color) = Color.New (x.Red * y.Red) (x.Green * y.Green) (x.Blue * y.Blue)
     member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
 
 
@@ -99,14 +100,7 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
 
     let N = normal.Normalize
 
-    let X = 
-        
-        let result = 
-            if N.X <> 0. then Vector3.New (offset / N.X) 0. 0.
-            elif N.Y <> 0. then Vector3.New 0. (offset / N.Y) 0.
-            elif N.Z <> 0. then Vector3.New 0. 0. (offset / N.Z)
-            else Vector3.Zero
-        result.Normalize
+    let X = N.ComputeNormal().Normalize
 
     let Y = N *+* X
 
@@ -145,7 +139,7 @@ type ViewPort =
         let height      = width * ratio
 
         let xaxis = (up *+* clipNormal).Normalize
-        let yaxis = (up *+* xaxis).Normalize
+        let yaxis = (clipNormal *+* xaxis).Normalize
 
         let halfx       = xaxis.Scale (width / 2.)
         let halfy       = yaxis.Scale (height / 2.)
@@ -199,7 +193,7 @@ module RayTracerUtil =
                 |>  Array.map illumination
                 |>  Array.sum
 
-            sumOfIllumination
+            sumOfIllumination * i.Material.Color
         else
             i.Material.Color
 
