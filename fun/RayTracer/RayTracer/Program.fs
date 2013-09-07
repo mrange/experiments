@@ -64,7 +64,7 @@ let main argv =
                 for x in 0..iwidth - 1 do
                     for y in 0..iheight - 1 do
                         let vp = viewPort.Corner0 + viewPort.Axis0.Scale (viewPort.Width * float x / width) + viewPort.Axis1.Scale (viewPort.Height * float y / height)
-                        let ray = Ray.New (vp - eye) eye
+                        let ray = Ray.New eye vp
                         row.[y] <- Trace ray world lights ambientLight
     
                     dispatch window.Dispatcher (fun () -> 

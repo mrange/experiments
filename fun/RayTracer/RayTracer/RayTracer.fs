@@ -7,6 +7,8 @@ type Color =
         Blue    : float
     }
     static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
+    static member Zero = Color.New 0. 0. 0.
+    static member (+) (x : Color, y : Color) = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
     member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
 
 
@@ -22,13 +24,23 @@ type Material =
 
 type Surface = Vector2 -> Material
 
+type Ray = 
+    {
+        Direction   : Vector3
+        Origin      : Vector3
+    }
+    member x.Trace t = (x.Direction.Scale t) + x.Origin
+    static member New (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
+
 type Intersection =
     {
+        Ray         : Ray
+        Distance    : float
         Normal      : Vector3
         Point       : Vector3
         Material    : Material
     }
-    static member New normal point material = {Normal = normal; Point = point; Material = material}
+    static member New ray distance normal point material = {Ray = ray; Distance = distance; Normal = normal; Point = point; Material = material}
 
 type LightSource = 
     {
@@ -36,14 +48,6 @@ type LightSource =
         Origin  : Vector3
     }
     static member New color origin = {Color = color; Origin = origin}
-
-type Ray = 
-    {
-        Direction   : Vector3
-        Origin      : Vector3
-    }
-    member x.Trace t = (x.Direction.Scale t) + x.Origin
-    static member New (direction : Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
 
 [<AbstractClass>]
 type Shape (surface: Surface) = 
@@ -84,11 +88,11 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
             elif t1 > 0. && t1 < t2 then 
                 let p = r.Trace t1
                 let n,m = x.NormalAndMaterial p
-                Some <| Intersection.New n p m
+                Some <| Intersection.New r t1 n p m
             else 
                 let p = r.Trace t2
                 let n,m = x.NormalAndMaterial p
-                Some <| Intersection.New n p m
+                Some <| Intersection.New r t2 n p m
 
 type Plane (surface: Surface, offset : float, normal : Vector3)=
     inherit Shape (surface)
@@ -117,7 +121,7 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
 
             let m = base.Surface c
 
-            Some <| Intersection.New N p m
+            Some <| Intersection.New r t N p m
 
 type ViewPort = 
     {
@@ -167,6 +171,60 @@ module RayTracerUtil =
 
     let Matte c = Material.New c 1. 1. 0. 0.
 
+    let Diffusion (i : Intersection) (shapes : Shape[]) (lights : LightSource[]) (ambientLight : Color) =
+        if i.Material.Opacity > 0. && i.Material.Diffusion > 0. then
+            let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
+                let lightRay = Ray.New i.Point light.Origin
+                let intersection = shape.Intersect lightRay
+                match intersection with
+                |   Some _  ->  true
+                |   _       ->  false
+            let isLightVisible (light : LightSource) = 
+                let someShapeAreBlockLight = 
+                    shapes
+                    |> Array.exists (isShapeBlockingLight light)
+                not someShapeAreBlockLight
+
+            let visibleLights = 
+                lights 
+                |> Array.filter isLightVisible
+
+            let illumination (light : LightSource) = 
+                let direction = (light.Origin - i.Point).Normalize
+                let c = direction * i.Normal
+                light.Color.Dim (c * i.Material.Diffusion)
+
+            let sumOfIllumination =
+                visibleLights
+                |>  Array.map illumination
+                |>  Array.sum
+
+            sumOfIllumination
+        else
+            i.Material.Color
+
+            
+
+
+    let rec TraceImpl (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) (ambientLight : Color) = 
+        
+        let mutable closestIntersection : Intersection option = None
+        for shape in shapes do
+            let intersection = shape.Intersect ray
+            closestIntersection <- 
+                match intersection, closestIntersection with
+                |   Some i, Some ci when i.Distance < ci.Distance 
+                                    -> Some i
+                |   Some i, _       -> Some i
+                |   _               -> closestIntersection
+
+        match closestIntersection with
+            |   Some i      ->
+                let diffusion = Diffusion i shapes lights ambientLight
+
+                diffusion.Dim i.Material.Diffusion
+            |   _           -> ambientLight
+        
     let Trace (ray : Ray) (world : Shape[]) (lights : LightSource[]) (ambientLight : Color) =
-        ambientLight
+        TraceImpl ray world lights ambientLight
 
