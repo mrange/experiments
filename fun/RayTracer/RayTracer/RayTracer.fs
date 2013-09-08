@@ -30,7 +30,29 @@ type Ray =
         Direction   : Vector3
         Origin      : Vector3
     }
-    member x.Trace t = (x.Direction.Scale t) + x.Origin
+    member x.Trace t            = (x.Direction.Scale t) + x.Origin
+    member x.IntersectSphere (center :Vector3) (radius : float) = 
+        let v = x.Origin - center
+        let vd = v * x.Direction
+        let v2 = v.L2
+        let r2 = radius * radius
+
+        let discriminant = vd*vd - v2 + r2
+        if discriminant < 0. then None
+        else
+            let root = sqrt discriminant
+            let t1 = -vd + root
+            let t2 = -vd - root
+
+
+            if t1 < cutoff || t2 < cutoff then None
+            elif t1 < t2 then Some (t1, t2)
+            else Some (t2, t1)
+    member x.IntersectPlane (normal :Vector3) (offset : float) = 
+        let t = -(x.Origin*normal + offset) / (x.Direction*normal)
+        if t > cutoff then Some t
+        else None
+        
     static member FromTo (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
     static member DirectionOrigin (direction: Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
 
@@ -73,33 +95,15 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
 
         n,m
 
-    member x.ComputeIntersection (r :Ray) = 
-        let v = r.Origin - center
-        let vd = v * r.Direction
-        let v2 = v.L2
-        let r2 = radius * radius
-
-        let discriminant = vd*vd - v2 + r2
-        if discriminant < 0. then None
-        else
-            let root = sqrt discriminant
-            let t1 = -vd + root
-            let t2 = -vd - root
-
-
-            if t1 < cutoff || t2 < cutoff then None
-            elif t1 < t2 then Some (t1, t2)
-            else Some (t2, t1)
-
     override x.Blocks r =
-        let c = x.ComputeIntersection r
+        let c = r.IntersectSphere center radius
         match c with
         |   None                                -> false
         |   Some (t1, t2) when t1 >= cutoff     -> true
         |   Some (t1, t2)                       -> false
 
     override x.Intersect r =
-        match x.ComputeIntersection r with
+        match r.IntersectSphere center radius with
         |   None -> None
         |   Some (t1, _) ->
             let p = r.Trace t1
@@ -115,18 +119,13 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
 
     let Y = N *+* X
 
-    member x.ComputeIntersection (r :Ray) = 
-        let t = -(r.Origin*N + offset) / (r.Direction*normal)
-        if t < 0. then None
-        else Some t
-
     override x.Blocks r =
-        match x.ComputeIntersection r with
+        match r.IntersectPlane N offset with
         |   None   -> false
         |   Some t -> t > cutoff
 
     override x.Intersect r = 
-        match x.ComputeIntersection r with
+        match r.IntersectPlane N offset with
         |   Some t  ->
             let p = r.Trace t
 
@@ -222,8 +221,8 @@ module RayTracerUtil =
                 let intersection = shape.Intersect ray
                 closestIntersection <- 
                     match intersection, closestIntersection with
-                    |   Some i, Some ci when i.Distance < ci.Distance 
-                                        -> Some i
+                    |   Some i, Some ci when i.Distance > ci.Distance 
+                                        -> Some ci
                     |   Some i, _       -> Some i
                     |   _               -> closestIntersection
 

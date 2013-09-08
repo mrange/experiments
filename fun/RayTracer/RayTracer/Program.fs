@@ -28,10 +28,10 @@ let main argv =
 
     let world = 
         [|
-            Plane(UniformSurface  <| Matte (White.Dim 0.5) , 0., Vector3.New 0. 1. 0.).AsShape
-            Sphere(UniformSurface <| Reflective 0.40 Red  , Vector3.New 0. 1. 0., 1.).AsShape
-            Sphere(UniformSurface <| Reflective 0.40 Green, Vector3.New 2. 0.25 1., 0.5).AsShape
-            Sphere(UniformSurface <| Reflective 0.40 Blue , Vector3.New 3. 0.25 0., 0.5).AsShape
+            Plane(UniformSurface  <| Matte (White.Dim 0.75) , 0., Vector3.New 0. 1. 0.).AsShape
+            Sphere(UniformSurface <| Matte Red  , Vector3.New 0. 1. 0., 1.).AsShape
+            Sphere(UniformSurface <| Reflective 0.60 Green, Vector3.New 2. 0.5 1., 0.5).AsShape
+            Sphere(UniformSurface <| Reflective 0.60 Blue , Vector3.New 3. 0.5 0., 0.5).AsShape
         |]
 
     let eye         = Vector3.New 6. 1. 0.
