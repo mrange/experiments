@@ -1,4 +1,5 @@
 ﻿open System
+open System.Diagnostics
 open System.Windows
 open System.Windows.Controls
 open System.Windows.Media
@@ -40,12 +41,16 @@ let main argv =
                 Sphere(UniformSurface <| Reflective 0.50 White , Vector3.New x sphereRadius z, orbiterRadius).AsShape
         |]
 
+    let white   = Matte (White.Dim  0.75)
+    let blue    = Matte (Blue.Dim   0.75)
+    let plane   = Plane(CirclesSurface 2. white blue, 0., Vector3.New 0. 1. 0.).AsShape
+
     let placed = 
         [|
-            Plane(UniformSurface  <| Matte (White.Dim 0.75) , 0., Vector3.New 0. 1. 0.).AsShape
+            plane
             Sphere(UniformSurface <| Reflective 0.25 Red    , Vector3.New 0. sphereRadius 0., sphereRadius).AsShape
-            Sphere(UniformSurface <| Reflective 0.60 Green  , Vector3.New 2. 0.5 1., 0.5).AsShape
-            Sphere(UniformSurface <| Reflective 0.60 Blue   , Vector3.New 3. 0.5 0., 0.5).AsShape
+            Sphere(UniformSurface <| Reflective 0.25 Green  , Vector3.New 2. 0.5 1., 0.5).AsShape
+            Sphere(UniformSurface <| Reflective 0.25 Blue   , Vector3.New 3. 0.5 0., 0.5).AsShape
         |]
 
     let world = [| placed; orbiters |] |> Array.collect (fun v -> v)
@@ -86,14 +91,15 @@ let main argv =
                             let ray = Ray.FromTo eye vp
                             row.[y] <- Trace ray world lights
     
+                        let pixels = 
+                            [| for i in row do
+                                yield asByte i.Blue
+                                yield asByte i.Green
+                                yield asByte i.Red 
+                                yield byte 255
+                            |]
+
                         dispatch window.Dispatcher (fun () -> 
-                            let pixels = 
-                                [| for i in row do
-                                    yield asByte i.Blue
-                                    yield asByte i.Green
-                                    yield asByte i.Red 
-                                    yield byte 255
-                                |]
                             wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
                             )
 
@@ -106,7 +112,23 @@ let main argv =
                 |>  Async.Parallel 
                 |>  Async.Ignore
 
-        Async.Start tracer
+        let sw = Stopwatch ()
+
+        let complete = 
+            async {
+                do! tracer
+
+                dispatch window.Dispatcher (fun () -> 
+                    sw.Stop()
+                    window.Title <- sprintf "Trace took %f secs" sw.Elapsed.TotalSeconds
+                    )
+
+                return ()
+            }
+
+        sw.Start()
+
+        Async.Start complete
 
         let i = new Image ()
         i.Source <- wb

@@ -1,60 +1,5 @@
 ﻿namespace RayTracer
 
-type Color = 
-    {
-        Red     : float
-        Green   : float
-        Blue    : float
-    }
-    static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
-    static member Zero = Color.New 0. 0. 0.
-    static member (+) (x : Color, y : Color) = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
-    static member (*) (x : Color, y : Color) = Color.New (x.Red * y.Red) (x.Green * y.Green) (x.Blue * y.Blue)
-    member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
-
-
-type Material = 
-    {
-        Color       : Color
-        Opacity     : float
-        Diffusion   : float
-        Refraction  : float
-        Reflection  : float
-    }
-    static member New color opacity diffusion refraction reflection = {Color = color; Opacity = unorm opacity; Diffusion = unorm diffusion; Refraction = unorm refraction; Reflection = unorm reflection}
-
-type Surface = Vector2 -> Material
-
-type Ray = 
-    {
-        Direction   : Vector3
-        Origin      : Vector3
-    }
-    member x.Trace t            = (x.Direction.Scale t) + x.Origin
-    member x.IntersectSphere (center :Vector3) (radius : float) = 
-        let v = x.Origin - center
-        let vd = v * x.Direction
-        let v2 = v.L2
-        let r2 = radius * radius
-
-        let discriminant = vd*vd - v2 + r2
-        if discriminant < 0. then None
-        else
-            let root = sqrt discriminant
-            let t1 = -vd + root
-            let t2 = -vd - root
-
-
-            if t1 < cutoff || t2 < cutoff then None
-            elif t1 < t2 then Some (t1, t2)
-            else Some (t2, t1)
-    member x.IntersectPlane (normal :Vector3) (offset : float) = 
-        let t = -(x.Origin*normal + offset) / (x.Direction*normal)
-        if t > cutoff then Some t
-        else None
-        
-    static member FromTo (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
-    static member DirectionOrigin (direction: Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
 
 [<AbstractClass>]
 type Shape (surface: Surface) = 
@@ -180,6 +125,13 @@ type ViewPort =
 module RayTracerUtil =
 
     let UniformSurface (material : Material) : Surface = fun v -> material
+    let CirclesSurface width (onmaterial : Material) (offmaterial : Material) : Surface = 
+        fun v -> 
+            let dist = v.L1
+            let m = (int (dist / width)) % 2
+
+            if m = 0 then onmaterial
+            else offmaterial
 
     let Matte c = Material.New c 1. 1. 0. 0.
     let Reflective r c = Material.New c 1. (1. - r) 0. r 
@@ -190,27 +142,25 @@ module RayTracerUtil =
             match shape.Intersect lightRay with
             |   Some _  -> true
             |   _       -> false
+
         let isLightVisible (light : LightSource) = 
-            let someShapeAreBlockLight = 
+            let someShapesAreBlockingLight = 
                 shapes
                 |> Array.exists (isShapeBlockingLight light)
-            not someShapeAreBlockLight
-
-        let visibleLights = 
-            lights 
-            |> Array.filter isLightVisible
+            not someShapesAreBlockingLight
 
         let illumination (light : LightSource) = 
             let direction = (light.Origin - i.Point).Normalize
             let c = direction * i.Normal
             light.Color.Dim (c * i.Material.Diffusion)
 
-        let sumOfIllumination =
-            visibleLights
-            |>  Array.map illumination
-            |>  Array.sum
+        let mutable sum = Color.Zero
 
-        sumOfIllumination * i.Material.Color
+        for light in lights do
+            if isLightVisible light then
+                sum <- sum + illumination light
+
+        sum * i.Material.Color
 
             
     let rec TraceImpl (remaining : int) (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 

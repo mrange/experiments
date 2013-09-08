@@ -53,6 +53,8 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="LinearAlgebra.fs" />
+    <Compile Include="BasicTypes.fs" />
+    <Compile Include="RTree.fs" />
     <Compile Include="RayTracer.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
