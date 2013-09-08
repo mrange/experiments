@@ -63,7 +63,7 @@ let main argv =
 
     use loaded = window.Loaded.Subscribe (fun v -> 
         
-        let granularity = 1
+        let granularity = 4
 
         let width   = window.Width  / (float granularity)
         let height  = window.Height / (float granularity)
