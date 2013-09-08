@@ -77,8 +77,9 @@ type LightSource =
     {
         Color   : Color
         Origin  : Vector3
+        Radius  : float
     }
-    static member New color origin = {Color = color; Origin = origin}
+    static member New color origin radius = {Color = color; Origin = origin; Radius = radius}
 
 type Sphere (surface: Surface, center : Vector3, radius : float) =
     inherit Shape (surface)
