@@ -60,7 +60,6 @@ type Ray =
 type Shape (surface: Surface) = 
     member x.Surface with get () = surface
     member x.AsShape with get () = x
-    abstract Blocks         : Ray           -> bool
     abstract Intersect      : Ray           -> Intersection option
     abstract Intersection   : Intersection  -> IntersectionData
 and Intersection =
@@ -103,13 +102,6 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
 
         n,m
 
-    override x.Blocks r =
-        let c = r.IntersectSphere center radius
-        match c with
-        |   None                                -> false
-        |   Some (t1, t2) when t1 >= cutoff     -> true
-        |   Some (t1, t2)                       -> false
-
     override x.Intersect r =
         match r.IntersectSphere center radius with
         |   None -> None
@@ -129,11 +121,6 @@ type Plane (surface: Surface, offset : float, normal : Vector3)=
     let X = N.ComputeNormal().Normalize
 
     let Y = N *+* X
-
-    override x.Blocks r =
-        match r.IntersectPlane N offset with
-        |   None   -> false
-        |   Some t -> t > cutoff
 
     override x.Intersect r = 
         match r.IntersectPlane N offset with
@@ -200,7 +187,9 @@ module RayTracerUtil =
     let Diffusion (i : IntersectionData) (shapes : Shape[]) (lights : LightSource[]) =
         let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
             let lightRay = Ray.FromTo i.Point light.Origin
-            shape.Blocks lightRay
+            match shape.Intersect lightRay with
+            |   Some _  -> true
+            |   _       -> false
         let isLightVisible (light : LightSource) = 
             let someShapeAreBlockLight = 
                 shapes
