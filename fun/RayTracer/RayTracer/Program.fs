@@ -5,6 +5,7 @@ open System.Windows.Controls
 open System.Windows.Media
 open System.Windows.Media.Imaging
 open System.Windows.Threading
+open System.Collections.Concurrent
 
 open RayTracer
 
@@ -68,7 +69,7 @@ let main argv =
 
     use loaded = window.Loaded.Subscribe (fun v -> 
         
-        let granularity = 4
+        let granularity = 1
 
         let width   = window.Width  / (float granularity)
         let height  = window.Height / (float granularity)
@@ -80,6 +81,24 @@ let main argv =
         let iheight = wb.PixelHeight
 
         let viewPort = ViewPort.New eye at clipUp clipDistance fov ((float iheight) / (float iwidth))
+
+        let queue = ConcurrentQueue<int*byte[]>()
+
+        let e = EventHandler (fun o e-> let value = ref (0, [||])
+                                        while queue.TryDequeue(value) do
+                                            let x, pixels = !value
+                                            wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
+                                        )
+
+        let timer = 
+            DispatcherTimer(
+                TimeSpan.FromMilliseconds(20.)      ,
+                DispatcherPriority.ApplicationIdle  ,
+                e                                   ,
+                window.Dispatcher
+                )
+
+        timer.Start()
 
         let tracers = 
             seq {
@@ -99,9 +118,7 @@ let main argv =
                                 yield byte 255
                             |]
 
-                        dispatch window.Dispatcher (fun () -> 
-                            wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
-                            )
+                        queue.Enqueue(x, pixels);
 
                         return ()
                     }
