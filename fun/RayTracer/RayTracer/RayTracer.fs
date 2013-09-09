@@ -20,8 +20,16 @@ and IntersectionData =
         Normal      : Vector3
         Point       : Vector3
         Material    : Material
+        Reflect     : Ray
     }
-    static member New intersection normal point material = {Intersection = intersection; Normal = normal; Point = point; Material = material}
+    static member New intersection normal point material = 
+        {
+            Intersection    = intersection
+            Normal          = normal        
+            Point           = point 
+            Material        = material
+            Reflect         = Ray.DirectionOrigin (intersection.Ray.Direction.Reflect normal) point
+        }
 
 
 type LightSource = 
@@ -31,6 +39,15 @@ type LightSource =
         Radius  : float
     }
     static member New color origin radius = {Color = color; Origin = origin; Radius = radius}
+
+    member x.Intersect (r : Ray) =
+        match r.IntersectSphere x.Origin x.Radius with
+        |   None -> None
+        |   Some (t1, _) ->
+            let p   = r.Trace t1
+            let n'  = (p - x.Origin)
+            let n   = n'.Normalize
+            Some (p, n)
 
 type Sphere (surface: Surface, center : Vector3, radius : float) =
     inherit Shape (surface)
@@ -133,10 +150,10 @@ module RayTracerUtil =
             if m = 0 then onmaterial
             else offmaterial
 
-    let Matte c = Material.New c 1. 1. 0. 0.
-    let Reflective r c = Material.New c 1. (1. - r) 0. r 
+    let Matte c = Material.New c 1. 1. 0. 0. White
+    let Reflective r c = Material.New c 1. (1. - r) 0. r White
 
-    let Diffusion (i : IntersectionData) (shapes : Shape[]) (lights : LightSource[]) =
+    let Lightning (i : IntersectionData) (shapes : Shape[]) (lights : LightSource[]) =
         let isShapeBlockingLight (light : LightSource) (shape : Shape) = 
             let lightRay = Ray.FromTo i.Point light.Origin
             match shape.Intersect lightRay with
@@ -149,18 +166,26 @@ module RayTracerUtil =
                 |> Array.exists (isShapeBlockingLight light)
             not someShapesAreBlockingLight
 
-        let illumination (light : LightSource) = 
+        let diffuse (light : LightSource) = 
             let direction = (light.Origin - i.Point).Normalize
             let c = direction * i.Normal
             light.Color.Dim (c * i.Material.Diffusion)
 
-        let mutable sum = Color.Zero
+        let specular (light : LightSource) = 
+            match light.Intersect i.Reflect with
+            | Some (p,n)    -> light.Color.Dim (abs (n*i.Reflect.Direction))
+            | _             -> Color.Zero
+
+        let mutable sumOfDiffusion  = Color.Zero
+        let mutable sumOfSpecular   = Color.Zero
 
         for light in lights do
             if isLightVisible light then
-                sum <- sum + illumination light
+                sumOfDiffusion  <- sumOfDiffusion + diffuse light
+                sumOfSpecular   <- sumOfSpecular + specular light
 
-        sum * i.Material.Color
+
+        (sumOfDiffusion * i.Material.Color).Dim i.Material.Diffusion, (sumOfSpecular * i.Material.Specular)
 
             
     let rec TraceImpl (remaining : int) (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 
@@ -180,17 +205,16 @@ module RayTracerUtil =
             match closestIntersection with
                 |   Some i      ->
                     let id = i.Shape.Intersection i
-                    let diffusion = 
-                        if id.Material.Diffusion > 0. then Diffusion id shapes lights
-                        else Color.Zero
+                    let diffusion, specular = 
+                        if id.Material.Diffusion > 0. || id.Material.Specular > Color.Zero then Lightning id shapes lights
+                        else Color.Zero, Color.Zero
 
                     let reflection = 
                         if id.Material.Reflection > 0. then 
-                            let reflectRay = Ray.DirectionOrigin (ray.Direction.Reflect id.Normal) id.Point
-                            TraceImpl (remaining - 1) reflectRay shapes lights
+                            (TraceImpl (remaining - 1) id.Reflect shapes lights).Dim id.Material.Reflection
                         else Color.Zero
 
-                    (diffusion.Dim id.Material.Diffusion) + (reflection.Dim id.Material.Reflection)
+                    diffusion + specular + reflection
                 |   _           -> Color.Zero
         
     let Trace (ray : Ray) (world : Shape[]) (lights : LightSource[])=

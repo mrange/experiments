@@ -20,8 +20,17 @@ type Material =
         Diffusion   : float
         Refraction  : float
         Reflection  : float
+        Specular    : Color
     }
-    static member New color opacity diffusion refraction reflection = {Color = color; Opacity = unorm opacity; Diffusion = unorm diffusion; Refraction = unorm refraction; Reflection = unorm reflection}
+    static member New color opacity diffusion refraction reflection specular = 
+        {
+            Color       = color 
+            Opacity     = unorm opacity 
+            Diffusion   = unorm diffusion 
+            Refraction  = unorm refraction 
+            Reflection  = unorm reflection
+            Specular    = specular
+        }
 
 
 type Surface = Vector2 -> Material
@@ -56,4 +65,14 @@ type Ray =
         
     static member FromTo (origin : Vector3) (destination: Vector3) = {Direction = (destination - origin).Normalize; Origin = origin}
     static member DirectionOrigin (direction: Vector3) (origin : Vector3) = {Direction = direction.Normalize; Origin = origin}
+
+
+[<AutoOpen>]
+module BasicTypes =
+    let White   = Color.New 1. 1. 1.
+    let Red     = Color.New 1. 0. 0.
+    let Green   = Color.New 0. 1. 0.
+    let Blue    = Color.New 0. 0. 1.
+    let Black   = Color.New 0. 0. 0.
+
 

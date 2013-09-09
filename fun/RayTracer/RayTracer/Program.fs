@@ -10,13 +10,6 @@ open System.Collections.Concurrent
 open RayTracer
 
 
-let White   = Color.New 1. 1. 1.
-let Red     = Color.New 1. 0. 0.
-let Green   = Color.New 0. 1. 0.
-let Blue    = Color.New 0. 0. 1.
-let Black   = Color.New 0. 0. 0.
-
-
 
 [<EntryPoint>]
 [<STAThread>]
@@ -24,9 +17,9 @@ let main argv =
 
     let lights = 
        [|
-            LightSource.New (White.Dim 0.75) (Vector3.New 2. 3. 2.) 0.1
-            LightSource.New (White.Dim 0.25) (Vector3.New 5. 3. 0.) 0.1
-            LightSource.New (White.Dim 0.25) (Vector3.New -5. 6. -2.) 0.1
+            LightSource.New (White.Dim 0.75) (Vector3.New 2. 3. 2.) 0.25
+            LightSource.New (White.Dim 0.25) (Vector3.New 5. 3. 0.) 0.25
+            LightSource.New (White.Dim 0.25) (Vector3.New -5. 6. -2.) 0.25
        |]
 
     let sphereRadius    = 1.
@@ -39,7 +32,7 @@ let main argv =
                 let d = (float c) * pi2 / (float orbiterCount)
                 let x = (sphereRadius + orbiterRadius) * cos d
                 let z = (sphereRadius + orbiterRadius) * sin d
-                Sphere(UniformSurface <| Reflective 0.50 White , Vector3.New x sphereRadius z, orbiterRadius).AsShape
+                Sphere(UniformSurface <| Reflective 0.75 White , Vector3.New x sphereRadius z, orbiterRadius).AsShape
         |]
 
     let white   = Matte (White.Dim  0.75)
@@ -61,6 +54,7 @@ let main argv =
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 1. 0.
     let fov         = degree2rad 120.
+    let granularity = 1
 
     let window = new Window()
     window.MinWidth <- 640.
@@ -69,7 +63,6 @@ let main argv =
 
     use loaded = window.Loaded.Subscribe (fun v -> 
         
-        let granularity = 1
 
         let width   = window.Width  / (float granularity)
         let height  = window.Height / (float granularity)
@@ -87,12 +80,15 @@ let main argv =
         let e = EventHandler (fun o e-> let value = ref (0, [||])
                                         while queue.TryDequeue(value) do
                                             let x, pixels = !value
-                                            wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
+                                            ignore <|  wb.Lock()
+
+                                            try wb.WritePixels (Int32Rect (x, 0, 1, iheight), pixels, 4, 0)
+                                            finally wb.Unlock()
                                         )
 
         let timer = 
             DispatcherTimer(
-                TimeSpan.FromMilliseconds(20.)      ,
+                TimeSpan.FromMilliseconds(200.)      ,
                 DispatcherPriority.ApplicationIdle  ,
                 e                                   ,
                 window.Dispatcher
