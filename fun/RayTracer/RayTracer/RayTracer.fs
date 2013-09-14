@@ -53,12 +53,11 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
     inherit Shape (surface)
 
     member x.NormalAndMaterial p =
-        let n' = (p - center) 
-        let n = n'.Normalize
-        let yp = Vector3.New n.X center.Y n.Z
-        let y = (sign (n.Y - center.Y)) * acos ((yp * n) / (yp.Length * n.Length)) / pi2
-        let xp = Vector3.New n.X center.Y center.Z
-        let x = (1. / (pi * pi)) * (sign (n.Z - center.Z)) * acos ((xp * yp) / (xp.Length * yp.Length)) / pi2
+        let n   = (p - center).Normalize 
+        let lo  = asin n.Y
+        let la  = atan2 n.Z n.X
+        let x   =  la / pi
+        let y   =  2. * lo / pi
 
         let m = base.Surface <| Vector2.New x y
 
