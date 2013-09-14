@@ -35,26 +35,31 @@ let main argv =
                 Sphere(UniformSurface <| Reflective 0.75 White , Vector3.New x sphereRadius z, orbiterRadius).AsShape
         |]
 
-    let white   = Matte (White.Dim  0.75)
-    let blue    = Matte (Blue.Dim   0.75)
-    let plane   = Plane(CirclesSurface 2. white blue, 0., Vector3.New 0. 1. 0.).AsShape
+
+
+    let white           = Matte (White.Dim  0.75)
+    let blue            = Matte (Blue.Dim   0.75)
+    let planeSurface    = SquaresSurface 2. white blue
+    let sphereSurface   = GradientCirclesSurface 0.01 white (fun t -> Matte (Black.Lerp Green t))
+
+    let plane   = (Plane (planeSurface, 0., Vector3.New 0. 1. 0.)).AsShape
 
     let placed = 
         [|
             plane
-            Sphere(UniformSurface <| Reflective 0.25 Red    , Vector3.New 0. sphereRadius 0., sphereRadius).AsShape
+            Sphere(sphereSurface                            , Vector3.New 0. sphereRadius 0., sphereRadius).AsShape
             Sphere(UniformSurface <| Reflective 0.25 Green  , Vector3.New 2. 0.5 1., 0.5).AsShape
             Sphere(UniformSurface <| Reflective 0.25 Blue   , Vector3.New 3. 0.5 0., 0.5).AsShape
         |]
 
     let world = [| placed; orbiters |] |> Array.collect (fun v -> v)
 
-    let eye         = Vector3.New -1. 3. 3.
+    let eye         = Vector3.New 0. 7. 0.
     let at          = Vector3.New 0. 1. 0.
     let clipDistance= 1.
-    let clipUp      = Vector3.New 0. 1. 0.
+    let clipUp      = Vector3.New 0. 0. 1.
     let fov         = degree2rad 120.
-    let granularity = 1
+    let granularity = 4
 
     let window = new Window()
     window.MinWidth <- 640.

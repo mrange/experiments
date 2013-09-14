@@ -11,7 +11,11 @@ type Color =
     static member (+) (x : Color, y : Color) = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
     static member (*) (x : Color, y : Color) = Color.New (x.Red * y.Red) (x.Green * y.Green) (x.Blue * y.Blue)
     member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
-
+    member x.Lerp y t = 
+        let xx = Vector3.New x.Red x.Green x.Blue
+        let yy = Vector3.New y.Red y.Green y.Blue
+        let rr = xx.Lerp yy t
+        Color.New rr.X rr.Y rr.Z
 
 type Material = 
     {
@@ -69,10 +73,14 @@ type Ray =
 
 [<AutoOpen>]
 module BasicTypes =
-    let White   = Color.New 1. 1. 1.
     let Red     = Color.New 1. 0. 0.
+    let Yellow  = Color.New 1. 1. 0.
     let Green   = Color.New 0. 1. 0.
+    let Cyan    = Color.New 0. 1. 1.
     let Blue    = Color.New 0. 0. 1.
+    let Magenta = Color.New 1. 0. 1.
+
+    let White   = Color.New 1. 1. 1.
     let Black   = Color.New 0. 0. 0.
 
 

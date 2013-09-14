@@ -55,10 +55,10 @@ type Sphere (surface: Surface, center : Vector3, radius : float) =
     member x.NormalAndMaterial p =
         let n' = (p - center) 
         let n = n'.Normalize
-        let y' = Vector3.New n.X center.Y n.Z
-        let y = (sign (n.Y - center.Y)) * acos ((y' * n) / (y'.L1 * n.L1)) / pi2 + 0.5
-        let x' = Vector3.New n.X center.Y center.Z
-        let x = (sign (n.Z - center.Z)) * acos ((x' * y') / (x'.L1 * y'.L1)) / pi2 + 0.5
+        let yp = Vector3.New n.X center.Y n.Z
+        let y = (sign (n.Y - center.Y)) * acos ((yp * n) / (yp.Length * n.Length)) / pi2
+        let xp = Vector3.New n.X center.Y center.Z
+        let x = (1. / (pi * pi)) * (sign (n.Z - center.Z)) * acos ((xp * yp) / (xp.Length * yp.Length)) / pi2
 
         let m = base.Surface <| Vector2.New x y
 
@@ -142,7 +142,25 @@ type ViewPort =
 module RayTracerUtil =
 
     let UniformSurface (material : Material) : Surface = fun v -> material
+
+    let GradientCirclesSurface width (offMaterial : Material) (onMaterial : float -> Material) : Surface = 
+        fun v -> 
+            let x = atan2 v.Y v.X 
+            let dist = v.Length
+            let m = (int (dist / width)) % 2
+
+            if m = 1 then onMaterial (x / pi2 + 0.5)
+            else offMaterial
+
     let CirclesSurface width (onmaterial : Material) (offmaterial : Material) : Surface = 
+        fun v -> 
+            let dist = v.Length
+            let m = (int (dist / width)) % 2
+
+            if m = 0 then onmaterial
+            else offmaterial
+
+    let SquaresSurface width (onmaterial : Material) (offmaterial : Material) : Surface = 
         fun v -> 
             let dist = v.L1
             let m = (int (dist / width)) % 2
