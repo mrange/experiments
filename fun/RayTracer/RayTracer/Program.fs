@@ -17,9 +17,9 @@ let main argv =
 
     let lights = 
        [|
-            LightSource.New (White.Dim 0.75) (Vector3.New 2. 3. 2.) 0.25
-            LightSource.New (White.Dim 0.25) (Vector3.New 5. 3. 0.) 0.25
-            LightSource.New (White.Dim 0.25) (Vector3.New -5. 6. -2.) 0.25
+            LightSource.New (White * 0.75) (Vector3.New 2. 3. 2.) 0.25
+            LightSource.New (White * 0.25) (Vector3.New 5. 3. 0.) 0.25
+            LightSource.New (White * 0.25) (Vector3.New -5. 6. -2.) 0.25
        |]
 
     let sphereRadius    = 1.
@@ -37,8 +37,8 @@ let main argv =
 
 
 
-    let white           = Matte (White.Dim  0.75)
-    let blue            = Matte (Blue.Dim   0.75)
+    let white           = Matte (White * 0.75)
+    let blue            = Matte (Blue * 0.75)
     let planeSurface    = SquaresSurface 2. white blue
     let sphereSurface   = GradientCirclesSurface 0.01 white (fun t -> Matte (Black.Lerp Green t))
 
@@ -59,7 +59,7 @@ let main argv =
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 0. 1.
     let fov         = degree2rad 120.
-    let granularity = 4
+    let granularity = 1
 
     let window = new Window()
     window.MinWidth <- 640.
@@ -107,7 +107,7 @@ let main argv =
                     async {
                         let row = [| for i in 0..iheight - 1 -> Black|]
                         for y in 0..iheight - 1 do
-                            let vp = viewPort.Corner3 + viewPort.Axis0.Scale (viewPort.Width * float x / width) - viewPort.Axis1.Scale (viewPort.Height * float y / height)
+                            let vp = viewPort.Corner3 + viewPort.Axis0 * (viewPort.Width * float x / width) - viewPort.Axis1 * (viewPort.Height * float y / height)
                             let ray = Ray.FromTo eye vp
                             row.[y] <- Trace ray world lights
     

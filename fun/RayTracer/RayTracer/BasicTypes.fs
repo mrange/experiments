@@ -8,9 +8,12 @@ type Color =
     }
     static member New red green blue = {Red = unorm red; Green = unorm green; Blue = unorm blue}
     static member Zero = Color.New 0. 0. 0.
-    static member (+) (x : Color, y : Color) = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
-    static member (*) (x : Color, y : Color) = Color.New (x.Red * y.Red) (x.Green * y.Green) (x.Blue * y.Blue)
-    member x.Dim t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
+    static member (+) (x : Color, y : Color)    = Color.New (x.Red + y.Red) (x.Green + y.Green) (x.Blue + y.Blue)
+    static member (*) (x : Color, y : Color)    = Color.New (x.Red * y.Red) (x.Green * y.Green) (x.Blue * y.Blue)
+    static member (*) (s : float  , x : Color)  = x.Scale s
+    static member (*) (x : Color  , s : float)  = x.Scale s
+
+    member x.Scale t = Color.New (t * x.Red) (t * x.Green) (t * x.Blue)
     member x.Lerp y t = 
         let xx = Vector3.New x.Red x.Green x.Blue
         let yy = Vector3.New y.Red y.Green y.Blue
@@ -44,7 +47,7 @@ type Ray =
         Direction   : Vector3
         Origin      : Vector3
     }
-    member x.Trace t            = (x.Direction.Scale t) + x.Origin
+    member x.Trace t            = t * x.Direction + x.Origin
     member x.IntersectSphere (center :Vector3) (radius : float) = 
         let v = x.Origin - center
         let vd = v * x.Direction

@@ -113,7 +113,7 @@ type ViewPort =
 
     static member New (eye :Vector3) (at : Vector3) (up : Vector3) (clipDistance : float) (fov : double) (ratio : float) = 
         let clipNormal  = (at - eye).Normalize
-        let clipCenter  = eye + clipNormal.Scale clipDistance
+        let clipCenter  = eye + clipNormal * clipDistance
 
         let width       = clipDistance * tan (fov / 2.)
         let height      = width * ratio
@@ -121,8 +121,8 @@ type ViewPort =
         let xaxis = (up *+* clipNormal).Normalize
         let yaxis = (clipNormal *+* xaxis).Normalize
 
-        let halfx       = xaxis.Scale (width / 2.)
-        let halfy       = yaxis.Scale (height / 2.)
+        let halfx       = xaxis * (width / 2.)
+        let halfy       = yaxis * (height / 2.)
 
         {
             Center  = clipCenter
@@ -187,11 +187,11 @@ module RayTracerUtil =
         let diffuse (light : LightSource) = 
             let direction = (light.Origin - i.Point).Normalize
             let c = direction * i.Normal
-            light.Color.Dim (c * i.Material.Diffusion)
+            light.Color * c * i.Material.Diffusion
 
         let specular (light : LightSource) = 
             match light.Intersect i.Reflect with
-            | Some (p,n)    -> light.Color.Dim (abs (n*i.Reflect.Direction))
+            | Some (p,n)    -> light.Color * abs (n*i.Reflect.Direction)
             | _             -> Color.Zero
 
         let mutable sumOfDiffusion  = Color.Zero
@@ -203,7 +203,7 @@ module RayTracerUtil =
                 sumOfSpecular   <- sumOfSpecular + specular light
 
 
-        (sumOfDiffusion * i.Material.Color).Dim i.Material.Diffusion, (sumOfSpecular * i.Material.Specular)
+        sumOfDiffusion * i.Material.Color * i.Material.Diffusion, sumOfSpecular * i.Material.Specular
 
             
     let rec TraceImpl (remaining : int) (ray : Ray) (shapes : Shape[]) (lights : LightSource[]) = 
@@ -229,7 +229,7 @@ module RayTracerUtil =
 
                     let reflection = 
                         if id.Material.Reflection > 0. then 
-                            (TraceImpl (remaining - 1) id.Reflect shapes lights).Dim id.Material.Reflection
+                            (TraceImpl (remaining - 1) id.Reflect shapes lights) * id.Material.Reflection
                         else Color.Zero
 
                     diffusion + specular + reflection

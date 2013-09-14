@@ -12,8 +12,8 @@ type BoundingSphere =
         let diff    = (x.Center - bs.Center)
         let radius  = (diff.Length + x.Radius + bs.Radius) / 2.
         let diffn   = diff.Normalize
-        let max     = x.Center + diffn.Scale x.Radius
-        let center  = max - diffn.Scale radius
+        let max     = x.Center + diffn * x.Radius
+        let center  = max - diffn * radius
         BoundingSphere.New center radius
 
 
