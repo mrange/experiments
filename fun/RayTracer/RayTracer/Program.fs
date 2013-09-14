@@ -54,14 +54,14 @@ let main argv =
             Sphere(UniformSurface <| Reflective 0.25 Blue   , Vector3.New 3. 0.5 0., 0.5).AsShape
         |]
 
-    let world = [| placed; |] |> Array.collect (fun v -> v)
+    let world = [| placed; orbiters |] |> Array.collect (fun v -> v)
 
     let eye         = Vector3.New 3. 3. 3.
     let at          = Vector3.New 0. 1. 0.
     let clipDistance= 1.
     let clipUp      = Vector3.New 0. 1. 0.
     let fov         = degree2rad 120.
-    let granularity = 4
+    let granularity = 1
 
     let window = new Window()
     window.MinWidth <- 640.
