@@ -15,8 +15,293 @@ using namespace DirectX;
 using namespace Windows::Foundation;
 using namespace Windows::System;
 
+#define GPU __GPU_ONLY
+#define RAYTRACE_INLINE inline
+#define RAYTRACE_CUTOFF 0.000001F
+
 namespace
 {
+
+    // ------------------------------------------------------------------------
+    // Linear algebra
+    // ------------------------------------------------------------------------
+
+    RAYTRACE_INLINE float mad2 (float x, float y, float z) restrict (cpu)
+    {
+        return x * y  + z;
+    }
+
+    RAYTRACE_INLINE float dot (float_2 const & left, float_2 const & right) GPU
+    {
+        return mad (left.y, right.y, left.x*right.x);
+    }
+
+    RAYTRACE_INLINE float dot (float_3 const & left, float_3 const & right) GPU
+    {
+        return mad (left.z, right.z, mad (left.y, right.y, left.x*right.x));
+    }
+
+    RAYTRACE_INLINE float_3 cross (float_3 const & left, float_3 const & right) GPU
+    {
+        return float_3 (
+                mad (left.y, right.z,  -left.z * right.y)
+            ,   mad (left.z, right.x,  -left.x * right.z)
+            ,   mad (left.x, right.y,  -left.y * right.x)
+            );
+    }
+
+    RAYTRACE_INLINE float_2 scale (float_2 const & v, float scale) GPU
+    {
+        return float_2 (v.x * scale, v.y * scale);
+    }
+
+    RAYTRACE_INLINE float_3 scale (float_3 const & v, float scale) GPU
+    {
+        return float_3 (v.x * scale, v.y * scale, v.z * scale);
+    }
+
+    template<typename TVector>
+    RAYTRACE_INLINE TVector iscale (TVector const & v, float iscale) GPU
+    {
+        return scale (v, 1.0F / iscale);
+    }
+
+    template<typename TVector>
+    RAYTRACE_INLINE float l2 (TVector const & v) GPU
+    {
+        return dot (v, v);
+    }
+
+    template<typename TVector>
+    RAYTRACE_INLINE float length (TVector const & v) GPU 
+    {
+        return sqrtf (l2 (v));
+    }
+
+    template<typename TVector>
+    RAYTRACE_INLINE TVector normalize (TVector const & v) GPU 
+    {
+        return iscale (v, length (v));
+    }
+
+    // ------------------------------------------------------------------------
+    // Linear algebra
+    // ------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------
+    // Raytracer primitives
+    // ------------------------------------------------------------------------
+
+    struct material
+    {
+        unorm_4     color       ;
+        unorm_4     specular    ;
+        unorm       diffusion   ;
+        unorm       reflection  ;
+
+        RAYTRACE_INLINE material create (
+                unorm_4 const & color
+            ,   unorm_4 const & specular
+            ,   unorm   const & diffusion
+            ,   unorm   const & reflection
+            ) GPU
+        {
+            return material
+            {
+                    color
+                ,   specular
+                ,   diffusion
+                ,   reflection
+            };
+        }
+    };
+
+    struct ray
+    {
+        float_3     origin      ;
+        float_3     direction   ;   // Always unit vector
+
+        RAYTRACE_INLINE static ray from_to (float_3 from, float_3 to) GPU
+        {
+            return ray 
+            {
+                    from
+                ,   normalize (to - from)
+            };
+        }
+
+        RAYTRACE_INLINE static ray origin_direction (float_3 origin, float_3 direction) GPU
+        {
+            return ray 
+            {
+                    origin
+                ,   normalize (direction)
+            };
+        }
+
+        RAYTRACE_INLINE float_3 trace (float t) const GPU
+        {
+            return origin + t *direction;
+        }
+
+        RAYTRACE_INLINE float_2 intersect_sphere (float_3 const & center, float radius) const GPU
+        {
+            auto v  = origin - center   ;
+            auto vd = dot (v, direction);
+            auto v2 = l2 (v)            ;
+            auto r2 = radius * radius   ;
+
+            auto d  = vd * vd - v2 + r2 ;
+
+            if (d < 0.0F)
+            {
+                return float_2 ();      
+            }
+            else
+            {
+                auto root   = sqrtf (d) ;
+                auto t1     = -vd + root;
+                auto t2     = -vd - root;
+
+                if (t1 < RAYTRACE_CUTOFF || t2 < RAYTRACE_CUTOFF)
+                {
+                    return float_2 ();      
+                }
+                else if (t1 < t2)
+                {
+                    return float_2 (t1, t2);
+                }
+                else
+                {
+                    return float_2 (t2, t1);
+                }
+            }
+        }
+
+        RAYTRACE_INLINE float intersect_plane (float_3 const & normal, float offset) const GPU
+        {
+            auto t = -(dot (origin, normal) + offset) / (dot (direction, normal));
+
+            if (t < RAYTRACE_CUTOFF)
+            {
+                return 0.0F;
+            }
+            else
+            {
+                return t;
+            }
+        }
+    };
+
+    struct light_source
+    {
+        unorm_4     color       ;
+        float_3     origin      ;
+        float       radius      ;
+
+        RAYTRACE_INLINE light_source create (
+                unorm_4 const & color
+            ,   float_3 const & origin
+            ,   float           radius
+            ) GPU
+        {
+            return light_source
+            {
+                    color
+                ,   origin
+                ,   radius
+            };
+        }
+    };
+
+
+    struct shape
+    {
+        enum shape_type
+        {
+                sphere
+            ,   plane
+        };
+
+        struct sphere_data
+        {
+            float   center_x;
+            float   center_y;
+            float   center_z;
+            float   radius  ;
+        };
+
+        struct plane_data
+        {
+            float   normal_x;   // normal is unit vector
+            float   normal_y;
+            float   normal_z;
+            float   offset  ;
+        };
+
+        shape_type  type            ;
+        material    shape_material  ;
+
+        union
+        {
+            sphere_data sphere  ;
+            plane_data  plane   ;
+        }           data        ;
+
+        RAYTRACE_INLINE shape create_sphere (
+                material    const & material
+            ,   float_3     const & center
+            ,   float               radius
+            ) GPU
+        {
+            auto s = shape
+            {
+                    sphere
+                ,   material
+            };
+
+            s.data.sphere = sphere_data
+            {
+                    center.x
+                ,   center.y
+                ,   center.z
+                ,   fabs (radius)
+            };
+
+            return s;
+        }
+
+        RAYTRACE_INLINE shape create_plane (
+                material    const & material
+            ,   float_3     const & normal
+            ,   float               offset
+            ) GPU
+        {
+            auto n = normalize (normal);
+
+            auto s = shape
+            {
+                    plane
+                ,   material
+            };
+
+            s.data.plane = plane_data
+            {
+                    n.x
+                ,   n.y
+                ,   n.z
+                ,   offset
+            };
+            
+            return s;
+        }
+    };
+
+
+    // ------------------------------------------------------------------------
+    // Raytracer primitives
+    // ------------------------------------------------------------------------
+
     struct ModelViewProjectionConstantBuffer
     {
         XMFLOAT4X4 model;
@@ -67,7 +352,7 @@ namespace
         parallel_for_each (
                 av
             ,   e
-            ,   [=] (index<2> idx) restrict(amp)
+            ,   [=] (index<2> idx) restrict (amp)
             {
                 texv.set (idx,color); 
             });
