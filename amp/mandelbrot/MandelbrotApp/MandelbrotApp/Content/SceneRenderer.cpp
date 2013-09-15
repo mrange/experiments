@@ -1,8 +1,6 @@
 ﻿#include "pch.h"
 #include "SceneRenderer.h"
 
-#include "ShaderStructures.h"
-
 #include <algorithm>
 #include <utility>
 
