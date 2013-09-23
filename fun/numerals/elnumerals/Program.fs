@@ -3,31 +3,6 @@
 type Bit = 
     | ZeroBit 
     | OneBit
-    // And
-    static member inline ( * ) (l,r) = 
-        match l,r with
-        |   OneBit,OneBit   -> OneBit
-        |   _               -> ZeroBit
-    // Or
-    static member inline ( + ) (l,r) = 
-        match l,r with
-        |   ZeroBit,ZeroBit -> ZeroBit
-        |   _               -> OneBit
-    // Xor
-    static member inline ( ^^ ) (l,r) = 
-        match l,r with
-        |   ZeroBit,OneBit  -> OneBit
-        |   OneBit,ZeroBit  -> OneBit
-        |   _               -> ZeroBit
-
-// HalfAdd produces a carry bit and the sum from two bits
-let inline HalfAdd (l : Bit) (r : Bit) =
-    (l * r),(l ^^ r)
-
-// FullAdd produces a carry bit and the sum from a carry and two bits
-let inline FullAdd (carry : Bit) (l : Bit) (r : Bit) =
-    let c,ha = HalfAdd l r
-    (c + carry * (l + r)), (ha ^^ carry)
 
 // Define a natural number and related operations
 type Natural = 
@@ -46,28 +21,20 @@ type Natural =
         let bi = ToBigInt 1I x 0I
         bi.ToString ()
 
-// Expands a Natural into a tuple
-let inline (|Expand|) (v : Natural) = 
-    match v with 
-    |   ZeroPad         -> ZeroBit, ZeroPad
-    |   Slot (bit,tail) -> bit, tail
+let Zero    = ZeroPad
+let One     = Slot (OneBit, ZeroPad)
 
-let rec AddImpl (carry: Bit) (l : Natural) (r : Natural) = 
-    match carry,l,r with
-    | ZeroBit   , ZeroPad           , ZeroPad           -> ZeroPad
-    | OneBit    , ZeroPad           , ZeroPad           -> Slot (OneBit, ZeroPad)
-    | ZeroBit   , _                 , ZeroPad           -> l    // Short-cut
-    | ZeroBit   , ZeroPad           , _                 -> r    // Short-cut
-    | carry     , Expand (lb, ln)   , Expand (rb, rn)   -> 
-        let c,fa = FullAdd carry lb rb
-        Slot (fa, AddImpl c ln rn)
+let rec Add (l : Natural) (r : Natural) = 
+    match l,r with
+    | ZeroPad           , _                 -> r
+    | _                 , ZeroPad           -> l
+    | Slot (ZeroBit, lt), Slot (rb, rt)     -> Slot (rb, Add lt rt)
+    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Slot (lb, Add lt rt)
+    | Slot (_, lt)      , Slot (_, rt)      -> Slot (ZeroBit, Add (Add lt rt) One)
 
-let Add (l : Natural) (r : Natural) = AddImpl ZeroBit l r
 
 let inline ( + ) l r    = Add l r
 
-let Zero    = ZeroPad
-let One     = Slot (OneBit, ZeroPad)
 let Two     = One + One
 let Three   = One + Two  
 let Four    = One + Three
