@@ -82,6 +82,8 @@ let rec Power (l : Natural) (r : Natural) =
                                                if rb = OneBit then xx * l
                                                else xx 
 
+let inline ( ^^^ ) l r    = Power l r
+
 let Two     = One + One
 let Three   = One + Two  
 let Four    = One + Three
@@ -134,16 +136,16 @@ let main argv =
 
     printf "Testing power\n"
 
-    print (Power Zero Zero)
-    print (Power Zero One)
+    print (Zero ^^^ Zero)
+    print (Zero ^^^ One)
 
-    print (Power Zero One)
-    print (Power One One)
+    print (Zero ^^^ One)
+    print (One ^^^ One)
 
-    print (Power Two Two)
-    print (Power Two Eight)
+    print (Two ^^^ Two)
+    print (Two ^^^ Eight)
 
-    print (Power Five Three)
-    print (Power Four Three)
+    print (Five ^^^ Three)
+    print (Four ^^^ Three)
 
     0
