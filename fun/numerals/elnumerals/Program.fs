@@ -20,20 +20,67 @@ type Natural =
             
         let bi = ToBigInt 1I x 0I
         bi.ToString ()
+    
+    static member New b n = 
+        match b,n with
+        | ZeroBit, ZeroPad  -> failwith "Natural type invariant requires OneBit to precede ZeroPad"
+        | _                 -> Slot (b, n)
 
 let Zero    = ZeroPad
 let One     = Slot (OneBit, ZeroPad)
 
+// An active pattern in order to simplify pattern matching
+let (|IsZero|IsOne|IsOther|) (x : Natural) = 
+    match x with
+    |   ZeroPad                 -> IsZero
+    |   Slot (OneBit, ZeroPad)  -> IsOne
+    |   _                       -> IsOther
+
 let rec Add (l : Natural) (r : Natural) = 
     match l,r with
-    | ZeroPad           , _                 -> r
-    | _                 , ZeroPad           -> l
-    | Slot (ZeroBit, lt), Slot (rb, rt)     -> Slot (rb, Add lt rt)
-    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Slot (lb, Add lt rt)
-    | Slot (_, lt)      , Slot (_, rt)      -> Slot (ZeroBit, Add (Add lt rt) One)
-
+    | IsZero            , _                 -> r
+    | _                 , IsZero            -> l
+    | Slot (ZeroBit, lt), Slot (rb, rt)     -> Natural.New 
+                                                <| rb 
+                                                <| Add lt rt
+    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Natural.New 
+                                                <| lb
+                                                <| Add lt rt
+    | Slot (_, lt)      , Slot (_, rt)      -> Natural.New
+                                                <| ZeroBit
+                                                <| Add (Add lt rt) One
 
 let inline ( + ) l r    = Add l r
+
+let rec Multiply (l : Natural) (r : Natural) = 
+    match l,r with
+    | IsZero            , _                 -> Zero
+    | _                 , IsZero            -> Zero
+    | IsOne             , _                 -> r
+    | _                 , IsOne             -> l
+    | Slot (ZeroBit, lt), _                 -> Natural.New
+                                                <| ZeroBit
+                                                <| Multiply lt r
+    | _                 , Slot (ZeroBit, rt)-> Natural.New
+                                                <| ZeroBit
+                                                <| Multiply l rt
+    | Slot _            , Slot (_, rt)      -> let x = Natural.New
+                                                        <| ZeroBit
+                                                        <| Multiply l rt
+                                               x + l
+
+let inline ( * ) l r    = Multiply l r
+
+let rec Power (l : Natural) (r : Natural) = 
+    match l,r with
+    | _                 , IsZero            -> One  // 0 ^ 0 is defined as 1
+    | IsZero            , _                 -> Zero
+    | IsOne             , _                 -> One
+    | _                 , IsOne             -> l
+    | _                 , Slot (rb, rt)     -> let x = Power l rt
+                                               let xx = x * x
+                                               if rb = OneBit then xx * l
+                                               else xx 
 
 let Two     = One + One
 let Three   = One + Two  
@@ -50,6 +97,8 @@ let print (v : Natural) =
 [<EntryPoint>]
 let main argv = 
 
+    printf "Number 0..9\n"
+
     print Zero
     print One   
     print Two   
@@ -61,8 +110,40 @@ let main argv =
     print Eight 
     print Nine  
 
+    printf "Testing addition\n"
+
     print (Six + Nine)
     print (Two + Two)
     print (Seven + Five)
+
+    printf "Testing multiplication\n"
+
+    print (Six * Zero)
+    print (Zero * Two)
+
+    print (Six * One)
+    print (One * Two)
+
+    print (Two * Two)
+    print (Two * Three)
+    print (Three * Two)
+     
+    print (Six * Nine)
+    print (Two * Two)
+    print (Seven * Five)
+
+    printf "Testing power\n"
+
+    print (Power Zero Zero)
+    print (Power Zero One)
+
+    print (Power Zero One)
+    print (Power One One)
+
+    print (Power Two Two)
+    print (Power Two Eight)
+
+    print (Power Five Three)
+    print (Power Four Three)
 
     0
