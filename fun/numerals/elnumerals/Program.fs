@@ -96,6 +96,18 @@ let Nine    = One + Eight
 let print (v : Natural) = 
     printf "%s = %A\n" (v.ToString ()) v
  
+let TestAdd (l : Natural) (r : Natural) = 
+    let result = l + r
+    printf "%s + %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+ 
+let TestMul (l : Natural) (r : Natural) = 
+    let result = l * r
+    printf "%s * %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestPow (l : Natural) (r : Natural) = 
+    let result = l ^^^ r
+    printf "%s ^^^ %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
 [<EntryPoint>]
 let main argv = 
 
@@ -112,40 +124,31 @@ let main argv =
     print Eight 
     print Nine  
 
-    printf "Testing addition\n"
+    printf "Testing operators\n"
 
-    print (Six + Nine)
-    print (Two + Two)
-    print (Seven + Five)
+    TestAdd Six     Zero
+    TestAdd Six     Nine
+    TestAdd Two     Two
+    TestAdd Seven   Five
 
-    printf "Testing multiplication\n"
+    TestMul Six     Zero
+    TestMul Zero    Two
+    TestMul Six     One
+    TestMul One     Two
+    TestMul Two     Two
+    TestMul Two     Three
+    TestMul Three   Two
+    TestMul Six     Nine
+    TestMul Two     Two
+    TestMul Seven   Five
 
-    print (Six * Zero)
-    print (Zero * Two)
-
-    print (Six * One)
-    print (One * Two)
-
-    print (Two * Two)
-    print (Two * Three)
-    print (Three * Two)
-     
-    print (Six * Nine)
-    print (Two * Two)
-    print (Seven * Five)
-
-    printf "Testing power\n"
-
-    print (Zero ^^^ Zero)
-    print (Zero ^^^ One)
-
-    print (Zero ^^^ One)
-    print (One ^^^ One)
-
-    print (Two ^^^ Two)
-    print (Two ^^^ Eight)
-
-    print (Five ^^^ Three)
-    print (Four ^^^ Three)
+    TestPow Zero    Zero
+    TestPow Zero    One
+    TestPow Zero    One
+    TestPow One     One
+    TestPow Two     Two
+    TestPow Two     Eight
+    TestPow Five    Three
+    TestPow Four    Three
 
     0
