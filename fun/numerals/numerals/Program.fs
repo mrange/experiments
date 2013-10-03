@@ -25,9 +25,17 @@ let Nine    = Succ Eight
 let rec Add l r = 
     match r with
     |   Zero        -> l
-    |   Succ p      -> Succ (Add l p)
+    |   Succ p      -> Add (Succ l) p
 
 let inline ( + ) (l : Numeral) (r : Numeral)    = Add l r
+
+let rec Sub l r = 
+    match l,r with
+    |   _       , Zero      -> l
+    |   Zero    , _         -> failwith "Sub fails as the result would not be a natural number"
+    |   Succ l' , Succ r'   -> Sub l' r'
+
+let inline ( - ) (l : Numeral) (r : Numeral)    = Sub l r
 
 let rec Mul l r = 
     match r with
@@ -47,6 +55,10 @@ let TestAdd l r =
     let result = l + r
     printf "%s + %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
+let TestSub l r = 
+    let result = l - r
+    printf "%s - %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
 let TestMul l r = 
     let result = l * r
     printf "%s * %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
@@ -62,6 +74,11 @@ let main argv =
     TestAdd Two     One
     TestAdd Two     Two
     TestAdd Five    Seven
+    
+    TestSub Two     Zero
+    TestSub Two     One
+    TestSub Two     Two
+    TestSub Seven   Five
     
     TestAdd Zero    Two 
     TestAdd One     Two 
