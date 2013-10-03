@@ -23,7 +23,7 @@ type Natural =
     
     static member New b n = 
         match b,n with
-        | ZeroBit, ZeroPad  -> failwith "Natural type invariant requires OneBit to precede ZeroPad"
+        | ZeroBit, ZeroPad  -> ZeroPad
         | _                 -> Slot (b, n)
 
 let Zero    = ZeroPad
@@ -38,8 +38,8 @@ let (|IsZero|IsOne|IsOther|) (x : Natural) =
 
 let rec Add (l : Natural) (r : Natural) = 
     match l,r with
-    | IsZero            , _                 -> r
     | _                 , IsZero            -> l
+    | IsZero            , _                 -> r
     | Slot (ZeroBit, lt), Slot (rb, rt)     -> Natural.New 
                                                 <| rb 
                                                 <| Add lt rt
@@ -52,10 +52,26 @@ let rec Add (l : Natural) (r : Natural) =
 
 let inline ( + ) l r    = Add l r
 
+let rec Sub (l : Natural) (r : Natural) = 
+    match l,r with
+    | _                 , IsZero            -> l
+    | IsZero            , _                 -> failwith "Sub fails as the result would not be a natural number"
+    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Natural.New 
+                                                <| lb
+                                                <| Sub lt rt
+    | Slot (OneBit, lt) , Slot (OneBit, rt) -> Natural.New 
+                                                <| ZeroBit
+                                                <| Sub lt rt
+    | Slot (_, lt)      , Slot (_, rt)      -> Natural.New
+                                                <| OneBit
+                                                <| Sub (Sub lt rt) One
+
+let inline ( - ) l r    = Sub l r
+
 let rec Multiply (l : Natural) (r : Natural) = 
     match l,r with
-    | IsZero            , _                 -> Zero
     | _                 , IsZero            -> Zero
+    | IsZero            , _                 -> Zero
     | IsOne             , _                 -> r
     | _                 , IsOne             -> l
     | Slot (ZeroBit, lt), _                 -> Natural.New
@@ -100,6 +116,10 @@ let TestAdd (l : Natural) (r : Natural) =
     let result = l + r
     printf "%s + %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
  
+let TestSub (l : Natural) (r : Natural) = 
+    let result = l - r
+    printf "%s - %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+ 
 let TestMul (l : Natural) (r : Natural) = 
     let result = l * r
     printf "%s * %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
@@ -130,6 +150,11 @@ let main argv =
     TestAdd Six     Nine
     TestAdd Two     Two
     TestAdd Seven   Five
+
+    TestSub Six     Zero
+    TestSub Six     Three
+    TestSub Two     Two
+    TestSub Seven   Five
 
     TestMul Six     Zero
     TestMul Zero    Two
