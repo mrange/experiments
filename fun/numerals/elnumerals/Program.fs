@@ -1,6 +1,8 @@
 ﻿
 open System
 
+// Math from scratch, part two: zero and one
+
 // Define a bit and related operations
 type Bit = 
     | ZeroBit 
@@ -14,9 +16,11 @@ type Natural =
     | ZeroPad
     | Slot of Bit*Natural
 
+    // Math from scratch, part six: comparisons
     interface IComparable<Natural> with 
         member x.CompareTo other = Natural.CompareTo x other
 
+    // Math from scratch, part six: comparisons
     interface IComparable with 
         member x.CompareTo other = 
             match other with
@@ -35,6 +39,7 @@ type Natural =
         let bi = ToBigInt 1I x 0I
         bi.ToString ()
     
+    // Math from scratch, part six: comparisons
     static member CompareTo (l : Natural) (r : Natural) = 
         match l,r with
         |   ZeroPad         , ZeroPad       -> 0
@@ -56,6 +61,7 @@ type Natural =
         | ZeroBit, ZeroPad  -> ZeroPad
         | _                 -> Slot (b, n)
 
+// Math from scratch, part two: zero and one
 let Zero    = ZeroPad
 let One     = Slot (OneBit, ZeroPad)
 
@@ -66,6 +72,8 @@ let (|IsZero|IsOne|IsOther|) (x : Natural) =
     |   Slot (OneBit, ZeroPad)  -> IsOne
     |   _                       -> IsOther
 
+
+// Math from scratch, part three: natural addition
 let rec Add (l : Natural) (r : Natural) = 
     match l,r with
     | _                 , IsZero            -> l
@@ -82,22 +90,7 @@ let rec Add (l : Natural) (r : Natural) =
 
 let inline ( + ) l r    = Add l r
 
-let rec Sub (l : Natural) (r : Natural) = 
-    match l,r with
-    | _                 , IsZero            -> l
-    | IsZero            , _                 -> failwith "Sub fails as the result would not be a natural number"
-    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Natural.New 
-                                                <| lb
-                                                <| Sub lt rt
-    | Slot (OneBit, lt) , Slot (OneBit, rt) -> Natural.New 
-                                                <| ZeroBit
-                                                <| Sub lt rt
-    | Slot (_, lt)      , Slot (_, rt)      -> Natural.New
-                                                <| OneBit
-                                                <| Sub (Sub lt rt) One
-
-let inline ( - ) l r    = Sub l r
-
+// Math from scratch, part four: natural multiplication
 let rec Multiply (l : Natural) (r : Natural) = 
     match l,r with
     | _                 , IsZero            -> Zero
@@ -130,6 +123,24 @@ let rec Power (l : Natural) (r : Natural) =
 
 let inline ( ^^^ ) l r    = Power l r
 
+// Math from scratch, part five: natural subtraction
+let rec Sub (l : Natural) (r : Natural) = 
+    match l,r with
+    | _                 , IsZero            -> l
+    | IsZero            , _                 -> failwith "Sub fails as the result would not be a natural number"
+    | Slot (lb, lt)     , Slot (ZeroBit, rt)-> Natural.New 
+                                                <| lb
+                                                <| Sub lt rt
+    | Slot (OneBit, lt) , Slot (OneBit, rt) -> Natural.New 
+                                                <| ZeroBit
+                                                <| Sub lt rt
+    | Slot (_, lt)      , Slot (_, rt)      -> Natural.New
+                                                <| OneBit
+                                                <| Sub (Sub lt rt) One
+
+let inline ( - ) l r    = Sub l r
+
+
 let Two     = One + One
 let Three   = One + Two  
 let Four    = One + Three
@@ -140,44 +151,44 @@ let Eight   = One + Seven
 let Nine    = One + Eight
 
 let print (v : Natural) = 
-    printf "%s = %A\n" (v.ToString ()) v
+    printfn "%s = %A" (v.ToString ()) v
  
 let TestAdd (l : Natural) (r : Natural) = 
     let result = l + r
-    printf "%s + %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s + %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
  
 let TestSub (l : Natural) (r : Natural) = 
     let result = l - r
-    printf "%s - %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s - %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
  
 let TestMul (l : Natural) (r : Natural) = 
     let result = l * r
-    printf "%s * %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s * %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 let TestPow (l : Natural) (r : Natural) = 
     let result = l ^^^ r
-    printf "%s ^^^ %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s ^^^ %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 let TestEq l r = 
     let result = l = r
-    printf "%s = %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s = %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 let TestNeq l r = 
     let result = l <> r
-    printf "%s <> %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s <> %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 let TestLt l r = 
     let result = l < r
-    printf "%s < %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s < %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 let TestGt l r = 
     let result = l > r
-    printf "%s > %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+    printfn "%s > %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
 [<EntryPoint>]
 let main argv = 
 
-    printf "Number 0..9\n"
+    printfn "Number 0..9"
 
     print Zero
     print One   
@@ -190,18 +201,15 @@ let main argv =
     print Eight 
     print Nine  
 
-    printf "Testing operators\n"
+    printfn "Testing operators"
 
+    printfn "Math from scratch, part three: natural addition"
     TestAdd Six     Zero
     TestAdd Six     Nine
     TestAdd Two     Two
     TestAdd Seven   Five
 
-    TestSub Six     Zero
-    TestSub Six     Three
-    TestSub Two     Two
-    TestSub Seven   Five
-
+    printfn "Math from scratch, part four: natural multiplication"
     TestMul Six     Zero
     TestMul Zero    Two
     TestMul Six     One
@@ -222,6 +230,13 @@ let main argv =
     TestPow Five    Three
     TestPow Four    Three
 
+    printfn "Math from scratch, part five: natural subtraction"
+    TestSub Six     Zero
+    TestSub Six     Three
+    TestSub Two     Two
+    TestSub Seven   Five
+
+    printfn "Math from scratch, part six: comparisons"
     TestEq  Zero     Zero
     TestEq  Two      Two
     TestEq  One      Two
