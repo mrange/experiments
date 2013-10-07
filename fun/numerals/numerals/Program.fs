@@ -66,6 +66,10 @@ let TestMul l r =
 let TestPow l r = 
     let result = l ^^^ r
     printf "%s ^^^ %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestEq l r = 
+    let result = l = r
+    printf "%s = %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
     
 [<EntryPoint>]
 let main argv = 
@@ -100,5 +104,12 @@ let main argv =
     TestPow Two     Zero
     TestPow Two     Two
     TestPow Four    Three
+
+    TestEq Zero     Zero
+    TestEq Two      Two
+    TestEq One      Two
+    TestEq Two      One
+
+    TestEq Five     (Two + Three)
 
     0

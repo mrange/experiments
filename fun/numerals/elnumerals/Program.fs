@@ -1,14 +1,28 @@
 ﻿
+open System
+
 // Define a bit and related operations
 type Bit = 
     | ZeroBit 
     | OneBit
 
 // Define a natural number and related operations
+[<StructuralEquality>]
+// Requires us to implement IComparable but then all comparison operators works
+[<CustomComparison>]    
 type Natural = 
     | ZeroPad
     | Slot of Bit*Natural
 
+    interface IComparable<Natural> with 
+        member x.CompareTo other = Natural.CompareTo x other
+
+    interface IComparable with 
+        member x.CompareTo other = 
+            match other with
+            | :? Natural as n   -> Natural.CompareTo x n
+            | _                 -> 0
+     
     override x.ToString () =
         // For debugging reasons only
 
@@ -21,6 +35,22 @@ type Natural =
         let bi = ToBigInt 1I x 0I
         bi.ToString ()
     
+    static member CompareTo (l : Natural) (r : Natural) = 
+        match l,r with
+        |   ZeroPad         , ZeroPad       -> 0
+        |   _               , ZeroPad       -> 1
+        |   ZeroPad         , _             -> -1
+        |   Slot (lb, lt)   , Slot (rb, rt) ->
+            let compare = Natural.CompareTo lt rt
+
+            match compare, lb, rb with 
+            | -1, _         , _         -> -1
+            |  1, _         , _         ->  1
+            |  _, OneBit    , ZeroBit   ->  1
+            |  _, ZeroBit   , OneBit    ->  -1
+            |  _                        ->  0
+
+
     static member New b n = 
         match b,n with
         | ZeroBit, ZeroPad  -> ZeroPad
@@ -128,6 +158,22 @@ let TestPow (l : Natural) (r : Natural) =
     let result = l ^^^ r
     printf "%s ^^^ %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
 
+let TestEq l r = 
+    let result = l = r
+    printf "%s = %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestNeq l r = 
+    let result = l <> r
+    printf "%s <> %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestLt l r = 
+    let result = l < r
+    printf "%s < %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestGt l r = 
+    let result = l > r
+    printf "%s > %s = %s\n" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
 [<EntryPoint>]
 let main argv = 
 
@@ -175,5 +221,33 @@ let main argv =
     TestPow Two     Eight
     TestPow Five    Three
     TestPow Four    Three
+
+    TestEq  Zero     Zero
+    TestEq  Two      Two
+    TestEq  One      Two
+    TestEq  Two      One
+    TestEq  Five     (Two + Three)
+
+    TestNeq Zero     Zero
+    TestNeq Two      Two
+    TestNeq One      Two
+    TestNeq Two      One
+    TestNeq Five     (Two + Three)
+
+    TestLt  Zero     Zero
+    TestLt  Two      Two
+    TestLt  One      Two
+    TestLt  Two      One
+    TestLt  Five     (Four + Three)
+    TestLt  Seven    Nine
+    TestLt  Nine     Seven
+
+    TestGt  Zero     Zero
+    TestGt  Two      Two
+    TestGt  One      Two
+    TestGt  Two      One
+    TestGt  Five     (Four + Three)
+    TestGt  Seven    Nine
+    TestGt  Nine     Seven
 
     0
