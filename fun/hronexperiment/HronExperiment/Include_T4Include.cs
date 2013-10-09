@@ -347,10 +347,13 @@ namespace HronExperiment
         using System;
         using System.Collections;
         using System.Collections.Generic;
+        using System.Collections.Concurrent;
+        using System.Linq;
         using System.Text;
         using Source.Common;
         using Source.Extensions;
         using Source.Reflection;
+        using System.Runtime.Serialization;
     
         partial class HRONObjectParseError
         {
@@ -372,7 +375,6 @@ namespace HronExperiment
             {
                 public readonly ClassDescriptor ClassDescriptor;
                 public readonly object Value;
-                public readonly HashSet<MemberDescriptor> MembersAssignedTo;
     
                 public Item(Type type)
                     : this()
@@ -384,7 +386,6 @@ namespace HronExperiment
     
                     ClassDescriptor = type.GetClassDescriptor();
                     Value = ClassDescriptor.Creator();
-                    MembersAssignedTo = new HashSet<MemberDescriptor>();
                 }
             }
     
@@ -588,7 +589,6 @@ namespace HronExperiment
                         }
     
                         memberDescriptor.Setter(top.Value, list);
-                        top.MembersAssignedTo.Add(memberDescriptor);
                     }
     
                     var itemType = memberClassDescriptor.ListItemType;
@@ -621,16 +621,9 @@ namespace HronExperiment
                         return;
                     }
     
-                    if (top.MembersAssignedTo.Contains(memberDescriptor))
-                    {
-                        // TODO: Log?
-                        return;
-                    }
-    
                     if (IsAssignableFromString(memberDescriptor.MemberType))
                     {
                         memberDescriptor.Setter(top.Value, value);
-                        top.MembersAssignedTo.Add(memberDescriptor);
                         return;
                     }
     
@@ -647,7 +640,6 @@ namespace HronExperiment
                     }
     
                     memberDescriptor.Setter(top.Value, parsedValue);
-                    top.MembersAssignedTo.Add(memberDescriptor);
                 }
             }
     
@@ -753,12 +745,6 @@ namespace HronExperiment
                             return;
                         }
     
-                        if (top.MembersAssignedTo.Contains(memberDescriptor))
-                        {
-                            // TODO: Log?
-                            return;
-                        }
-    
                         if (IsAssignableFromString(memberDescriptor.MemberType))
                         {
                             // TODO: Log?
@@ -845,14 +831,12 @@ namespace HronExperiment
                         }
     
                         memberDescriptor.Setter(top.Value, list);
-                        top.MembersAssignedTo.Add(memberDescriptor);
                     }
     
                     list.Add(value.Value);
                 }
                 else
                 {
-                    top.MembersAssignedTo.Add(memberDescriptor);
                     memberDescriptor.Setter(top.Value, value.Value);
                 }
             }
@@ -865,6 +849,42 @@ namespace HronExperiment
     
         static partial class HRONSerializer
         {
+            sealed partial class CD 
+            {
+                public CD (Type type)
+                {
+                    ClassDescriptor = type.GetClassDescriptor ();
+
+                    var isDataContract = ClassDescriptor.Attributes.Any (a => a is DataContractAttribute);
+
+                    if (isDataContract)
+                    {
+                        SerializableMembers = ClassDescriptor
+                            .PublicGetMembers
+                            .Where (m => m.Attributes.Any (a => a is DataMemberAttribute))
+                            .ToArray ()
+                            ;
+                    }
+                    else
+                    {
+                        SerializableMembers = ClassDescriptor.PublicGetMembers;
+                    }
+
+                }
+
+                public readonly ClassDescriptor     ClassDescriptor     ;
+                public readonly MemberDescriptor[]  SerializableMembers ;
+            }
+
+            static readonly ConcurrentDictionary<Type, CD> s_cache = new ConcurrentDictionary<Type, CD> ();
+
+            static readonly Func<Type, CD> s_createCD = t => new CD(t);
+
+            static CD GetCD (this Type type)
+            {
+                return s_cache.GetOrAdd (type ?? typeof (object), s_createCD);
+            }
+
             public static bool TryParseObject<T>(
                 int maxErrorCount,
                 IEnumerable<SubString> lines,
@@ -909,7 +929,8 @@ namespace HronExperiment
                 }
         
                 var type = value.GetType();
-                var classDescriptor = type.GetClassDescriptor();
+                var cd = type.GetCD();
+                var classDescriptor = cd.ClassDescriptor;
         
                 if (classDescriptor.IsDictionaryLike)
                 {
@@ -935,9 +956,9 @@ namespace HronExperiment
                 }
                 else
                 {
-                    for (var index = 0; index < classDescriptor.PublicGetMembers.Length; index++)
+                    for (var index = 0; index < cd.SerializableMembers.Length; index++)
                     {
-                        var mi = classDescriptor.PublicGetMembers[index];
+                        var mi = cd.SerializableMembers[index];
                         var memberName = mi.Name.ToSubString();
                         var memberValue = mi.Getter(value);
                         VisitMember(memberName, memberValue, visitor, omitIfNullOrEmpty);
@@ -957,7 +978,8 @@ namespace HronExperiment
                     return;
                 }
         
-                var classDescriptor = memberValue.GetType().GetClassDescriptor();
+                var cd = memberValue.GetType().GetCD();
+                var classDescriptor = cd.ClassDescriptor;
         
                 if (classDescriptor.IsDictionaryLike)
                 {
