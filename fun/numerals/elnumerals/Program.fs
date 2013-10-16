@@ -140,6 +140,21 @@ let rec Sub (l : Natural) (r : Natural) =
 
 let inline ( - ) l r    = Sub l r
 
+// Math from scratch, part seven: division and remainder
+let rec DivMod (l : Natural) (r : Natural) = 
+    match l,r with
+    | _                 , IsZero            -> failwith "DivMod fails as the divider is Zero"
+    | IsZero            , _                 -> Zero,Zero
+    | _                 , IsOne             -> l,Zero
+    | _                 , _     when l = r  -> One,Zero
+    | _                 , _     when l < r  -> Zero,l
+    | Slot (lb, lt)     , _                 -> let q,rem = DivMod lt r
+                                               let q' = Slot (ZeroBit, q)
+                                               let rem' = Slot (lb, rem)
+                                               if rem' < r then q',rem'
+                                               else (q' + One), (rem' - r)
+
+let inline ( /% ) l r   = DivMod l r
 
 let Two     = One + One
 let Three   = One + Two  
@@ -184,6 +199,10 @@ let TestLt l r =
 let TestGt l r = 
     let result = l > r
     printfn "%s > %s = %s" (l.ToString ()) (r.ToString ()) (result.ToString ())
+
+let TestDivmod (l : Natural) (r : Natural) = 
+    let q,rem = l /% r
+    printfn "%s / %s = %s,%s" (l.ToString ()) (r.ToString ()) (q.ToString ()) (rem.ToString ())
 
 [<EntryPoint>]
 let main argv = 
@@ -264,5 +283,14 @@ let main argv =
     TestGt  Five     (Four + Three)
     TestGt  Seven    Nine
     TestGt  Nine     Seven
+
+    printfn "Math from scratch, part seven: division and remainder"
+
+    TestDivmod  One             One
+    TestDivmod  Two             One
+    TestDivmod  Two             Three
+    TestDivmod  Nine            Three
+    TestDivmod  (Nine * Nine)   Nine
+    TestDivmod  (Six * Seven)   Five
 
     0
