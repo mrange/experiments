@@ -148,9 +148,10 @@ let rec DivMod (l : Natural) (r : Natural) =
     | _                 , IsOne             -> l,Zero
     | _                 , _     when l = r  -> One,Zero
     | _                 , _     when l < r  -> Zero,l
-    | Slot (lb, lt)     , _                 -> let q,rem = DivMod lt r
-                                               let q' = Slot (ZeroBit, q)
-                                               let rem' = Slot (lb, rem)
+    | Slot (lb, lt)     , _                 -> let q,rem    = DivMod lt r
+                                               let q'       = Natural.New ZeroBit   q
+                                               let rem'     = Natural.New lb        rem
+
                                                if rem' < r then q',rem'
                                                else (q' + One), (rem' - r)
 
