@@ -340,7 +340,7 @@ namespace
 
 namespace
 {
-    struct ModelViewProjectionConstantBuffer
+    struct ModelViewProjection
     {
         XMFLOAT4X4 model;
         XMFLOAT4X4 view;
@@ -385,6 +385,11 @@ namespace
         com_ptr<ID3D11PixelShader       >   pixel_shader            ;
         com_ptr<ID3D11InputLayout       >   input_layout            ;
 
+        com_ptr<ID3D11SamplerState      >   sampler                 ;
+
+        com_ptr<ID3D11Texture2D         >   texture                 ;
+        com_ptr<ID3D11ShaderResourceView>   texture_view            ;
+
         com_ptr<ID3D11Buffer            >   view_buffer             ;
         com_ptr<ID3D11Buffer            >   vertex_buffer           ;
     };
@@ -393,7 +398,7 @@ namespace
     {
         typedef std::unique_ptr<size_dependent_resources>       ptr ;
 
-        ModelViewProjectionConstantBuffer   view                    ;
+        ModelViewProjection                 view                    ;
     };
     
     device_independent_resources::ptr   dir ;
@@ -531,70 +536,51 @@ HRESULT init_device ()
     UINT width = rc.right - rc.left;
     UINT height = rc.bottom - rc.top;
 
-    UINT createDeviceFlags = 0;
+    {
+        UINT createDeviceFlags = 0;
 #ifdef _DEBUG
-    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+        createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-    D3D_DRIVER_TYPE driverTypes[] =
-    {
-        D3D_DRIVER_TYPE_HARDWARE,
-        D3D_DRIVER_TYPE_WARP,
-        D3D_DRIVER_TYPE_REFERENCE,
-    };
-    UINT numDriverTypes = ARRAYSIZE (driverTypes);
-
-    D3D_FEATURE_LEVEL featureLevels[] =
-    {
-        D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
-    };
-	UINT numFeatureLevels = ARRAYSIZE (featureLevels);
-
-    DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory (&sd, sizeof (sd));
-    sd.BufferCount                          = 1                                 ;
-    sd.BufferDesc.Width                     = width                             ;
-    sd.BufferDesc.Height                    = height                            ;
-    sd.BufferDesc.Format                    = DXGI_FORMAT_R8G8B8A8_UNORM        ;
-    sd.BufferDesc.RefreshRate.Numerator     = 60                                ;
-    sd.BufferDesc.RefreshRate.Denominator   = 1                                 ;
-    sd.BufferUsage                          = DXGI_USAGE_RENDER_TARGET_OUTPUT   ;
-    sd.OutputWindow                         = dir->hwnd                         ;
-    sd.SampleDesc.Count                     = 1                                 ;
-    sd.SampleDesc.Quality                   = 0                                 ;
-    sd.Windowed                             = TRUE                              ;
-
-    for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; ++driverTypeIndex)
-    {
-        ddr->driver_type = driverTypes[driverTypeIndex];
-        HRESULT create_hr = D3D11CreateDeviceAndSwapChain (
-                nullptr
-            ,   ddr->driver_type 
-            ,   nullptr
-            ,   createDeviceFlags
-            ,   featureLevels
-            ,   numFeatureLevels
-            ,   D3D11_SDK_VERSION
-            ,   &sd
-            ,   ddr->swap_chain.get_out_ptr ()
-            ,   ddr->device.get_out_ptr ()
-            ,   &ddr->feature_level
-            ,   ddr->device_context.get_out_ptr ()
-            );
-
-        if (create_hr == E_INVALIDARG)
+        D3D_DRIVER_TYPE driverTypes[] =
         {
-            // DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
-            create_hr = D3D11CreateDeviceAndSwapChain ( 
+            D3D_DRIVER_TYPE_HARDWARE,
+            D3D_DRIVER_TYPE_WARP,
+            D3D_DRIVER_TYPE_REFERENCE,
+        };
+
+        D3D_FEATURE_LEVEL featureLevels[] =
+        {
+            D3D_FEATURE_LEVEL_11_1,
+            D3D_FEATURE_LEVEL_11_0,
+            D3D_FEATURE_LEVEL_10_1,
+            D3D_FEATURE_LEVEL_10_0,
+        };
+
+        DXGI_SWAP_CHAIN_DESC sd;
+        ZeroMemory (&sd, sizeof (sd));
+        sd.BufferCount                          = 1                                 ;
+        sd.BufferDesc.Width                     = width                             ;
+        sd.BufferDesc.Height                    = height                            ;
+        sd.BufferDesc.Format                    = DXGI_FORMAT_R8G8B8A8_UNORM        ;
+        sd.BufferDesc.RefreshRate.Numerator     = 60                                ;
+        sd.BufferDesc.RefreshRate.Denominator   = 1                                 ;
+        sd.BufferUsage                          = DXGI_USAGE_RENDER_TARGET_OUTPUT   ;
+        sd.OutputWindow                         = dir->hwnd                         ;
+        sd.SampleDesc.Count                     = 1                                 ;
+        sd.SampleDesc.Quality                   = 0                                 ;
+        sd.Windowed                             = TRUE                              ;
+
+        for (UINT driverTypeIndex = 0; driverTypeIndex < ARRAYSIZE (driverTypes); ++driverTypeIndex)
+        {
+            ddr->driver_type = driverTypes[driverTypeIndex];
+            HRESULT create_hr = D3D11CreateDeviceAndSwapChain (
                     nullptr
                 ,   ddr->driver_type 
                 ,   nullptr
                 ,   createDeviceFlags
-                ,   &featureLevels[1]
-                ,   numFeatureLevels - 1
+                ,   featureLevels
+                ,   ARRAYSIZE (featureLevels)
                 ,   D3D11_SDK_VERSION
                 ,   &sd
                 ,   ddr->swap_chain.get_out_ptr ()
@@ -602,122 +588,144 @@ HRESULT init_device ()
                 ,   &ddr->feature_level
                 ,   ddr->device_context.get_out_ptr ()
                 );
+
+            if (create_hr == E_INVALIDARG)
+            {
+                // DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
+                create_hr = D3D11CreateDeviceAndSwapChain ( 
+                        nullptr
+                    ,   ddr->driver_type 
+                    ,   nullptr
+                    ,   createDeviceFlags
+                    ,   &featureLevels[1]
+                    ,   ARRAYSIZE (featureLevels) - 1
+                    ,   D3D11_SDK_VERSION
+                    ,   &sd
+                    ,   ddr->swap_chain.get_out_ptr ()
+                    ,   ddr->device.get_out_ptr ()
+                    ,   &ddr->feature_level
+                    ,   ddr->device_context.get_out_ptr ()
+                    );
+            }
+
+            if (SUCCEEDED (create_hr))
+            {
+                break;
+            }
         }
 
-        if (SUCCEEDED (create_hr))
+        // Create a render target view
         {
-            break;
+            TEST_HR ddr->swap_chain->GetBuffer ( 
+                    0
+                ,   __uuidof (ID3D11Texture2D)
+                ,   ddr->back_buffer.get_out_ptr ()
+                );
+
+            TEST_HR ddr->device->CreateRenderTargetView (
+                    ddr->back_buffer.get ()
+                ,   nullptr
+                ,   ddr->render_target_view.get_out_ptr ()
+                );
         }
     }
 
-    // Create a render target view
     {
-        TEST_HR ddr->swap_chain->GetBuffer ( 
-                0
-            ,   __uuidof (ID3D11Texture2D)
-            ,   ddr->back_buffer.get_out_ptr ()
-            );
+        ID3D11RenderTargetView * render_targets[] =
+        {
+            ddr->render_target_view.get (),
+        };
 
-        TEST_HR ddr->device->CreateRenderTargetView (
-                ddr->back_buffer.get ()
+        ddr->device_context->OMSetRenderTargets (
+                ARRAYSIZE (render_targets)
+            ,   render_targets
             ,   nullptr
-            ,   ddr->render_target_view.get_out_ptr ()
             );
+
+        // Setup the viewport
+        D3D11_VIEWPORT vp               ;
+        vp.Width        = (FLOAT)width  ;
+        vp.Height       = (FLOAT)height ;
+        vp.MinDepth     = 0.0f          ;
+        vp.MaxDepth     = 1.0f          ;
+        vp.TopLeftX     = 0             ;
+        vp.TopLeftY     = 0             ;
+
+        ddr->device_context->RSSetViewports (1, &vp);
     }
 
-    ID3D11RenderTargetView * render_targets[] =
+    // Load shaders
     {
-        ddr->render_target_view.get (),
-    };
+        auto vertex_shader_bytes= load_bytes (L"SceneVertexShader.cso");
+        auto pixel_bytes        = load_bytes (L"ScenePixelShader.cso");
 
-    ddr->device_context->OMSetRenderTargets (
-            ARRAYSIZE (render_targets)
-        ,   render_targets
-        ,   nullptr
-        );
+        if (vertex_shader_bytes.empty ())
+        {
+            return E_FAIL;
+        }
 
-    // Setup the viewport
-    D3D11_VIEWPORT vp               ;
-    vp.Width        = (FLOAT)width  ;
-    vp.Height       = (FLOAT)height ;
-    vp.MinDepth     = 0.0f          ;
-    vp.MaxDepth     = 1.0f          ;
-    vp.TopLeftX     = 0             ;
-    vp.TopLeftY     = 0             ;
+        if (pixel_bytes.empty ())
+        {
+            return E_FAIL;
+        }
 
-    ddr->device_context->RSSetViewports (1, &vp);
+        TEST_HR ddr->device->CreateVertexShader (
+                &vertex_shader_bytes.front ()
+            ,   vertex_shader_bytes.size ()
+            ,   nullptr
+            ,   ddr->vertex_shader.get_out_ptr ()
+            );
 
-    auto vertex_shader_bytes= load_bytes (L"SceneVertexShader.cso");
-    auto pixel_bytes        = load_bytes (L"ScenePixelShader.cso");
+	    TEST_HR ddr->device->CreatePixelShader( 
+                &pixel_bytes.front ()
+            ,   pixel_bytes.size ()
+            ,   nullptr
+            ,   ddr->pixel_shader.get_out_ptr ()
+            );
 
-    if (vertex_shader_bytes.empty ())
-    {
-        return E_FAIL;
+        // Define the input layout
+        static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        // Create the input layout
+	    TEST_HR ddr->device->CreateInputLayout ( 
+                vertexDesc
+            ,   ARRAYSIZE (vertexDesc)
+            ,   &vertex_shader_bytes.front ()
+            ,   vertex_shader_bytes.size ()
+            ,   ddr->input_layout.get_out_ptr ()
+            );
+
+        // Set the input layout
+        ddr->device_context->IASetInputLayout (ddr->input_layout.get ());
     }
-
-    if (pixel_bytes.empty ())
-    {
-        return E_FAIL;
-    }
-
-    TEST_HR ddr->device->CreateVertexShader (
-            &vertex_shader_bytes.front ()
-        ,   vertex_shader_bytes.size ()
-        ,   nullptr
-        ,   ddr->vertex_shader.get_out_ptr ()
-        );
-
-	TEST_HR ddr->device->CreatePixelShader( 
-            &pixel_bytes.front ()
-        ,   pixel_bytes.size ()
-        ,   nullptr
-        ,   ddr->pixel_shader.get_out_ptr ()
-        );
-
-    // Define the input layout
-    static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
-
-    // Create the input layout
-	TEST_HR ddr->device->CreateInputLayout ( 
-            vertexDesc
-        ,   ARRAYSIZE (vertexDesc)
-        ,   &vertex_shader_bytes.front ()
-        ,   vertex_shader_bytes.size ()
-        ,   ddr->input_layout.get_out_ptr ()
-        );
-
-    // Set the input layout
-    ddr->device_context->IASetInputLayout (ddr->input_layout.get ());
 
     // Create vertex buffer
-    MandelbrotPos vertices[] =
     {
-        {XMFLOAT3 (-1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
-        {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
-        {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
-        {XMFLOAT3 (-1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
+        MandelbrotPos vertices[] =
+        {
+            {XMFLOAT3 (-1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
+            {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
+            {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
+            {XMFLOAT3 (-1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
                                                                             
-        {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
-        {XMFLOAT3 ( 1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
-        {XMFLOAT3 ( 1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
-        {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
-    };
+            {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
+            {XMFLOAT3 ( 1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
+            {XMFLOAT3 ( 1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
+            {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
+        };
 
-    {
-        CD3D11_BUFFER_DESC viewBufferDesc (sizeof (ModelViewProjectionConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
+        CD3D11_BUFFER_DESC viewBufferDesc (sizeof (ModelViewProjection), D3D11_BIND_CONSTANT_BUFFER);
         TEST_HR ddr->device->CreateBuffer (
                 &viewBufferDesc
             ,   nullptr
             ,   ddr->view_buffer.get_out_ptr ()
             );
-    }
 
-    {
         D3D11_SUBRESOURCE_DATA vertexBufferData     = {0}       ;
         vertexBufferData.pSysMem                    = vertices  ;
         vertexBufferData.SysMemPitch                = 0         ;
@@ -732,27 +740,83 @@ HRESULT init_device ()
             ,   &vertexBufferData
             ,   ddr->vertex_buffer.get_out_ptr ()
             );
+
+        ID3D11Buffer* buffers[] =
+        {
+            ddr->vertex_buffer.get (),
+        };
+
+        // Set vertex buffer
+        UINT stride = sizeof (MandelbrotPos);
+        UINT offset = 0;
+        ddr->device_context->IASetVertexBuffers ( 
+                0
+            ,   ARRAYSIZE (buffers)
+            ,   buffers
+            ,   &stride
+            ,   &offset 
+            );
+
+        // Set primitive topology
+        ddr->device_context->IASetPrimitiveTopology (D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     }
 
-    ID3D11Buffer* buffers[] =
     {
-        ddr->vertex_buffer.get (),
-    };
+        D3D11_SAMPLER_DESC samplerDesc                  = {};
 
-    // Set vertex buffer
-    UINT stride = sizeof (MandelbrotPos);
-    UINT offset = 0;
-    ddr->device_context->IASetVertexBuffers ( 
-            0
-        ,   ARRAYSIZE (buffers)
-        ,   buffers
-        ,   &stride
-        ,   &offset 
-        );
+        samplerDesc.Filter                              = D3D11_FILTER_MIN_MAG_MIP_LINEAR       ;
+        samplerDesc.MaxAnisotropy                       = 0                                     ;
+        samplerDesc.AddressU                            = D3D11_TEXTURE_ADDRESS_WRAP            ;
+        samplerDesc.AddressV                            = D3D11_TEXTURE_ADDRESS_WRAP            ;
+        samplerDesc.AddressW                            = D3D11_TEXTURE_ADDRESS_WRAP            ;
+        samplerDesc.MipLODBias                          = 0.0f                                  ;
+        samplerDesc.MinLOD                              = 0                                     ;
+        samplerDesc.MaxLOD                              = D3D11_FLOAT32_MAX                     ;
+        samplerDesc.ComparisonFunc                      = D3D11_COMPARISON_NEVER                ;
+        samplerDesc.BorderColor[0]                      = 0.0f                                  ;
+        samplerDesc.BorderColor[1]                      = 0.0f                                  ;
+        samplerDesc.BorderColor[2]                      = 0.0f                                  ;
+        samplerDesc.BorderColor[3]                      = 0.0f                                  ;
 
-    // Set primitive topology
-    ddr->device_context->IASetPrimitiveTopology (D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        TEST_HR ddr->device->CreateSamplerState(
+                &samplerDesc
+            ,   ddr->sampler.get_out_ptr ()
+            );
+    }
 
+    {
+        D3D11_TEXTURE2D_DESC textureDesc    = {}                        ;
+        textureDesc.Width                   = 256                       ;
+        textureDesc.Height                  = 256                       ;
+        textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.Usage                   = D3D11_USAGE_DEFAULT       ;
+        textureDesc.CPUAccessFlags          = 0                         ;
+        textureDesc.MiscFlags               = 0                         ;
+        textureDesc.MipLevels               = 1                         ;
+        textureDesc.ArraySize               = 1                         ;
+        textureDesc.SampleDesc.Count        = 1                         ;
+        textureDesc.SampleDesc.Quality      = 0                         ;
+        textureDesc.BindFlags               = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS ;
+
+        TEST_HR ddr->device->CreateTexture2D (
+                    &textureDesc
+                ,   nullptr
+                ,   ddr->texture.get_out_ptr ()
+                );
+
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC textureViewDesc = {}                            ;
+        textureViewDesc.Format                          = textureDesc.Format            ;
+        textureViewDesc.ViewDimension                   = D3D11_SRV_DIMENSION_TEXTURE2D ;
+        textureViewDesc.Texture2D.MipLevels             = textureDesc.MipLevels         ;
+        textureViewDesc.Texture2D.MostDetailedMip       = 0                             ;
+
+        TEST_HR ddr->device->CreateShaderResourceView(
+                    ddr->texture.get()
+                ,   &textureViewDesc
+                ,   ddr->texture_view.get_out_ptr ()
+                );
+    }
 
     // Size dependent resources
 
@@ -822,14 +886,59 @@ void render ()
     {
         return;
     }
+    
+    if (!sdr)
+    {
+        return;
+    }
+
+    ddr->device_context->UpdateSubresource(
+            ddr->view_buffer.get ()
+        ,   0
+        ,   nullptr
+        ,   &sdr->view
+        ,   0
+        ,   0
+        );
 
     // Clear the back buffer 
     ddr->device_context->ClearRenderTargetView (ddr->render_target_view.get (), Colors::MidnightBlue);
 
-    // render a triangle
 	ddr->device_context->VSSetShader (ddr->vertex_shader.get (), nullptr, 0);
+
+    ID3D11Buffer* vs_buffers[] =
+    {
+        ddr->view_buffer.get ()   ,
+    };
+    ddr->device_context->VSSetConstantBuffers(
+            0
+        ,   ARRAYSIZE (vs_buffers)
+        ,   vs_buffers
+        );
+
 	ddr->device_context->PSSetShader (ddr->pixel_shader.get (), nullptr, 0);
-    ddr->device_context->Draw (3, 0);
+
+    ID3D11ShaderResourceView* ps_shader_resources[] =
+    {
+        ddr->texture_view.get ()    ,
+    };
+    ddr->device_context->PSSetShaderResources (
+            0
+        ,   ARRAYSIZE (ps_shader_resources)
+        ,   ps_shader_resources
+        );
+
+    ID3D11SamplerState* ps_sampler_state[] =
+    {
+        ddr->sampler.get ()    ,
+    };
+    ddr->device_context->PSSetSamplers (
+            0
+        ,   ARRAYSIZE (ps_sampler_state)
+        ,   ps_sampler_state
+        );
+
+    ddr->device_context->Draw (8, 0);
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     ddr->swap_chain->Present (0, 0);

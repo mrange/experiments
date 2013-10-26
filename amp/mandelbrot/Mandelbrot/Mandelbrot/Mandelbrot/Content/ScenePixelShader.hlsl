@@ -16,6 +16,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     float4 texelColor       = simpleTexture.Sample(simpleSampler, input.tex);
     float lightMagnitude    = 0.5f * saturate(dot( input.norm, -lightDirection)) + 0.5f;
 
-    return texelColor * lightMagnitude;
+//    return texelColor * lightMagnitude;
 //    return texelColor;
+    return 1;
 }
