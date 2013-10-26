@@ -390,8 +390,9 @@ namespace
         com_ptr<ID3D11Texture2D         >   texture                 ;
         com_ptr<ID3D11ShaderResourceView>   texture_view            ;
 
-        com_ptr<ID3D11Buffer            >   view_buffer             ;
         com_ptr<ID3D11Buffer            >   vertex_buffer           ;
+        com_ptr<ID3D11Buffer            >   index_buffer            ;
+        com_ptr<ID3D11Buffer            >   view_buffer             ;
     };
 
     struct size_dependent_resources
@@ -700,8 +701,6 @@ HRESULT init_device ()
             ,   ddr->input_layout.get_out_ptr ()
             );
 
-        // Set the input layout
-        ddr->device_context->IASetInputLayout (ddr->input_layout.get ());
     }
 
     // Create vertex buffer
@@ -740,27 +739,34 @@ HRESULT init_device ()
             ,   &vertexBufferData
             ,   ddr->vertex_buffer.get_out_ptr ()
             );
-
-        ID3D11Buffer* buffers[] =
-        {
-            ddr->vertex_buffer.get (),
-        };
-
-        // Set vertex buffer
-        UINT stride = sizeof (MandelbrotPos);
-        UINT offset = 0;
-        ddr->device_context->IASetVertexBuffers ( 
-                0
-            ,   ARRAYSIZE (buffers)
-            ,   buffers
-            ,   &stride
-            ,   &offset 
-            );
-
-        // Set primitive topology
-        ddr->device_context->IASetPrimitiveTopology (D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     }
 
+    {
+        // Load mesh indices. Each triple of indices represents
+        // a triangle to be rendered on the screen.
+        // For example, 0,2,1 means that the vertices with indexes
+        // 0, 2 and 1 from the vertex buffer compose the 
+        // first triangle of this mesh.
+        const unsigned short CubeIndices [] =
+        {
+            0x00 + 2,0x00 + 1,0x00 + 0,
+            0x00 + 0,0x00 + 3,0x00 + 2,
+            0x04 + 2,0x04 + 1,0x04 + 0,
+            0x04 + 0,0x04 + 3,0x04 + 2,
+        };
+
+        D3D11_SUBRESOURCE_DATA indexBufferData  = {} ;
+        indexBufferData.pSysMem                 = CubeIndices   ;
+        indexBufferData.SysMemPitch             = 0             ;
+        indexBufferData.SysMemSlicePitch        = 0             ;
+        CD3D11_BUFFER_DESC indexBufferDesc(sizeof(CubeIndices), D3D11_BIND_INDEX_BUFFER);
+
+        TEST_HR ddr->device->CreateBuffer(
+                &indexBufferDesc
+            ,   &indexBufferData
+            ,   ddr->index_buffer.get_out_ptr ()
+            );
+    }
     {
         D3D11_SAMPLER_DESC samplerDesc                  = {};
 
@@ -904,6 +910,35 @@ void render ()
     // Clear the back buffer 
     ddr->device_context->ClearRenderTargetView (ddr->render_target_view.get (), Colors::MidnightBlue);
 
+    ID3D11Buffer* buffers[] =
+    {
+        ddr->vertex_buffer.get (),
+    };
+
+    // Set vertex buffer
+    UINT stride = sizeof (MandelbrotPos);
+    UINT offset = 0;
+    ddr->device_context->IASetVertexBuffers ( 
+            0
+        ,   ARRAYSIZE (buffers)
+        ,   buffers
+        ,   &stride
+        ,   &offset 
+        );
+
+    // Set index buffer
+    ddr->device_context->IASetIndexBuffer (
+            ddr->index_buffer.get()
+        ,   DXGI_FORMAT_R16_UINT
+        ,   0
+        );
+
+    // Set primitive topology
+    ddr->device_context->IASetPrimitiveTopology (D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Set the input layout
+    ddr->device_context->IASetInputLayout (ddr->input_layout.get ());
+
 	ddr->device_context->VSSetShader (ddr->vertex_shader.get (), nullptr, 0);
 
     ID3D11Buffer* vs_buffers[] =
@@ -938,7 +973,19 @@ void render ()
         ,   ps_sampler_state
         );
 
-    ddr->device_context->Draw (8, 0);
+    // Draw the objects.
+    ddr->device_context->DrawIndexed(
+        6,
+        0,
+        0
+        );
+
+    // Draw the objects.
+    ddr->device_context->DrawIndexed(
+        6,
+        6,
+        0
+        );
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     ddr->swap_chain->Present (0, 0);
