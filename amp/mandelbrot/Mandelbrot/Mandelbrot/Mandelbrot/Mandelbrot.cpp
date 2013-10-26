@@ -15,15 +15,43 @@
 
 using namespace DirectX;
 
+#define TEST_HR_IMPL2(n) hr_tester##n
+#define TEST_HR_IMPL1(n) TEST_HR_IMPL2(n)
+#define TEST_HR hr_tester TEST_HR_IMPL1(__COUNTER__) = 
+
 namespace
 {
+    struct hr_exception : std::exception 
+    {
+        HRESULT hresult;
+
+        explicit hr_exception (HRESULT hr)
+            :   std::exception ("hr_exception")
+            ,   hresult (hr)
+        {
+        }
+    };
+
+    struct hr_tester 
+    {
+        inline hr_tester (HRESULT hr)
+        {
+            if (FAILED (hr))
+            {
+                throw hr_exception (hr);
+            }
+        }
+    };
+
+
+
     template<typename TInterface>
     struct com_out_ptr;
 
     template<typename TInterface>
     struct com_ptr
     {
-        com_ptr (TInterface* ptr = nullptr) throw ()
+        explicit com_ptr (TInterface* ptr = nullptr) throw ()
             :   m_ptr (ptr)
         {
             increase ();
@@ -59,7 +87,7 @@ namespace
             release ();
             m_ptr = nullptr;
 
-            m_ptr = ptr;
+            m_ptr = ptr;;
             increase ();
         }
 
@@ -132,7 +160,7 @@ namespace
     template<typename TInterface>
     struct com_out_ptr
     {
-        com_out_ptr (com_ptr<TInterface> & cp)
+        explicit com_out_ptr (com_ptr<TInterface> & cp)
             :   m_target(&cp)
             ,   m_ptr   (nullptr)
         {
@@ -192,12 +220,12 @@ namespace
     template<typename TPredicate>
     struct scope_guard
     {
-        inline scope_guard (TPredicate const & predicate)
+        explicit inline scope_guard (TPredicate const & predicate)
             :   predicate   (predicate)
         {
         }
 
-        inline scope_guard (TPredicate&& predicate) throw ()
+        explicit inline scope_guard (TPredicate&& predicate) throw ()
             :   predicate   (std::move (predicate))
         {
         }
@@ -393,39 +421,47 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     UNREFERENCED_PARAMETER (hPrevInstance);
     UNREFERENCED_PARAMETER (lpCmdLine);
 
-    dir = std::make_unique<device_independent_resources> ();
-
-    if (FAILED (InitWindow( hInstance, nCmdShow )))
+    try
     {
-        return 0;
-    }
+        dir = std::make_unique<device_independent_resources> ();
 
+        TEST_HR InitWindow( hInstance, nCmdShow );
 
-    if (FAILED (InitDevice()))
-    {
-        return 0;
-    }
+        TEST_HR InitDevice();
 
-    // Main message loop
-    MSG msg = {0};
-    while (WM_QUIT != msg.message)
-    {
-        if (PeekMessage (&msg, nullptr, 0, 0, PM_REMOVE))
+        // Main message loop
+        MSG msg = {0};
+        while (WM_QUIT != msg.message)
         {
-            TranslateMessage (&msg);
-            DispatchMessage (&msg);
+            if (PeekMessage (&msg, nullptr, 0, 0, PM_REMOVE))
+            {
+                TranslateMessage (&msg);
+                DispatchMessage (&msg);
+            }
+            else
+            {
+                Render ();
+            }
         }
-        else
-        {
-            Render ();
-        }
+
+        sdr.release ();
+        ddr.release ();
+        dir.release ();
+
+        return (int) msg.wParam;
     }
-
-    sdr.release ();
-    ddr.release ();
-    dir.release ();
-
-    return (int) msg.wParam;
+    catch (std::exception const & e)
+    {
+       OutputDebugString (L"Caught exception: ");
+       OutputDebugStringA (e.what ());
+       OutputDebugString (L"\r\n");
+       return 999;
+    }
+    catch (...)
+    {
+       OutputDebugString (L"Caught exception: unknown\r\n");
+       return 999;
+    }
 }
 
 
@@ -489,8 +525,6 @@ HRESULT InitDevice()
     ddr = std::make_unique<device_dependent_resources> ();
     sdr = std::make_unique<size_dependent_resources> ();
 
-    HRESULT hr = S_OK;
-
     RECT rc = {};
     GetClientRect (dir->hwnd, &rc);
 
@@ -536,7 +570,7 @@ HRESULT InitDevice()
     for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; ++driverTypeIndex)
     {
         ddr->driver_type = driverTypes[driverTypeIndex];
-        hr = D3D11CreateDeviceAndSwapChain (
+        HRESULT create_hr = D3D11CreateDeviceAndSwapChain (
                 nullptr
             ,   ddr->driver_type 
             ,   nullptr
@@ -551,10 +585,10 @@ HRESULT InitDevice()
             ,   ddr->device_context.get_out_ptr ()
             );
 
-        if (hr == E_INVALIDARG)
+        if (create_hr == E_INVALIDARG)
         {
             // DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
-            hr = D3D11CreateDeviceAndSwapChain ( 
+            create_hr = D3D11CreateDeviceAndSwapChain ( 
                     nullptr
                 ,   ddr->driver_type 
                 ,   nullptr
@@ -570,38 +604,25 @@ HRESULT InitDevice()
                 );
         }
 
-        if (SUCCEEDED (hr))
+        if (SUCCEEDED (create_hr))
         {
             break;
         }
     }
 
-    if (FAILED (hr))
-    {
-        return hr;
-    }
-
     // Create a render target view
     {
-        hr = ddr->swap_chain->GetBuffer ( 
+        TEST_HR ddr->swap_chain->GetBuffer ( 
                 0
             ,   __uuidof (ID3D11Texture2D)
             ,   ddr->back_buffer.get_out_ptr ()
             );
-        if (FAILED (hr))
-        {
-            return hr;
-        }
 
-        hr = ddr->device->CreateRenderTargetView (
+        TEST_HR ddr->device->CreateRenderTargetView (
                 ddr->back_buffer.get ()
             ,   nullptr
             ,   ddr->render_target_view.get_out_ptr ()
             );
-        if (FAILED (hr))
-        {
-            return hr;
-        }
     }
 
     ID3D11RenderTargetView * render_targets[] =
@@ -639,27 +660,19 @@ HRESULT InitDevice()
         return E_FAIL;
     }
 
-    hr = ddr->device->CreateVertexShader (
+    TEST_HR ddr->device->CreateVertexShader (
             &vertex_shader_bytes.front ()
         ,   vertex_shader_bytes.size ()
         ,   nullptr
         ,   ddr->vertex_shader.get_out_ptr ()
         );
-    if (FAILED (hr))
-    {
-        return hr;
-    }
 
-	hr = ddr->device->CreatePixelShader( 
+	TEST_HR ddr->device->CreatePixelShader( 
             &pixel_bytes.front ()
         ,   pixel_bytes.size ()
         ,   nullptr
         ,   ddr->pixel_shader.get_out_ptr ()
         );
-    if (FAILED (hr))
-    {
-        return hr;
-    }
 
     // Define the input layout
     static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
@@ -670,17 +683,13 @@ HRESULT InitDevice()
     };
 
     // Create the input layout
-	hr = ddr->device->CreateInputLayout( 
+	TEST_HR ddr->device->CreateInputLayout( 
             vertexDesc
         ,   ARRAYSIZE(vertexDesc)
         ,   &vertex_shader_bytes.front ()
         ,   vertex_shader_bytes.size ()
         ,   ddr->input_layout.get_out_ptr ()
         );
-	if (FAILED (hr))
-    {
-        return hr;
-    }
 
     // Set the input layout
     ddr->device_context->IASetInputLayout (ddr->input_layout.get ());
@@ -701,15 +710,11 @@ HRESULT InitDevice()
 
     {
         CD3D11_BUFFER_DESC viewBufferDesc (sizeof(ModelViewProjectionConstantBuffer) , D3D11_BIND_CONSTANT_BUFFER);
-        hr = ddr->device->CreateBuffer (
+        TEST_HR ddr->device->CreateBuffer (
                 &viewBufferDesc
             ,   nullptr
             ,   ddr->view_buffer.get_out_ptr ()
             );
-        if (FAILED (hr))
-        {
-            return hr;
-        }
     }
 
     {
@@ -722,15 +727,11 @@ HRESULT InitDevice()
             ,   D3D11_BIND_VERTEX_BUFFER
             );
 
-        hr = ddr->device->CreateBuffer (
+        TEST_HR ddr->device->CreateBuffer (
                 &vertexBufferDesc
             ,   &vertexBufferData
             ,   ddr->vertex_buffer.get_out_ptr ()
             );
-        if (FAILED (hr))
-        {
-            return hr;
-        }
     }
 
     ID3D11Buffer* buffers[] =
