@@ -356,12 +356,16 @@ namespace
         com_ptr<ID3D11VertexShader      >   vertex_shader           ;
         com_ptr<ID3D11PixelShader       >   pixel_shader            ;
         com_ptr<ID3D11InputLayout       >   input_layout            ;
-        com_ptr<ID3D11Buffer            >   buffer                  ;
+
+        com_ptr<ID3D11Buffer            >   view_buffer             ;
+        com_ptr<ID3D11Buffer            >   vertex_buffer           ;
     };
 
     struct size_dependent_resources
     {
         typedef std::unique_ptr<size_dependent_resources>       ptr ;
+
+        ModelViewProjectionConstantBuffer   view                    ;
     };
     
     device_independent_resources::ptr   dir ;
@@ -451,7 +455,7 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow)
 
     dir->hinst = hInstance;
 
-    RECT rc = { 0, 0, 640, 480 };
+    RECT rc = { 0, 0, 1024, 768 };
     AdjustWindowRect (&rc, WS_OVERLAPPEDWINDOW, FALSE);
     dir->hwnd = CreateWindow ( 
             L"MandelbrotWindowClass" 
@@ -483,6 +487,7 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow)
 HRESULT InitDevice()
 {
     ddr = std::make_unique<device_dependent_resources> ();
+    sdr = std::make_unique<size_dependent_resources> ();
 
     HRESULT hr = S_OK;
 
@@ -694,28 +699,43 @@ HRESULT InitDevice()
         {XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
     };
 
-    D3D11_SUBRESOURCE_DATA vertexBufferData     = {0}       ;
-    vertexBufferData.pSysMem                    = vertices  ;
-    vertexBufferData.SysMemPitch                = 0         ;
-    vertexBufferData.SysMemSlicePitch           = 0         ;
-    CD3D11_BUFFER_DESC vertexBufferDesc (
-            sizeof(vertices)
-        ,   D3D11_BIND_VERTEX_BUFFER
-        );
-
-    hr = ddr->device->CreateBuffer (
-            &vertexBufferDesc
-        ,   &vertexBufferData
-        ,   ddr->buffer.get_out_ptr ()
-        );
-    if (FAILED (hr))
     {
-        return hr;
+        CD3D11_BUFFER_DESC viewBufferDesc (sizeof(ModelViewProjectionConstantBuffer) , D3D11_BIND_CONSTANT_BUFFER);
+        hr = ddr->device->CreateBuffer (
+                &viewBufferDesc
+            ,   nullptr
+            ,   ddr->view_buffer.get_out_ptr ()
+            );
+        if (FAILED (hr))
+        {
+            return hr;
+        }
+    }
+
+    {
+        D3D11_SUBRESOURCE_DATA vertexBufferData     = {0}       ;
+        vertexBufferData.pSysMem                    = vertices  ;
+        vertexBufferData.SysMemPitch                = 0         ;
+        vertexBufferData.SysMemSlicePitch           = 0         ;
+        CD3D11_BUFFER_DESC vertexBufferDesc (
+                sizeof(vertices)
+            ,   D3D11_BIND_VERTEX_BUFFER
+            );
+
+        hr = ddr->device->CreateBuffer (
+                &vertexBufferDesc
+            ,   &vertexBufferData
+            ,   ddr->vertex_buffer.get_out_ptr ()
+            );
+        if (FAILED (hr))
+        {
+            return hr;
+        }
     }
 
     ID3D11Buffer* buffers[] =
     {
-        ddr->buffer.get (),
+        ddr->vertex_buffer.get (),
     };
 
     // Set vertex buffer
@@ -731,6 +751,35 @@ HRESULT InitDevice()
 
     // Set primitive topology
     ddr->device_context->IASetPrimitiveTopology (D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+    // Size dependent resources
+
+    const XMVECTORF32 eye   = { 0.0f, 0.0f, 1.5f, 0.0f };
+    const XMVECTORF32 at    = { 0.0f, 0.0f, 0.0f, 0.0f };
+    const XMVECTORF32 up    = { 0.0f, 1.0f, 0.0f, 0.0f };
+
+    XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
+        2,
+        1,
+        -10,
+        +10
+        );
+
+    XMStoreFloat4x4(
+            &sdr->view.projection
+        ,   perspectiveMatrix
+        );
+
+    XMStoreFloat4x4(
+            &sdr->view.view
+        ,   XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up))
+        );
+
+    XMStoreFloat4x4(
+            &sdr->view.model
+        ,   XMMatrixRotationY(0)
+        );
 
     return S_OK;
 }
