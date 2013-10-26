@@ -128,7 +128,7 @@ namespace
 
         inline TInterface* operator-> () const throw () 
         {
-            assert(m_ptr);
+            assert (m_ptr);
             return m_ptr;
         }
 
@@ -161,14 +161,14 @@ namespace
     struct com_out_ptr
     {
         explicit com_out_ptr (com_ptr<TInterface> & cp)
-            :   m_target(&cp)
-            ,   m_ptr   (nullptr)
+            :   m_target    (&cp)
+            ,   m_ptr       (nullptr)
         {
         }
 
         com_out_ptr (com_out_ptr && cop)
-            :   m_target(cop.m_target)
-            ,   m_ptr   (cop.m_ptr)
+            :   m_target    (cop.m_target)
+            ,   m_ptr       (cop.m_ptr)
         {
             cop.m_target= nullptr;
             cop.m_ptr   = nullptr;
@@ -307,7 +307,7 @@ namespace
             return bytes ();
         }
 
-        auto close_handle = on_exit ([=]() {CloseHandle(hnd);});
+        auto close_handle = on_exit ([=]() {CloseHandle (hnd);});
 
         DWORD const buffer_size = 4096  ;
 
@@ -406,10 +406,10 @@ namespace
 //--------------------------------------------------------------------------------------
 // Forward declarations
 //--------------------------------------------------------------------------------------
-HRESULT             InitWindow (HINSTANCE hInstance, int nCmdShow);
-HRESULT             InitDevice ();
-LRESULT CALLBACK    WndProc (HWND, UINT, WPARAM, LPARAM);
-void                Render ();
+HRESULT             init_window (HINSTANCE hInstance, int nCmdShow);
+HRESULT             init_device ();
+LRESULT CALLBACK    wnd_proc (HWND, UINT, WPARAM, LPARAM);
+void                render ();
 
 
 //--------------------------------------------------------------------------------------
@@ -425,9 +425,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     {
         dir = std::make_unique<device_independent_resources> ();
 
-        TEST_HR InitWindow( hInstance, nCmdShow );
+        TEST_HR init_window (hInstance, nCmdShow);
 
-        TEST_HR InitDevice();
+        TEST_HR init_device ();
 
         // Main message loop
         MSG msg = {0};
@@ -440,7 +440,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
             }
             else
             {
-                Render ();
+                render ();
             }
         }
 
@@ -468,13 +468,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 //--------------------------------------------------------------------------------------
 // Register class and create window
 //--------------------------------------------------------------------------------------
-HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow)
+HRESULT init_window (HINSTANCE hInstance, int nCmdShow)
 {
     // Register class
     WNDCLASSEX wcex;
-    wcex.cbSize         = sizeof(WNDCLASSEX)                ;
+    wcex.cbSize         = sizeof (WNDCLASSEX)               ;
     wcex.style          = CS_HREDRAW | CS_VREDRAW           ;
-    wcex.lpfnWndProc    = WndProc                           ;
+    wcex.lpfnWndProc    = wnd_proc                          ;
     wcex.cbClsExtra     = 0                                 ;
     wcex.cbWndExtra     = 0                                 ;
     wcex.hInstance      = hInstance                         ;
@@ -520,7 +520,7 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow)
 //--------------------------------------------------------------------------------------
 // Create Direct3D device and swap chain
 //--------------------------------------------------------------------------------------
-HRESULT InitDevice()
+HRESULT init_device ()
 {
     ddr = std::make_unique<device_dependent_resources> ();
     sdr = std::make_unique<size_dependent_resources> ();
@@ -554,7 +554,7 @@ HRESULT InitDevice()
 	UINT numFeatureLevels = ARRAYSIZE (featureLevels);
 
     DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory (&sd, sizeof(sd));
+    ZeroMemory (&sd, sizeof (sd));
     sd.BufferCount                          = 1                                 ;
     sd.BufferDesc.Width                     = width                             ;
     sd.BufferDesc.Height                    = height                            ;
@@ -683,9 +683,9 @@ HRESULT InitDevice()
     };
 
     // Create the input layout
-	TEST_HR ddr->device->CreateInputLayout( 
+	TEST_HR ddr->device->CreateInputLayout ( 
             vertexDesc
-        ,   ARRAYSIZE(vertexDesc)
+        ,   ARRAYSIZE (vertexDesc)
         ,   &vertex_shader_bytes.front ()
         ,   vertex_shader_bytes.size ()
         ,   ddr->input_layout.get_out_ptr ()
@@ -697,19 +697,19 @@ HRESULT InitDevice()
     // Create vertex buffer
     MandelbrotPos vertices[] =
     {
-        {XMFLOAT3(-1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-        {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-        {XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-        {XMFLOAT3(-1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
-
-        {XMFLOAT3( 0, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
-        {XMFLOAT3( 1, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
-        {XMFLOAT3( 1,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
-        {XMFLOAT3( 0,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+        {XMFLOAT3 (-1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
+        {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
+        {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
+        {XMFLOAT3 (-1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
+                                                                            
+        {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
+        {XMFLOAT3 ( 1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
+        {XMFLOAT3 ( 1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
+        {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
     };
 
     {
-        CD3D11_BUFFER_DESC viewBufferDesc (sizeof(ModelViewProjectionConstantBuffer) , D3D11_BIND_CONSTANT_BUFFER);
+        CD3D11_BUFFER_DESC viewBufferDesc (sizeof (ModelViewProjectionConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
         TEST_HR ddr->device->CreateBuffer (
                 &viewBufferDesc
             ,   nullptr
@@ -723,7 +723,7 @@ HRESULT InitDevice()
         vertexBufferData.SysMemPitch                = 0         ;
         vertexBufferData.SysMemSlicePitch           = 0         ;
         CD3D11_BUFFER_DESC vertexBufferDesc (
-                sizeof(vertices)
+                sizeof (vertices)
             ,   D3D11_BIND_VERTEX_BUFFER
             );
 
@@ -740,7 +740,7 @@ HRESULT InitDevice()
     };
 
     // Set vertex buffer
-    UINT stride = sizeof( MandelbrotPos );
+    UINT stride = sizeof (MandelbrotPos);
     UINT offset = 0;
     ddr->device_context->IASetVertexBuffers ( 
             0
@@ -760,26 +760,26 @@ HRESULT InitDevice()
     const XMVECTORF32 at    = { 0.0f, 0.0f, 0.0f, 0.0f };
     const XMVECTORF32 up    = { 0.0f, 1.0f, 0.0f, 0.0f };
 
-    XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH(
+    XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH (
         2,
         1,
         -10,
         +10
         );
 
-    XMStoreFloat4x4(
+    XMStoreFloat4x4 (
             &sdr->view.projection
         ,   perspectiveMatrix
         );
 
-    XMStoreFloat4x4(
+    XMStoreFloat4x4 (
             &sdr->view.view
-        ,   XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up))
+        ,   XMMatrixTranspose (XMMatrixLookAtRH (eye, at, up))
         );
 
-    XMStoreFloat4x4(
+    XMStoreFloat4x4 (
             &sdr->view.model
-        ,   XMMatrixRotationY(0)
+        ,   XMMatrixRotationY (0)
         );
 
     return S_OK;
@@ -789,24 +789,24 @@ HRESULT InitDevice()
 //--------------------------------------------------------------------------------------
 // Called every time the application receives a message
 //--------------------------------------------------------------------------------------
-LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam )
+LRESULT CALLBACK wnd_proc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
     HDC hdc;
 
-    switch( message )
+    switch (message)
     {
         case WM_PAINT:
-            hdc = BeginPaint( hWnd, &ps );
-            EndPaint( hWnd, &ps );
+            hdc = BeginPaint (hWnd, &ps);
+            EndPaint (hWnd, &ps);
             break;
 
         case WM_DESTROY:
-            PostQuitMessage( 0 );
+            PostQuitMessage (0);
             break;
 
         default:
-            return DefWindowProc( hWnd, message, wParam, lParam );
+            return DefWindowProc (hWnd, message, wParam, lParam);
     }
 
     return 0;
@@ -814,9 +814,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam 
 
 
 //--------------------------------------------------------------------------------------
-// Render a frame
+// render a frame
 //--------------------------------------------------------------------------------------
-void Render()
+void render ()
 {
     if (!ddr)
     {
@@ -826,7 +826,7 @@ void Render()
     // Clear the back buffer 
     ddr->device_context->ClearRenderTargetView (ddr->render_target_view.get (), Colors::MidnightBlue);
 
-    // Render a triangle
+    // render a triangle
 	ddr->device_context->VSSetShader (ddr->vertex_shader.get (), nullptr, 0);
 	ddr->device_context->PSSetShader (ddr->pixel_shader.get (), nullptr, 0);
     ddr->device_context->Draw (3, 0);
