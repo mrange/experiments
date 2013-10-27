@@ -18,5 +18,5 @@ float4 main(PixelShaderInput input) : SV_TARGET
 
 //    return texelColor * lightMagnitude;
 //    return texelColor;
-    return 1;
+    return 0.5;
 }

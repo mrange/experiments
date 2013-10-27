@@ -342,9 +342,9 @@ namespace
 {
     struct ModelViewProjection
     {
-        XMFLOAT4X4 model;
-        XMFLOAT4X4 view;
-        XMFLOAT4X4 projection;
+        XMFLOAT4X4 model        ;
+        XMFLOAT4X4 view         ;
+        XMFLOAT4X4 projection   ;
     };
 
     struct MandelbrotPos
@@ -352,6 +352,86 @@ namespace
         XMFLOAT3 pos   ;
         XMFLOAT3 normal;
         XMFLOAT2 texpos;
+    };
+
+    XMVECTORF32 const eye   = { 0.0f, 0.0f, 1.5f, 0.0f };
+    XMVECTORF32 const at    = { 0.0f, 0.0f, 0.0f, 0.0f };
+    XMVECTORF32 const up    = { 0.0f, 1.0f, 0.0f, 0.0f };
+
+    D3D_DRIVER_TYPE const driverTypes[] =
+    {
+        D3D_DRIVER_TYPE_HARDWARE,
+        D3D_DRIVER_TYPE_WARP,
+        D3D_DRIVER_TYPE_REFERENCE,
+    };
+
+    D3D_FEATURE_LEVEL const featureLevels[] =
+    {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+
+    D3D11_INPUT_ELEMENT_DESC const vertexDesc[] =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
+
+    MandelbrotPos const vertices[] =
+    {
+        {XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3( 0.5f, -0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3( 0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3(-0.5f,  0.5f, 0.5f), XMFLOAT3( 0.0f, 0.0f,-1.0f), XMFLOAT2( 0, 0)},
+
+        {XMFLOAT3(-0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3( 0.5f, -0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3( 0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3(-0.5f,  0.5f,-0.5f), XMFLOAT3( 0.0f, 0.0f, 1.0f), XMFLOAT2( 0, 0)},
+
+        {XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 0.0f,-1.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+        {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 0.0f, 1.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+        {XMFLOAT3( 0.5f,-0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3( 0.5f, 0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3( 0.5f, 0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3( 0.5f,-0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
+
+        {XMFLOAT3(-0.5f,-0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 1)},
+        {XMFLOAT3(-0.5f, 0.5f, -0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 1)},
+        {XMFLOAT3(-0.5f, 0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 1, 0)},
+        {XMFLOAT3(-0.5f,-0.5f,  0.5f), XMFLOAT3( 1.0f, 0.0f, 0.0f), XMFLOAT2( 0, 0)},
+    };
+
+    unsigned short const CubeIndices [] =
+    {
+        0x00 + 2,0x00 + 1,0x00 + 0,
+        0x00 + 0,0x00 + 3,0x00 + 2,
+
+        0x04 + 0,0x04 + 1,0x04 + 2,
+        0x04 + 2,0x04 + 3,0x04 + 0,
+
+        0x08 + 0,0x08 + 1,0x08 + 2,
+        0x08 + 2,0x08 + 3,0x08 + 0,
+
+        0x0C + 2,0x0C + 1,0x0C + 0,
+        0x0C + 0,0x0C + 3,0x0C + 2,
+
+        0x10 + 2,0x10 + 1,0x10 + 0,
+        0x10 + 0,0x10 + 3,0x10 + 2,
+
+        0x14 + 0,0x14 + 1,0x14 + 2,
+        0x14 + 2,0x14 + 3,0x14 + 0,
     };
 
     struct device_independent_resources
@@ -543,21 +623,6 @@ HRESULT init_device ()
         createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-        D3D_DRIVER_TYPE driverTypes[] =
-        {
-            D3D_DRIVER_TYPE_HARDWARE,
-            D3D_DRIVER_TYPE_WARP,
-            D3D_DRIVER_TYPE_REFERENCE,
-        };
-
-        D3D_FEATURE_LEVEL featureLevels[] =
-        {
-            D3D_FEATURE_LEVEL_11_1,
-            D3D_FEATURE_LEVEL_11_0,
-            D3D_FEATURE_LEVEL_10_1,
-            D3D_FEATURE_LEVEL_10_0,
-        };
-
         DXGI_SWAP_CHAIN_DESC sd;
         ZeroMemory (&sd, sizeof (sd));
         sd.BufferCount                          = 1                                 ;
@@ -644,13 +709,12 @@ HRESULT init_device ()
             );
 
         // Setup the viewport
-        D3D11_VIEWPORT vp               ;
-        vp.Width        = (FLOAT)width  ;
-        vp.Height       = (FLOAT)height ;
-        vp.MinDepth     = 0.0f          ;
-        vp.MaxDepth     = 1.0f          ;
-        vp.TopLeftX     = 0             ;
-        vp.TopLeftY     = 0             ;
+        auto vp = CD3D11_VIEWPORT (
+                0.0f
+            ,   0.0f
+            ,   width
+            ,   height
+            );
 
         ddr->device_context->RSSetViewports (1, &vp);
     }
@@ -684,14 +748,6 @@ HRESULT init_device ()
             ,   ddr->pixel_shader.get_out_ptr ()
             );
 
-        // Define the input layout
-        static const D3D11_INPUT_ELEMENT_DESC vertexDesc [] =
-        {
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        };
-
         // Create the input layout
 	    TEST_HR ddr->device->CreateInputLayout ( 
                 vertexDesc
@@ -705,19 +761,6 @@ HRESULT init_device ()
 
     // Create vertex buffer
     {
-        MandelbrotPos vertices[] =
-        {
-            {XMFLOAT3 (-1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
-            {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
-            {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
-            {XMFLOAT3 (-1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
-                                                                            
-            {XMFLOAT3 ( 0, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 1)},
-            {XMFLOAT3 ( 1, -0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 1)},
-            {XMFLOAT3 ( 1,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 1, 0)},
-            {XMFLOAT3 ( 0,  0.5f, 0.5f), XMFLOAT3 ( 0.0f, 0.0f,-1.0f), XMFLOAT2 ( 0, 0)},
-        };
-
         CD3D11_BUFFER_DESC viewBufferDesc (sizeof (ModelViewProjection), D3D11_BIND_CONSTANT_BUFFER);
         TEST_HR ddr->device->CreateBuffer (
                 &viewBufferDesc
@@ -747,14 +790,6 @@ HRESULT init_device ()
         // For example, 0,2,1 means that the vertices with indexes
         // 0, 2 and 1 from the vertex buffer compose the 
         // first triangle of this mesh.
-        const unsigned short CubeIndices [] =
-        {
-            0x00 + 2,0x00 + 1,0x00 + 0,
-            0x00 + 0,0x00 + 3,0x00 + 2,
-            0x04 + 2,0x04 + 1,0x04 + 0,
-            0x04 + 0,0x04 + 3,0x04 + 2,
-        };
-
         D3D11_SUBRESOURCE_DATA indexBufferData  = {} ;
         indexBufferData.pSysMem                 = CubeIndices   ;
         indexBufferData.SysMemPitch             = 0             ;
@@ -826,31 +861,39 @@ HRESULT init_device ()
 
     // Size dependent resources
 
-    const XMVECTORF32 eye   = { 0.0f, 0.0f, 1.5f, 0.0f };
-    const XMVECTORF32 at    = { 0.0f, 0.0f, 0.0f, 0.0f };
-    const XMVECTORF32 up    = { 0.0f, 1.0f, 0.0f, 0.0f };
+    {
+	    float aspectRatio   = (1.0f * width) / height;
+	    float fovAngleY     = 110.0f * XM_PI / 180.0f;
 
-    XMMATRIX perspectiveMatrix = XMMatrixOrthographicRH (
-        2,
-        1,
-        -10,
-        +10
-        );
+	    // This is a simple example of change that can be made when the app is in
+	    // portrait or snapped view.
+	    if (aspectRatio < 1.0f)
+	    {
+		    fovAngleY *= 2.0f;
+	    }
 
-    XMStoreFloat4x4 (
-            &sdr->view.projection
-        ,   perspectiveMatrix
-        );
+	    XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
+                fovAngleY
+            ,   aspectRatio
+            ,   0.01f
+            ,   100.0f
+            );
 
-    XMStoreFloat4x4 (
-            &sdr->view.view
-        ,   XMMatrixTranspose (XMMatrixLookAtRH (eye, at, up))
-        );
+        XMStoreFloat4x4 (
+                &sdr->view.projection
+            ,   perspectiveMatrix
+            );
 
-    XMStoreFloat4x4 (
-            &sdr->view.model
-        ,   XMMatrixRotationY (0)
-        );
+        XMStoreFloat4x4 (
+                &sdr->view.view
+            ,   XMMatrixTranspose (XMMatrixLookAtRH (eye, at, up))
+            );
+
+        XMStoreFloat4x4 (
+                &sdr->view.model
+            ,   XMMatrixTranspose (XMMatrixRotationY (0.0f))
+            );
+    }
 
     return S_OK;
 }
@@ -974,16 +1017,9 @@ void render ()
         );
 
     // Draw the objects.
-    ddr->device_context->DrawIndexed(
-        6,
+    ddr->device_context->DrawIndexed (
+        ARRAYSIZE (CubeIndices),
         0,
-        0
-        );
-
-    // Draw the objects.
-    ddr->device_context->DrawIndexed(
-        6,
-        6,
         0
         );
 
