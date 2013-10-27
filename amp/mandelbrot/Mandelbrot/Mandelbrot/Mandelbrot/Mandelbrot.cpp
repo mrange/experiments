@@ -501,19 +501,31 @@ namespace
 
 namespace 
 {
-    typedef float mtype;
+    typedef float   mtype   ;
+    typedef float_2 mtype_2 ;
 
-    int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
+    unsigned int    const   texture_width   = 512                   ;
+    unsigned int    const   texture_height  = 512                   ;
+    unsigned int    const   mandelbrot_iter = 256                   ;
+
+    mtype           const   cx_mandelbrot   = 0.001643721971153F    ;
+    mtype           const   cy_mandelbrot   = 0.822467633298876F    ; 
+    mtype           const   zoom_mandelbrot = 1/3.0F                ;
+
+    inline int mandelbrot2 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
     {
-        auto ix = x;
-        auto iy = y;
+        auto ix = coord.x;
+        auto iy = coord.y;
+
+        auto cx = center.x;
+        auto cy = center.y;
 
         auto i = 0;
 
-        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        for (; (i < iter) & ((ix*ix + iy*iy) < 4); ++i)
         {
-            auto tx = ix * ix - iy * iy + x;
-            iy = 2 * ix * iy + y;
+            auto tx = ix * ix - iy * iy + cx;
+            iy = 2 * ix * iy + cy;
             ix = tx;
         }
         return i;
@@ -570,11 +582,18 @@ namespace
 
     std::vector<unorm_4> const color_lookup = create_color_lookup ();
 
-    void compute_mandelbrot (
+    template<typename TPredicate>
+    void compute_set (
             accelerator_view const &    av
         ,   ID3D11Texture2D *           texture
-        ,   int                         offset
-        ,   float                       zoom
+        ,   unsigned int                offset
+        ,   mtype                       zoom
+        ,   unsigned int                iter
+        ,   mtype                       cx
+        ,   mtype                       cy
+        ,   mtype                       ix
+        ,   mtype                       iy
+        ,   TPredicate                  const & predicate
         )
     {
         if (!texture)
@@ -582,56 +601,54 @@ namespace
             return;
         }
 
-        try
+        auto color_lookup_size = color_lookup.size ();
+
+        std::vector<unorm_4>    lookup  ;
+        lookup.resize (iter);
+
+        for (auto i = 0U; i < iter - 1; ++i)
         {
+            lookup[i] = color_lookup [(i + offset) % color_lookup_size];
+        }
 
-            unsigned int const  iter    = 256                   ;
+        auto lookup_view        = array_view<unorm_4 const, 1> (lookup);
 
-            float        const  cx      = 0.001643721971153F    ;
-            float        const  cy      = 0.822467633298876F    ;
+        auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+        auto texv               = texture_view<unorm_4, 2> (tex);
+        auto e                  = tex.extent;
 
-            float        const  dx      = zoom                  ;
-            float        const  dy      = zoom                  ;
+        auto width              = static_cast<mtype> (e[1]);
+        auto height             = static_cast<mtype> (e[0]);
 
+        auto aspect             = width / height;
+
+        auto dx                 = aspect * 1/zoom       ;
+        auto dy                 = 1/zoom                ;
+
+        mtype_2 c(cx, cy);
+        mtype_2 d(dx, dy);
+        mtype_2 div(1/width, 1/height);
+        mtype_2 o(0.5F, 0.5F);
+
+        mtype_2 t = c - d*o;
+        mtype_2 m = d*div;
+
+        mtype_2 center(ix, iy);
+
+        parallel_for_each (
+                av
+            ,   e
+            ,   [=] (index<2> idx) restrict(amp)
             {
-                int const lookup_size   = static_cast<int> (color_lookup.size ());
+                mtype_2 texpos (static_cast<mtype> (idx[1]), static_cast<mtype> (idx[0]));
+                auto coord = m * texpos + t;
 
-                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+                auto result = predicate (coord, center, iter);
 
-                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
-                auto wotex              = texture_view<unorm_4, 2> (tex);
-                auto e                  = tex.extent;
+                auto color = lookup_view[result];
 
-                auto width              = static_cast<mtype> (e[0]);
-                auto height             = static_cast<mtype> (e[1]);
-
-                parallel_for_each (
-                        av
-                    ,   e
-                    ,   [=] (index<2> idx) restrict(amp)
-                    {
-                        auto x = cx + dx * ((idx[0] / width) - 0.5);
-                        auto y = cy + dy * ((idx[1] / height) - 0.5);
-
-                        auto result = mandelbrot (x,y, iter);
-
-                        auto multiplier = result == iter ? 0.0F : 1.0F;
-
-                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
-
-                        wotex.set(idx,color); 
-                    });
-            }
-        }
-        catch (std::exception const & e)
-        {
-            auto what = e.what();
-            OutputDebugString(L"Known exception\r\n");
-        }
-        catch (...)
-        {
-            OutputDebugString(L"Unknown exception\r\n");
-        }
+                texv.set(idx,color); 
+            });
     }
 }
 
@@ -864,8 +881,8 @@ HRESULT init_device ()
         auto vp = CD3D11_VIEWPORT (
                 0.0f
             ,   0.0f
-            ,   width
-            ,   height
+            ,   1.0f * width
+            ,   1.0f * height
             );
 
         ddr->device_context->RSSetViewports (1, &vp);
@@ -979,8 +996,8 @@ HRESULT init_device ()
 
     {
         D3D11_TEXTURE2D_DESC textureDesc    = {}                        ;
-        textureDesc.Width                   = 256                       ;
-        textureDesc.Height                  = 256                       ;
+        textureDesc.Width                   = texture_width             ;
+        textureDesc.Height                  = texture_height            ;
         textureDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
         textureDesc.Usage                   = D3D11_USAGE_DEFAULT       ;
         textureDesc.CPUAccessFlags          = 0                         ;
@@ -1116,13 +1133,17 @@ void render ()
         ,   0
         );
 
-    auto zoom = 2.0F / static_cast<float> (pow(1.2, diff_in_ms/1000.0));
-
-    compute_mandelbrot (
+    compute_set (
             *ddr->accelerator_view
         ,   ddr->texture.get ()
         ,   static_cast<int> (diff_in_ms / 100)
-        ,   zoom
+        ,   zoom_mandelbrot * static_cast<float> (pow(1.2, diff_in_ms/1000.0))
+        ,   mandelbrot_iter
+        ,   cx_mandelbrot
+        ,   cy_mandelbrot
+        ,   cx_mandelbrot
+        ,   cy_mandelbrot
+        ,   [=](mtype_2 coord, mtype_2 center, int iter) restrict(amp) {return mandelbrot2 (coord, coord, iter);}
         );
 
     // Clear the back buffer 
