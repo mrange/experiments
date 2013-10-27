@@ -22,7 +22,7 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Content\ScenePixelShader.hlsl" />
-    <FxCompile Include="Content\SceneVertexShader.hlsl" />
+    <FxCompile Include="ScenePixelShader.hlsl" />
+    <FxCompile Include="SceneVertexShader.hlsl" />
   </ItemGroup>
 </Project>
