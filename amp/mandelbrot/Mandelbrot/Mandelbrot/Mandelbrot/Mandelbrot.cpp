@@ -19,6 +19,9 @@ using namespace DirectX;
 #define TEST_HR_IMPL1(n) TEST_HR_IMPL2(n)
 #define TEST_HR hr_tester TEST_HR_IMPL1(__COUNTER__) = 
 
+using namespace concurrency;
+using namespace concurrency::graphics;
+
 namespace
 {
     struct hr_exception : std::exception 
@@ -473,6 +476,8 @@ namespace
         com_ptr<ID3D11Buffer            >   vertex_buffer           ;
         com_ptr<ID3D11Buffer            >   index_buffer            ;
         com_ptr<ID3D11Buffer            >   view_buffer             ;
+
+        std::unique_ptr<accelerator_view>   accelerator_view        ;
     };
 
     struct size_dependent_resources
@@ -487,6 +492,142 @@ namespace
     size_dependent_resources::ptr       sdr ;
 
 
+}
+
+namespace 
+{
+    typedef float mtype;
+
+    int mandelbrot (mtype x, mtype y, int iter) restrict(amp, cpu)
+    {
+        auto ix = x;
+        auto iy = y;
+
+        auto i = 0;
+
+        for (; (i < iter) & ((ix * ix + iy * iy) < 4); ++i)
+        {
+            auto tx = ix * ix - iy * iy + x;
+            iy = 2 * ix * iy + y;
+            ix = tx;
+        }
+        return i;
+    }
+
+    void fill_color_lookup (std::vector<unorm_4> & result, unorm_4 from, unorm_4 to, std::size_t steps)
+    {
+        if (steps < 1U)
+        {
+            return;
+        }
+
+        auto diff = norm_4 (to) - norm_4 (from);
+
+        for (auto iter = 0U; iter < steps - 1U; ++iter)
+        {
+            auto ratio = norm_4 (static_cast<float> (iter) / static_cast<float> (steps));
+            result.push_back (unorm_4 (norm_4 (from) + ratio * diff));
+        }
+
+        result.push_back (to);
+    }
+
+
+    unorm_4 black   (0.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 white   (1.0F, 1.0F, 1.0F, 1.0F);
+
+    unorm_4 red     (1.0F, 0.0F, 0.0F, 1.0F);
+    unorm_4 yellow  (1.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 green   (0.0F, 1.0F, 0.0F, 1.0F);
+    unorm_4 cyan    (0.0F, 1.0F, 1.0F, 1.0F);
+    unorm_4 blue    (0.0F, 0.0F, 1.0F, 1.0F);
+    unorm_4 magenta (1.0F, 0.0F, 1.0F, 1.0F);
+
+    std::vector<unorm_4> create_color_lookup ()
+    {
+        std::vector<unorm_4> result;
+
+        auto filler = [&] (unorm_4 from, unorm_4 to)
+        {
+            fill_color_lookup (result, from, to, 32);
+        };
+
+        filler (red     , yellow    );
+        filler (yellow  , green     );
+        filler (green   , cyan      );
+        filler (cyan    , blue      );
+        filler (blue    , magenta   );
+        filler (magenta , red       );
+
+
+        return result;
+    }
+
+    std::vector<unorm_4> const color_lookup = create_color_lookup ();
+
+    void compute_mandelbrot (
+            accelerator_view const &    av
+        ,   ID3D11Texture2D *           texture
+        ,   int                         offset
+        ,   float                       zoom
+        )
+    {
+        if (!texture)
+        {
+            return;
+        }
+
+        try
+        {
+
+            unsigned int const  iter    = 256                   ;
+
+            float        const  cx      = 0.001643721971153F    ;
+            float        const  cy      = 0.822467633298876F    ;
+
+            float        const  dx      = zoom                  ;
+            float        const  dy      = zoom                  ;
+
+            {
+                int const lookup_size   = static_cast<int> (color_lookup.size ());
+
+                auto lookup             = array_view<unorm_4 const, 1> (color_lookup);
+
+                auto tex                = concurrency::graphics::direct3d::make_texture<unorm_4,2>(av, texture);
+                auto wotex              = texture_view<unorm_4, 2> (tex);
+                auto e                  = tex.extent;
+
+                auto width              = static_cast<mtype> (e[0]);
+                auto height             = static_cast<mtype> (e[1]);
+
+                parallel_for_each (
+                        av
+                    ,   e
+                    ,   [=] (index<2> idx) restrict(amp)
+                    {
+                        auto x = cx + dx * ((idx[0] / width) - 0.5);
+                        auto y = cy + dy * ((idx[1] / height) - 0.5);
+
+                        auto result = mandelbrot (x,y, iter);
+
+                        auto multiplier = result == iter ? 0.0F : 1.0F;
+
+                        auto color = unorm_4 (multiplier, multiplier, multiplier, 1.0F) * lookup[(result + offset) % lookup_size];
+
+                        wotex.set(idx,color); 
+                    });
+            }
+        }
+        catch (std::exception const & e)
+        {
+            auto what = e.what();
+            OutputDebugString(L"Known exception\r\n");
+        }
+        catch (...)
+        {
+            OutputDebugString(L"Unknown exception\r\n");
+        }
+    }
 }
 
 //--------------------------------------------------------------------------------------
@@ -694,6 +835,10 @@ HRESULT init_device ()
                 ,   ddr->render_target_view.get_out_ptr ()
                 );
         }
+    }
+
+    {
+        ddr->accelerator_view = std::make_unique<accelerator_view> (concurrency::direct3d::create_accelerator_view (ddr->device.get ()));
     }
 
     {
@@ -948,6 +1093,13 @@ void render ()
         ,   &sdr->view
         ,   0
         ,   0
+        );
+
+    compute_mandelbrot (
+            *ddr->accelerator_view
+        ,   ddr->texture.get ()
+        ,   0
+        ,   1
         );
 
     // Clear the back buffer 
