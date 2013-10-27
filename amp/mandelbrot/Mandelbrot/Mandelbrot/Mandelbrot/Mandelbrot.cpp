@@ -354,7 +354,7 @@ namespace
         XMFLOAT2 texpos;
     };
 
-    XMVECTORF32 const eye   = { 0.0f, 0.0f, 1.5f, 0.0f };
+    XMVECTORF32 const eye   = { 0.0f, 1.0f, 1.5f, 0.0f };
     XMVECTORF32 const at    = { 0.0f, 0.0f, 0.0f, 0.0f };
     XMVECTORF32 const up    = { 0.0f, 1.0f, 0.0f, 0.0f };
 
@@ -881,7 +881,7 @@ HRESULT init_device ()
 
         XMStoreFloat4x4 (
                 &sdr->view.projection
-            ,   perspectiveMatrix
+            ,   XMMatrixTranspose (perspectiveMatrix)
             );
 
         XMStoreFloat4x4 (
