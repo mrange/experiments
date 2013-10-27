@@ -1083,6 +1083,10 @@ LRESULT CALLBACK wnd_proc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
             EndPaint (hWnd, &ps);
             break;
 
+        case WM_SIZE:
+            init_device ();
+            break;
+
         case WM_DESTROY:
             PostQuitMessage (0);
             break;
@@ -1220,5 +1224,5 @@ void render ()
         );
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
-    ddr->swap_chain->Present (0, 0);
+    ddr->swap_chain->Present (1, 0);
 }
