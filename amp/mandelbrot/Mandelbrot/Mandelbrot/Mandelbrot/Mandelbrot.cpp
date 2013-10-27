@@ -2,6 +2,9 @@
 #include "stdafx.h"
 
 #include <windows.h>
+
+#include <chrono>
+
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
 #include <directxmath.h>
@@ -440,8 +443,10 @@ namespace
     struct device_independent_resources
     {
         typedef std::unique_ptr<device_independent_resources>   ptr ;
-        HINSTANCE               hinst   ;
-        HWND                    hwnd    ;
+
+        HINSTANCE                                       hinst   ;
+        HWND                                            hwnd    ;
+        std::chrono::high_resolution_clock::time_point  then    ;
     };
 
     struct device_dependent_resources
@@ -651,6 +656,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     try
     {
         dir = std::make_unique<device_independent_resources> ();
+
+        dir->then = std::chrono::high_resolution_clock::now ();
 
         TEST_HR init_window (hInstance, nCmdShow);
 
@@ -1008,7 +1015,7 @@ HRESULT init_device ()
 
     {
 	    float aspectRatio   = (1.0f * width) / height;
-	    float fovAngleY     = 110.0f * XM_PI / 180.0f;
+	    float fovAngleY     = 70.0f * XM_PI / 180.0f;
 
 	    // This is a simple example of change that can be made when the app is in
 	    // portrait or snapped view.
@@ -1086,6 +1093,20 @@ void render ()
         return;
     }
 
+    auto diff = std::chrono::high_resolution_clock::now () - dir->then;
+
+    auto diff_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count ();
+
+    XMStoreFloat4x4 (
+            &sdr->view.view
+        ,   XMMatrixTranspose (XMMatrixLookAtRH (eye, at, up))
+        );
+
+    XMStoreFloat4x4 (
+            &sdr->view.model
+        ,   XMMatrixTranspose (XMMatrixRotationY (diff_in_ms/1000.0F))
+        );
+
     ddr->device_context->UpdateSubresource(
             ddr->view_buffer.get ()
         ,   0
@@ -1095,11 +1116,13 @@ void render ()
         ,   0
         );
 
+    auto zoom = 2.0F / static_cast<float> (pow(1.2, diff_in_ms/1000.0));
+
     compute_mandelbrot (
             *ddr->accelerator_view
         ,   ddr->texture.get ()
-        ,   0
-        ,   1
+        ,   static_cast<int> (diff_in_ms / 100)
+        ,   zoom
         );
 
     // Clear the back buffer 
