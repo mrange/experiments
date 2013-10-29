@@ -1,8 +1,14 @@
-﻿
-// Learn more about F# at http://fsharp.net
-// See the 'F# Tutorial' project for more help.
+﻿open System
+open System.Data
+open System.Data.SqlClient
+
+open mrange.SqlSchema
 
 [<EntryPoint>]
 let main argv = 
-    printfn "%A" argv
-    0 // return an integer exit code
+
+    use connection = new SqlConnection("Data Source=localhost\SQLEXPRESS;Initial Catalog=TestDB;Integrated Security=True")
+    connection.Open()
+    let schema = Schema.New connection
+
+    0

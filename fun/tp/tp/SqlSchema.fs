@@ -66,7 +66,7 @@ module SqlSchema =
         static member td (i : int) (dbType : SqlDbType) (dbElementSize : int) (requiresDimension : bool) (dbDefaultValue : string) (getter : Expr<(SqlDataReader -> 'T)>) (map : Map<byte, SqlTypeInfo>) = 
             match getter with 
             |   Lambda (_, Call (_, mi, _)) ->  map
-                                                |> Map.add (byte i) (SqlTypeInfo.New dbType null dbElementSize requiresDimension dbDefaultValue mi)
+                                                |> Map.add (byte i) (SqlTypeInfo.New dbType typeof<'T> dbElementSize requiresDimension dbDefaultValue mi)
             |   _                           ->  failwith "Wrongly configured getter method"
 
         static member std (i : int) (dbType : SqlDbType) (dbElementSize : int) (requiresDimension : bool) (dbDefaultValue : string) (map : Map<byte, SqlTypeInfo>) = 
@@ -74,11 +74,15 @@ module SqlSchema =
             |> Map.add (byte i) (SqlTypeInfo.New dbType null dbElementSize requiresDimension dbDefaultValue null)
 
 
+        static member GetBytes (r : SqlDataReader) i =
+            let bytes = r.GetSqlBytes(i)
+            bytes.Buffer
+
         static member lookup : Map<byte, SqlTypeInfo> = 
             Map.empty
             //                      TypeId  SqlDbType                   Sz  Req?    DefaultValue    ValueGetter
             |> TypeDefinition.td    127     SqlDbType.BigInt            8   false   "0"             <@ (fun r -> r.GetInt64(0)              ) @>
-            |> TypeDefinition.std   173     SqlDbType.Binary            1   true    ""              
+            |> TypeDefinition.td    173     SqlDbType.Binary            1   true    "0x0"              
             |> TypeDefinition.td    104     SqlDbType.Bit               1   false   "0"             <@ (fun r -> r.GetBoolean(0)            ) @>
             |> TypeDefinition.td    175     SqlDbType.Char              1   true    "''"            <@ (fun r -> r.GetString(0)             ) @>
             |> TypeDefinition.td    61      SqlDbType.DateTime          8   false   "1900-01-01"    <@ (fun r -> r.GetDateTime(0)           ) @>
