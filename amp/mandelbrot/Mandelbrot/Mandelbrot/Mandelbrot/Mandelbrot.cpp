@@ -17,8 +17,7 @@
 
 #include <chrono>
 
-#include <d3d11_1.h>
-#include <d3dcompiler.h>
+#include <d3d11_2.h>
 #include <directxmath.h>
 #include <directxcolors.h>
 #include "resource.h"
@@ -26,7 +25,6 @@
 //d3d11.lib;d3dcompiler.lib;dxguid.lib;winmm.lib;comctl32.lib;%(AdditionalDependencies)
 
 #pragma comment (lib, "d3d11")
-#pragma comment (lib, "d3dcompiler")
 
 using namespace DirectX;
 
@@ -522,7 +520,7 @@ namespace
 
     mtype           const   cx_mandelbrot   = 0.001643721971153F    ;
     mtype           const   cy_mandelbrot   = 0.822467633298876F    ; 
-    mtype           const   zoom_mandelbrot = 1/3.0F                ;
+    mtype           const   zoom_mandelbrot = 1.0F/200              ;
 
     inline int mandelbrot2 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
     {
@@ -1135,9 +1133,11 @@ void render ()
         ,   XMMatrixTranspose (XMMatrixLookAtRH (eye, at, up))
         );
 
+    auto rot = XMMatrixRotationY (diff_in_ms/1000.0F) * XMMatrixRotationZ (diff_in_ms/10000.0F);
+
     XMStoreFloat4x4 (
             &sdr->view.model
-        ,   XMMatrixTranspose (XMMatrixRotationY (diff_in_ms/1000.0F))
+        ,   XMMatrixTranspose (rot)
         );
 
     ddr->device_context->UpdateSubresource(
@@ -1153,7 +1153,7 @@ void render ()
             *ddr->accelerator_view
         ,   ddr->texture.get ()
         ,   static_cast<int> (diff_in_ms / 100)
-        ,   zoom_mandelbrot * static_cast<float> (pow(1.2, diff_in_ms/1000.0))
+        ,   zoom_mandelbrot * static_cast<float> (pow(1.4, diff_in_ms/1000.0))
         ,   mandelbrot_iter
         ,   cx_mandelbrot
         ,   cy_mandelbrot

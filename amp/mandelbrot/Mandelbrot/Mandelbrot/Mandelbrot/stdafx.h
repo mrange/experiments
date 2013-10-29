@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -33,4 +34,5 @@
 #include <d2d1effects_1.h>
 #include <dwrite_2.h>
 #include <wincodec.h>
-#include <DirectXMath.h>
+#include <directxmath.h>
+#include <directxcolors.h>
