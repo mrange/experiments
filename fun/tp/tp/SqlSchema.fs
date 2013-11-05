@@ -27,7 +27,7 @@ module SqlSchema =
             DbElementSize       : int       
             RequiresDimension   : bool      
             DbDefaultValue      : string    
-            GetterMethod        : MethodInfo
+            GetterMethod        : SqlDataReader -> int -> obj
             DbTypeName          : string    
             CsTypeName          : string    
         }
@@ -42,10 +42,10 @@ module SqlSchema =
                 GetterMethod        = getterMethod     
                 DbTypeName          = dbType.ToString().ToLowerInvariant()
                 CsTypeName          = if clrType.IsArray then clrType.GetElementType().FullName + "[]"
-                                        else clrType.GetElementType().FullName
+                                      else clrType.GetElementType().FullName
             }
 
-        static member Empty = SqlTypeInfo.New SqlDbType.Variant typeof<obj> -1 false "null" null
+        static member Empty = SqlTypeInfo.New SqlDbType.Variant typeof<obj> -1 false "null" (fun r i -> null)
 
 
     type TypeDefinition =   
@@ -63,15 +63,8 @@ module SqlSchema =
             TypeInfo        : SqlTypeInfo   
         }
 
-        static member td (i : int) (dbType : SqlDbType) (dbElementSize : int) (requiresDimension : bool) (dbDefaultValue : string) (getter : Expr<(SqlDataReader -> 'T)>) (map : Map<byte, SqlTypeInfo>) = 
-            match getter with 
-            |   Lambda (_, Call (_, mi, _)) ->  map
-                                                |> Map.add (byte i) (SqlTypeInfo.New dbType typeof<'T> dbElementSize requiresDimension dbDefaultValue mi)
-            |   _                           ->  failwith "Wrongly configured getter method"
-
-        static member std (i : int) (dbType : SqlDbType) (dbElementSize : int) (requiresDimension : bool) (dbDefaultValue : string) (map : Map<byte, SqlTypeInfo>) = 
-            map
-            |> Map.add (byte i) (SqlTypeInfo.New dbType null dbElementSize requiresDimension dbDefaultValue null)
+        static member td<'T> (i : int) (dbType : SqlDbType) (dbElementSize : int) (requiresDimension : bool) (dbDefaultValue : string) (getter : SqlDataReader -> int -> 'T) = 
+            Map.add (byte i) (SqlTypeInfo.New dbType typeof<'T> dbElementSize requiresDimension dbDefaultValue (fun r i -> (getter r i) :> obj))
 
 
         static member GetBytes (r : SqlDataReader) i =
@@ -81,35 +74,35 @@ module SqlSchema =
         static member lookup : Map<byte, SqlTypeInfo> = 
             Map.empty
             //                      TypeId  SqlDbType                   Sz  Req?    DefaultValue    ValueGetter
-            |> TypeDefinition.td    127     SqlDbType.BigInt            8   false   "0"             <@ (fun r -> r.GetInt64(0)              ) @>
-            |> TypeDefinition.td    173     SqlDbType.Binary            1   true    "0x0"              
-            |> TypeDefinition.td    104     SqlDbType.Bit               1   false   "0"             <@ (fun r -> r.GetBoolean(0)            ) @>
-            |> TypeDefinition.td    175     SqlDbType.Char              1   true    "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    61      SqlDbType.DateTime          8   false   "1900-01-01"    <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    106     SqlDbType.Decimal           17  false   "0"             <@ (fun r -> r.GetDecimal(0)            ) @>
-            |> TypeDefinition.td    62      SqlDbType.Float             4   false   "0"             <@ (fun r -> r.GetDouble(0)             ) @>
-            |> TypeDefinition.std   34      SqlDbType.Image             1   false   ""              
-            |> TypeDefinition.td    56      SqlDbType.Int               4   false   "0"             <@ (fun r -> r.GetInt32(0)              ) @>
-            |> TypeDefinition.td    60      SqlDbType.Money             8   false   "0"             <@ (fun r -> r.GetDecimal(0)            ) @>
-            |> TypeDefinition.td    239     SqlDbType.NChar             2   true    "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    99      SqlDbType.NText             2   false   "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    231     SqlDbType.NVarChar          2   true    "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    59      SqlDbType.Real              4   false   "0"             <@ (fun r -> r.GetFloat(0)              ) @>
-            |> TypeDefinition.td    36      SqlDbType.UniqueIdentifier  1   false   ""              <@ (fun r -> r.GetGuid(0)               ) @>
-            |> TypeDefinition.td    58      SqlDbType.SmallDateTime     4   false   "1900-01-01"    <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    52      SqlDbType.SmallInt          2   false   "0"             <@ (fun r -> r.GetInt16(0)              ) @>
-            |> TypeDefinition.td    122     SqlDbType.SmallMoney        4   false   "0"             <@ (fun r -> r.GetDecimal(0)            ) @>
-            |> TypeDefinition.td    35      SqlDbType.Text              1   false   "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    189     SqlDbType.Timestamp         8   false   ""              <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    48      SqlDbType.TinyInt           1   false   "0"             <@ (fun r -> r.GetByte(0)               ) @>
-            |> TypeDefinition.std   165     SqlDbType.VarBinary         1   true    ""              
-            |> TypeDefinition.td    167     SqlDbType.VarChar           1   true    "''"            <@ (fun r -> r.GetString(0)             ) @>
-            |> TypeDefinition.td    98      SqlDbType.Variant           -1  false   ""              <@ (fun r -> r.GetValue(0)              ) @>
-            |> TypeDefinition.std   241     SqlDbType.Xml               -1  false   ""              
-            |> TypeDefinition.td    40      SqlDbType.Date              8   false   "1900-01-01"    <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    41      SqlDbType.Time              5   false   ""              <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    42      SqlDbType.DateTime2         8   false   "1900-01-01"    <@ (fun r -> r.GetDateTime(0)           ) @>
-            |> TypeDefinition.td    43      SqlDbType.DateTimeOffset    10  false   ""              <@ (fun r -> r.GetDateTimeOffset(0)     ) @>
+            |> TypeDefinition.td    127     SqlDbType.BigInt            8   false   "0"             (fun r i -> r.GetInt64(i)           )
+            |> TypeDefinition.td    173     SqlDbType.Binary            1   true    "0x0"           TypeDefinition.GetBytes                    
+            |> TypeDefinition.td    104     SqlDbType.Bit               1   false   "0"             (fun r i -> r.GetBoolean(i)         )
+            |> TypeDefinition.td    175     SqlDbType.Char              1   true    "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    61      SqlDbType.DateTime          8   false   "1900-01-01"    (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    106     SqlDbType.Decimal           17  false   "0"             (fun r i -> r.GetDecimal(i)         )
+            |> TypeDefinition.td    62      SqlDbType.Float             4   false   "0"             (fun r i -> r.GetDouble(i)          )
+            |> TypeDefinition.td    34      SqlDbType.Image             1   false   ""              TypeDefinition.GetBytes
+            |> TypeDefinition.td    56      SqlDbType.Int               4   false   "0"             (fun r i -> r.GetInt32(i)           )
+            |> TypeDefinition.td    60      SqlDbType.Money             8   false   "0"             (fun r i -> r.GetDecimal(i)         )
+            |> TypeDefinition.td    239     SqlDbType.NChar             2   true    "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    99      SqlDbType.NText             2   false   "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    231     SqlDbType.NVarChar          2   true    "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    59      SqlDbType.Real              4   false   "0"             (fun r i -> r.GetFloat(i)           )
+            |> TypeDefinition.td    36      SqlDbType.UniqueIdentifier  1   false   ""              (fun r i -> r.GetGuid(i)            )
+            |> TypeDefinition.td    58      SqlDbType.SmallDateTime     4   false   "1900-01-01"    (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    52      SqlDbType.SmallInt          2   false   "0"             (fun r i -> r.GetInt16(i)           )
+            |> TypeDefinition.td    122     SqlDbType.SmallMoney        4   false   "0"             (fun r i -> r.GetDecimal(i)         )
+            |> TypeDefinition.td    35      SqlDbType.Text              1   false   "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    189     SqlDbType.Timestamp         8   false   ""              (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    48      SqlDbType.TinyInt           1   false   "0"             (fun r i -> r.GetByte(i)            )
+            |> TypeDefinition.td    165     SqlDbType.VarBinary         1   true    ""              TypeDefinition.GetBytes              
+            |> TypeDefinition.td    167     SqlDbType.VarChar           1   true    "''"            (fun r i -> r.GetString(i)          )
+            |> TypeDefinition.td    98      SqlDbType.Variant           -1  false   ""              (fun r i -> r.GetValue(i)           )
+            |> TypeDefinition.td    241     SqlDbType.Xml               -1  false   ""              (fun r i -> r.GetXmlReader(i)       )
+            |> TypeDefinition.td    40      SqlDbType.Date              8   false   "1900-01-01"    (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    41      SqlDbType.Time              5   false   ""              (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    42      SqlDbType.DateTime2         8   false   "1900-01-01"    (fun r i -> r.GetDateTime(i)        )
+            |> TypeDefinition.td    43      SqlDbType.DateTimeOffset    10  false   ""              (fun r i -> r.GetDateTimeOffset(i)  )
 
         static member New schema name systemTypeId userTypeId maxLength precision scale collation isNullable =
             {
