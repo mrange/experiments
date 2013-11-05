@@ -1,0 +1,13 @@
+﻿<Window x:Class="SimpleGUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SimpleGUI" Height="350" Width="525"
+        AutomationProperties.AutomationId="SimpleGUI"
+        >
+    <UniformGrid>
+        <TextBlock >Label</TextBlock>
+        <TextBox AutomationProperties.AutomationId="Input">Input</TextBox>
+        <Button AutomationProperties.AutomationId="OK">Ok</Button>
+        <Button AutomationProperties.AutomationId="Cancel">Cancel</Button>
+    </UniformGrid>
+</Window>
