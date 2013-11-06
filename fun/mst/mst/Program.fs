@@ -5,8 +5,15 @@ open System.Windows.Automation
 [<EntryPoint>]
 let main argv = 
 
-    let cond = PropertyCondition(AutomationElement.AutomationIdProperty, "SimpleGUI", PropertyConditionFlags.IgnoreCase)
+    let ss = ScenarioState.New Map.empty Map.empty [] []
 
-    let x = AutomationElement.RootElement.FindFirst(TreeScope.Children, cond)
+    let myScenario = scenario {
+        do! UIScenario.SelectRootWindow "SimpleGUI"
+        do! UIScenario.SelectControl "OK"
+
+        return 1
+        }
+
+    let run = myScenario.Run ss
 
     0
