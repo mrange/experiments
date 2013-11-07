@@ -2,6 +2,7 @@
 // mst - Monadic Scenario Test
 namespace mst
 
+open System.Threading
 
 type ScenarioMessage = 
     {
@@ -58,7 +59,11 @@ module Scenario =
     let Yield       = Return
     let YieldFrom   = ReturnFrom
 
-    let Delay (l : unit -> Scenario<_>) : Scenario<_> = l()
+    let Delay (l : unit -> Scenario<_>) : Scenario<_> = 
+        Scenario<_>.New <| (fun ss ->   
+            l().Run ss
+            )
+        
 
 
     let Bind (l : Scenario<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> = 
@@ -142,6 +147,28 @@ module Scenario =
             let state = {ss with CleanupActions = v::ss.CleanupActions}
             ScenarioRun<_>.Success state () 
             )
+
+    let Retry (retries : int) (sleepInMilliSeconds : int) (s : Scenario<'T>) : Scenario<'T> = 
+        Scenario<_>.New <| (fun ss ->   
+            let result = 
+                seq {1..retries}
+                |> Seq.map (fun i -> 
+                    if i > 1 then
+                        Thread.Sleep(sleepInMilliSeconds)
+                    s.Run ss
+                    )
+                |> Seq.tryFind (fun r -> r.Result.IsSome)
+            match result with
+            | Some run  -> run
+            | _         -> ScenarioRun<_>.Failure ss ("Giving up after: " + retries.ToString())
+            )
+
+    let Run (p : Map<string, obj>) (s : Scenario<'T>) : ScenarioRun<'T> = 
+        let ss = ScenarioState.New p Map.empty [] []
+        let run = s.Run ss
+        for cleanupAction in run.State.CleanupActions do
+            cleanupAction()
+        run
 
 [<AutoOpen>]
 module ScenarioBuilder =

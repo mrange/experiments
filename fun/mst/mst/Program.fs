@@ -5,15 +5,16 @@ open System.Windows.Automation
 [<EntryPoint>]
 let main argv = 
 
-    let ss = ScenarioState.New Map.empty Map.empty [] []
-
     let myScenario = scenario {
-        do! UIScenario.SelectRootWindow "SimpleGUI"
-        do! UIScenario.SelectControl "OK"
+        do! UIScenario.StartWindowedProcess "SimpleGUI.exe" "SimpleGUI"
+
+        do! UIScenario.Invoke "OK"
+
+        let! text = UIScenario.GetText "Input"
 
         return 1
         }
 
-    let run = myScenario.Run ss
+    let run = Scenario.Run Map.empty myScenario
 
     0

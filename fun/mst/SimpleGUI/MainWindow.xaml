@@ -6,8 +6,8 @@
         >
     <UniformGrid>
         <TextBlock >Label</TextBlock>
-        <TextBox AutomationProperties.AutomationId="Input">Input</TextBox>
-        <Button AutomationProperties.AutomationId="OK">Ok</Button>
-        <Button AutomationProperties.AutomationId="Cancel">Cancel</Button>
+        <TextBox x:Name="Input" AutomationProperties.AutomationId="Input">Input</TextBox>
+        <Button AutomationProperties.AutomationId="OK" Click="Click_Ok">Ok</Button>
+        <Button AutomationProperties.AutomationId="Cancel" Click="Click_Cancel">Cancel</Button>
     </UniformGrid>
 </Window>
