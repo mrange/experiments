@@ -4,7 +4,7 @@
         Title="SimpleGUI" Height="350" Width="525"
         AutomationProperties.AutomationId="SimpleGUI"
         >
-    <UniformGrid>
+    <UniformGrid AutomationProperties.AutomationId="Grid">
         <TextBlock >Label</TextBlock>
         <TextBox x:Name="Input" AutomationProperties.AutomationId="Input">Input</TextBox>
         <Button AutomationProperties.AutomationId="OK" Click="Click_Ok">Ok</Button>

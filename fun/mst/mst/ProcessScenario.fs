@@ -8,13 +8,15 @@ module ProcessScenario =
 
     let StartProcess (exePath : string) : Scenario<unit> =
         scenario {  
+                    do! Scenario.LiftStackFrame
+
                     let proc = new Process()
                     do! Scenario.SetCleanupAction (fun () -> proc.Dispose())
                     proc.StartInfo <- new ProcessStartInfo(exePath)
                     if proc.Start() then
                         do! Scenario.SetCleanupAction (fun () -> proc.Kill())
                         if proc.WaitForInputIdle() then
-                            do! Scenario.SetState State_Process proc
+                            do! Scenario.SetVariable State_Process proc
                         else
                             do! Scenario.Raise ("Failed to start as application never went idle: " + exePath)
                     else

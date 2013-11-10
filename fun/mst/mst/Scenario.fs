@@ -20,14 +20,24 @@ type ScenarioResult =
     | Message       of ScenarioMessage
     | Failure       of ScenarioFailure
 
+
+type StackFrame = 
+    {
+        Lifted          : bool
+        Variables       : Map<string, obj>
+        CleanupActions  : (unit -> unit) list
+    }
+    static member New lifted variables cleanupActions = {Lifted = lifted; Variables = variables; CleanupActions = cleanupActions}
+    static member Empty = StackFrame.New false Map.empty []
+
+
 type ScenarioState = 
     {
         Parameters      : Map<string, obj>
-        State           : Map<string, obj>
+        StackFrames     : StackFrame list
         Results         : ScenarioResult list
-        CleanupActions  : (unit -> unit) list
     }
-    static member New parameters state results cleanupActions = {Parameters = parameters; State = state; Results = results; CleanupActions = cleanupActions}
+    static member New parameters stackFrames results = {Parameters = parameters; StackFrames = stackFrames; Results = results}
 
 type ScenarioRun<'T> = 
     {
@@ -63,9 +73,28 @@ module Scenario =
         Scenario<_>.New <| (fun ss ->   
             l().Run ss
             )
+
+    let Run (l : Scenario<'T>) : Scenario<'T> = 
+        Scenario<_>.New <| (fun ss -> 
+            let length = ss.StackFrames.Length
+
+            let run = l.Run {ss with StackFrames = StackFrame.Empty::ss.StackFrames}  
+
+            let kept,sfs = Slice (length + 1) run.State.StackFrames
+
+            if (sfs.Head.Lifted) then
+                run
+            else
+                for sf in kept do
+                    for cleanupAction in sf.CleanupActions do
+                        cleanupAction()
+
+                for cleanupAction in sfs.Head.CleanupActions do
+                    cleanupAction()
+
+                ScenarioRun<_>.New {run.State with StackFrames = sfs.Tail} run.Result
+            )
         
-
-
     let Bind (l : Scenario<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> = 
         Scenario<_>.New <| (fun ss ->   
             let lr = l.Run ss 
@@ -114,20 +143,23 @@ module Scenario =
             )
 
 
-    let GetState k : Scenario<'T> = 
+    let GetVariable k : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
-            let f = ss.State |> Map.tryFind k
-            match f with
-            | Some e    -> 
-                match e with
+            let pick = ss.StackFrames |> List.tryPick (fun sf -> sf.Variables |> Map.tryFind k)
+            match pick with
+            | Some v    -> 
+                match v with
                 | :? 'T as t    -> ScenarioRun<_>.Success ss t
-                | _             -> ScenarioRun<_>.Failure ss ("State found but not castable to: " +  typeof<'T>.FullName)
-            | _         -> ScenarioRun<_>.Failure ss ("State not found: " +  k)
+                | _             -> ScenarioRun<_>.Failure ss ("Variable found but not castable to: " +  typeof<'T>.FullName)
+            | _         -> ScenarioRun<_>.Failure ss ("Variable not found: " +  k)
             )
 
-    let SetState k v : Scenario<_> = 
+    let SetVariable k v : Scenario<_> = 
         Scenario<_>.New <| (fun ss ->   
-            let state = {ss with State = ss.State |> Map.remove k |> Map.add k v}
+            let sf = ss.StackFrames.Head    
+            let vs = sf.Variables |> Map.remove k |> Map.add k v
+            let newSf = StackFrame.New sf.Lifted vs sf.CleanupActions
+            let state = {ss with StackFrames = newSf::ss.StackFrames.Tail}
             ScenarioRun<_>.Success state () 
             )
         
@@ -136,15 +168,11 @@ module Scenario =
             ScenarioRun<_>.Failure ss error
             )
         
-    let ClearState k : Scenario<_> = 
-        Scenario<_>.New <| (fun ss ->   
-            let state = {ss with State = ss.State |> Map.remove k}
-            ScenarioRun<_>.Success state () 
-            )
-        
     let SetCleanupAction v : Scenario<_> = 
         Scenario<_>.New <| (fun ss ->   
-            let state = {ss with CleanupActions = v::ss.CleanupActions}
+            let sf = ss.StackFrames.Head    
+            let newSf = StackFrame.New sf.Lifted sf.Variables (v::sf.CleanupActions)
+            let state = {ss with StackFrames = newSf::ss.StackFrames.Tail}
             ScenarioRun<_>.Success state () 
             )
 
@@ -163,11 +191,15 @@ module Scenario =
             | _         -> ScenarioRun<_>.Failure ss ("Giving up after: " + retries.ToString())
             )
 
-    let Run (p : Map<string, obj>) (s : Scenario<'T>) : ScenarioRun<'T> = 
-        let ss = ScenarioState.New p Map.empty [] []
+    let LiftStackFrame: Scenario<unit> = 
+        Scenario<_>.New <| (fun ss ->   
+            let sf = {ss.StackFrames.Head with Lifted = true}::ss.StackFrames.Tail
+            ScenarioRun<unit>.Success {ss with StackFrames = sf} ()
+            )
+
+    let RunScenario (p : Map<string, obj>) (s : Scenario<'T>) : ScenarioRun<'T> = 
+        let ss = ScenarioState.New p [] []
         let run = s.Run ss
-        for cleanupAction in run.State.CleanupActions do
-            cleanupAction()
         run
 
 [<AutoOpen>]
@@ -180,6 +212,7 @@ module ScenarioBuilder =
         member x.Yield(value)                   = Scenario.Yield value
         member x.YieldFrom(value)               = Scenario.YieldFrom value
         member x.Delay(func)                    = Scenario.Delay func
+        member x.Run(func)                      = Scenario.Run func
         member x.Bind(func, comp)               = Scenario.Bind func comp
         member x.Combine(expr1, expr2)          = Scenario.Combine expr1 expr2
         member x.For(expr1, expr2)              = Scenario.For expr1 expr2

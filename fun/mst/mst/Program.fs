@@ -8,6 +8,8 @@ let main argv =
     let myScenario = scenario {
         do! UIScenario.StartWindowedProcess "SimpleGUI.exe" "SimpleGUI"
 
+        do! UIScenario.SelectElement "Input"
+
         do! UIScenario.Invoke "OK"
 
         let! text = UIScenario.GetText "Input"
@@ -15,6 +17,6 @@ let main argv =
         return 1
         }
 
-    let run = Scenario.Run Map.empty myScenario
+    let run = Scenario.RunScenario Map.empty myScenario
 
     0

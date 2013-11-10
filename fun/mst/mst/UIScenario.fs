@@ -9,23 +9,24 @@ module UIScenario =
 
     let SetRootElement (elementName : string) : Scenario<unit> =
         scenario {
+                    do! Scenario.LiftStackFrame
+
                     let root = AutomationElement.RootElement |> FindChild elementName 
                     if root = null then
                         do! Scenario.Raise ("RootElement not found: " + elementName)
                     else
-                        do! Scenario.SetState State_Window root
+                        do! Scenario.SetVariable State_Window root
                     }
 
-    let GetRootElement : Scenario<AutomationElement> = 
+    let GetCurrentElement : Scenario<AutomationElement> = 
         scenario {
-                    let! elem = Scenario.GetState State_Window 
-                    return elem
+                    return! Scenario.GetVariable State_Window
                     }
 
     let FindElement (elementName : string) : Scenario<AutomationElement option> =     
         scenario {
-                    let! rootElement = GetRootElement
-                    let element = rootElement |> FindChild elementName
+                    let! currentElement = GetCurrentElement
+                    let element = currentElement |> FindChild elementName
                     if element = null then
                         return None
                     else
@@ -41,10 +42,17 @@ module UIScenario =
                         | _         -> null 
                     
                     if elem = null then
-                        do! Scenario.Raise ("Element not found: " + elementName)
-                        return null
+                        return! Scenario.Raise ("Element not found: " + elementName)
                     else
                         return elem
+                    }
+
+    let SelectElement (elementName : string) : Scenario<unit> =     
+        scenario {
+                    do! Scenario.LiftStackFrame
+
+                    let! element = GetElement elementName
+                    do! Scenario.SetVariable State_Control elementName
                     }
 
     let GetPattern (elementName : string) (p : AutomationPattern) : Scenario<#BasePattern> =     
@@ -54,9 +62,7 @@ module UIScenario =
                     if element.TryGetCurrentPattern(p, o) then
                         return downcast !o
                     else
-                        do! Scenario.Raise ("Element with requested pattern not found: " + elementName)
-                        return null
-
+                        return! Scenario.Raise ("Element with requested pattern not found: " + elementName)
                     }
 
     let GetInvokePattern (elementName : string) : Scenario<InvokePattern> =     
@@ -85,6 +91,8 @@ module UIScenario =
                     }
 
     let StartWindowedProcess exePath windowName = scenario {
+        do! Scenario.LiftStackFrame
+
         do! ProcessScenario.StartProcess exePath
         do! Scenario.Retry 10 500 (SetRootElement windowName)
         }
