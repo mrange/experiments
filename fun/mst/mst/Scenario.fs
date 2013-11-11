@@ -143,6 +143,28 @@ module Scenario =
             )
 
 
+    let GetParameter k : Scenario<'T> = 
+        Scenario<_>.New <| (fun ss ->   
+            let pick = ss.Parameters |> Map.tryFind k
+            match pick with
+            | Some v    -> 
+                match v with
+                | :? 'T as t    -> ScenarioRun<_>.Success ss t
+                | _             -> ScenarioRun<_>.Failure ss ("Parameter found but not castable to: " +  typeof<'T>.FullName)
+            | _         -> ScenarioRun<_>.Failure ss ("Parameter not found: " +  k)
+            )
+
+    let TryGetParameter k : Scenario<'T option> = 
+        Scenario<_>.New <| (fun ss ->   
+            let pick = ss.Parameters |> Map.tryFind k
+            match pick with
+            | Some v    -> 
+                match v with
+                | :? 'T as t    -> ScenarioRun<_>.Success ss (Some t)
+                | _             -> ScenarioRun<_>.Failure ss ("Parameter found but not castable to: " +  typeof<'T>.FullName)
+            | _         -> ScenarioRun<_>.Success ss None
+            )
+
     let GetVariable k : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             let pick = ss.StackFrames |> List.tryPick (fun sf -> sf.Variables |> Map.tryFind k)
