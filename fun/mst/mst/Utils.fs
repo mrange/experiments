@@ -11,13 +11,13 @@ module Utils =
 
     let Slice (keep : int) (l : 'T list) = 
         if keep >= l.Length then
-            [||],l
+            [],l
         else
-            let res = Array.zeroCreate (l.Length - keep)
+            let mutable res = []
             let mutable ll = l
-            for i in 0..(res.Length - 1) do
-                res.[i] <- ll.Head
+            for i in 0..(l.Length - keep - 1) do
+                res <- ll.Head::res
                 ll <- ll.Tail
-            res,ll
+            (res |> List.rev),ll
                 
 

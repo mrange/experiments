@@ -75,6 +75,10 @@ module Scenario =
             )
 
     let Run (l : Scenario<'T>) : Scenario<'T> = 
+        let Cleanup (l : StackFrame list) = 
+            for sf in l do
+                for cleanupAction in sf.CleanupActions do
+                    cleanupAction()
         Scenario<_>.New <| (fun ss -> 
             let length = ss.StackFrames.Length
 
@@ -82,17 +86,11 @@ module Scenario =
 
             let kept,sfs = Slice (length + 1) run.State.StackFrames
 
-            if (sfs.Head.Lifted) then
-                run
-            else
-                for sf in kept do
-                    for cleanupAction in sf.CleanupActions do
-                        cleanupAction()
-
-                for cleanupAction in sfs.Head.CleanupActions do
-                    cleanupAction()
-
-                ScenarioRun<_>.New {run.State with StackFrames = sfs.Tail} run.Result
+            match sfs with
+            |   []                      ->  failwith "StackFrame unexpectedly empty"
+            |   sf::tail when sf.Lifted ->  run
+            |   sf::tail                ->  Cleanup kept
+                                            ScenarioRun<_>.New {run.State with StackFrames = tail} run.Result
             )
         
     let Bind (l : Scenario<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> = 
@@ -175,29 +173,32 @@ module Scenario =
                 | _             -> ScenarioRun<_>.Failure ss ("Variable found but not castable to: " +  typeof<'T>.FullName)
             | _         -> ScenarioRun<_>.Failure ss ("Variable not found: " +  k)
             )
-
-    let SetVariable k v : Scenario<_> = 
+    
+    let UpdateStackFrame (updater : StackFrame -> StackFrame) : Scenario<unit> =
         Scenario<_>.New <| (fun ss ->   
-            let sf = ss.StackFrames.Head    
-            let vs = sf.Variables |> Map.remove k |> Map.add k v
-            let newSf = StackFrame.New sf.Lifted vs sf.CleanupActions
-            let state = {ss with StackFrames = newSf::ss.StackFrames.Tail}
-            ScenarioRun<_>.Success state () 
+            match ss.StackFrames with
+            |   []          -> failwith "StackFrame unexpectedly empty"
+            |   sf::tail    -> let newSf = updater sf
+                               let state = {ss with StackFrames = newSf::tail}
+                               ScenarioRun<_>.Success state ()      
             )
+
+    let SetVariable k v : Scenario<unit> = 
+        UpdateStackFrame (fun sf -> let vs = sf.Variables |> Map.remove k |> Map.add k v
+                                    StackFrame.New sf.Lifted vs sf.CleanupActions
+                         )
         
+    let SetCleanupAction v : Scenario<unit> = 
+        UpdateStackFrame (fun sf -> StackFrame.New sf.Lifted sf.Variables (v::sf.CleanupActions))
+
+    let LiftStackFrame: Scenario<unit> = 
+        UpdateStackFrame (fun sf -> StackFrame.New true sf.Variables sf.CleanupActions)
+
     let Raise error : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             ScenarioRun<_>.Failure ss error
             )
         
-    let SetCleanupAction v : Scenario<_> = 
-        Scenario<_>.New <| (fun ss ->   
-            let sf = ss.StackFrames.Head    
-            let newSf = StackFrame.New sf.Lifted sf.Variables (v::sf.CleanupActions)
-            let state = {ss with StackFrames = newSf::ss.StackFrames.Tail}
-            ScenarioRun<_>.Success state () 
-            )
-
     let Retry (retries : int) (sleepInMilliSeconds : int) (s : Scenario<'T>) : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             let result = 
@@ -211,12 +212,6 @@ module Scenario =
             match result with
             | Some run  -> run
             | _         -> ScenarioRun<_>.Failure ss ("Giving up after: " + retries.ToString())
-            )
-
-    let LiftStackFrame: Scenario<unit> = 
-        Scenario<_>.New <| (fun ss ->   
-            let sf = {ss.StackFrames.Head with Lifted = true}::ss.StackFrames.Tail
-            ScenarioRun<unit>.Success {ss with StackFrames = sf} ()
             )
 
     let RunScenario (p : Map<string, obj>) (s : Scenario<'T>) : ScenarioRun<'T> = 
