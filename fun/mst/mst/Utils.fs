@@ -9,6 +9,10 @@ module Utils =
         let cond = PropertyCondition(AutomationElement.AutomationIdProperty, name, PropertyConditionFlags.IgnoreCase)
         elem.FindFirst(TreeScope.Children, cond)
 
+    let FindChildByClassName (name : string) (elem : AutomationElement) = 
+        let cond = PropertyCondition(AutomationElement.ClassNameProperty, name, PropertyConditionFlags.IgnoreCase)
+        elem.FindFirst(TreeScope.Children, cond)
+
     let Slice (keep : int) (l : 'T list) = 
         if keep >= l.Length then
             [],l

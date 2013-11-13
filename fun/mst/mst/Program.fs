@@ -6,7 +6,7 @@ open System.Windows.Automation
 let main argv = 
 
     let myScenario = scenario {
-        do! UIScenario.StartWindowedProcess "SimpleGUI.exe" "SimpleGUI"
+        do! UIScenario.StartWindowedProcess "mspaint.exe" "MSPaintApp"
 
         do! UIScenario.SelectElement "Input"
 

@@ -7,13 +7,13 @@ module UIScenario =
     let State_Window    = "UISCENARIO_STATE_WINDOW"
     let State_Control   = "UISCENARIO_STATE_CONTROL"
 
-    let SetRootElement (elementName : string) : Scenario<unit> =
+    let SetRootElement (className : string) : Scenario<unit> =
         scenario {
                     do! Scenario.LiftStackFrame
 
-                    let root = AutomationElement.RootElement |> FindChild elementName 
+                    let root = AutomationElement.RootElement |> FindChildByClassName className 
                     if root = null then
-                        do! Scenario.Raise ("RootElement not found: " + elementName)
+                        do! Scenario.Raise ("RootElement not found: " + className)
                     else
                         do! Scenario.SetVariable State_Window root
                     }
