@@ -1,7 +1,9 @@
 ﻿#r "UIAutomationTypes"
 #r "UIAutomationClient"
+#r "WindowsBase"
 
 open System
+open System.Windows
 open System.Windows.Automation
 
 let Patterns : Map<string, AutomationPattern>= 
@@ -36,17 +38,30 @@ type UIElement(element : AutomationElement) =
 
     member x.Element = element
 
-    member x.AutomationId   = property "" AutomationElementIdentifiers.AutomationIdProperty
-    member x.ClassName      = property "" AutomationElementIdentifiers.ClassNameProperty
-    member x.Name           = property "" AutomationElementIdentifiers.NameProperty
+    member x.AllProperties  = let props = element.GetSupportedProperties()
+                              props 
+                                |> Array.map (fun p -> let pv = element.GetCurrentPropertyValue p
+                                                       p.ProgrammaticName, pv
+                                                )
+
+    member x.AutomationId   = property ""       AutomationElementIdentifiers.AutomationIdProperty
+    member x.ClassName      = property ""       AutomationElementIdentifiers.ClassNameProperty
+    member x.Name           = property ""       AutomationElementIdentifiers.NameProperty
+    member x.BoundingRect   = property (Rect()) AutomationElementIdentifiers.BoundingRectangleProperty
+
     member x.WaitForInputIdle () = pattern (fun (p : WindowPattern) -> p.WaitForInputIdle(1000)) false
 
     member x.HasChildren = element.FindFirst(TreeScope.Children, Condition.TrueCondition) <> null
 
     member x.Children () =   
         [| for element in element.FindAll(TreeScope.Children, Condition.TrueCondition) do yield UIElement(element) |]
+    
+    member x.AsString = 
+        let prettify s whenNull = if String.IsNullOrWhiteSpace(s) then whenNull else s
+        lazy    let r = x.BoundingRect
+                (sprintf "%s::%s (%s) - %.0f,%.0f %.0fx%.0f" (prettify x.ClassName "<NoClass>") (prettify x.Name "<NoName>") (prettify x.AutomationId  "<NoId>") r.Left r.Top r.Width r.Height)
 
-    override x.ToString () = x.ClassName + "::" + x.Name
+    override x.ToString () = x.AsString.Value
 
 let AllRootWindows () = UIElement(AutomationElement.RootElement).Children()
 
@@ -54,6 +69,14 @@ let FindFromName (partialName : string) (elements : UIElement array) = elements 
 
 type Tree = 
     |   Node of UIElement*Tree array
+
+let Element t =   
+    match t with
+    |   Node (e,_) -> e
+
+let Children t =   
+    match t with
+    |   Node (_, c) -> c
 
 let rec DumpTree (element : UIElement) : Tree = 
     let subElements = element.Children() |> Array.map DumpTree

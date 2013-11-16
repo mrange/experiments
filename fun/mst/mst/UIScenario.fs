@@ -5,88 +5,94 @@ open System.Windows.Automation
 module UIScenario =
     
     let State_Window    = "UISCENARIO_STATE_WINDOW"
-    let State_Control   = "UISCENARIO_STATE_CONTROL"
+    let State_Current   = "UISCENARIO_STATE_CURRENT"
 
-    let SetRootElement (className : string) : Scenario<unit> =
+    let SetRootElement (q : Query) : Scenario<unit> =
         scenario {
                     do! Scenario.LiftStackFrame
 
-                    let root = AutomationElement.RootElement |> FindChildByClassName className 
+                    let root = AutomationElement.RootElement |> ShallowFindChild q
                     if root = null then
-                        do! Scenario.Raise ("RootElement not found: " + className)
+                        do! Scenario.Raise (sprintf "RootElement not found: %A" q)
                     else
                         do! Scenario.SetVariable State_Window root
+                        do! Scenario.SetVariable State_Current root
                     }
 
     let GetCurrentElement : Scenario<AutomationElement> = 
         scenario {
-                    return! Scenario.GetVariable State_Window
+                    return! Scenario.GetVariable State_Current
                     }
 
-    let FindElement (elementName : string) : Scenario<AutomationElement option> =     
+    let FindElement (q : Query) : Scenario<AutomationElement option> =     
         scenario {
                     let! currentElement = GetCurrentElement
-                    let element = currentElement |> FindChild elementName
+                    let element = currentElement |> DeepFindChild q 
                     if element = null then
                         return None
                     else
                         return Some element                        
                     }
 
-    let GetElement (elementName : string) : Scenario<AutomationElement> =     
+    let GetElement (q : Query) : Scenario<AutomationElement> =     
         scenario {
-                    let! element = FindElement elementName
+                    let! element = FindElement q
                     let elem = 
                         match element with
                         | Some c    -> c
                         | _         -> null 
                     
                     if elem = null then
-                        return! Scenario.Raise ("Element not found: " + elementName)
+                        return! Scenario.Raise (sprintf "Element not found: %A" q)
                     else
                         return elem
                     }
 
-    let SelectElement (elementName : string) : Scenario<unit> =     
+    let GetRootElement : Scenario<AutomationElement> = 
+        scenario {
+                    return! Scenario.GetVariable State_Window
+                    }
+
+    let SetCurrentElement (q : Query) : Scenario<unit> =     
         scenario {
                     do! Scenario.LiftStackFrame
 
-                    let! element = GetElement elementName
-                    do! Scenario.SetVariable State_Control elementName
+                    let! element = GetElement q
+                    do! Scenario.SetVariable State_Current element
                     }
 
-    let GetPattern (elementName : string) (p : AutomationPattern) : Scenario<#BasePattern> =     
+    let GetPattern (q : Query) (p : AutomationPattern) : Scenario<#BasePattern> =     
         scenario {
-                    let! element = GetElement elementName
+                    let! element = GetElement q
                     let o = ref Unchecked.defaultof<obj>
                     if element.TryGetCurrentPattern(p, o) then
                         return downcast !o
                     else
-                        return! Scenario.Raise ("Element with requested pattern not found: " + elementName)
+                        return! Scenario.Raise (sprintf "Element with requested pattern not found: %A" q)
                     }
 
-    let GetInvokePattern (elementName : string) : Scenario<InvokePattern> =     
+    let GetInvokePattern (q : Query) : Scenario<InvokePattern> =     
         scenario {
-                    let! p = GetPattern elementName InvokePattern.Pattern
+                    let! p = GetPattern q InvokePattern.Pattern
                     return p
                     }
 
-    let GetTextPattern (elementName : string) : Scenario<TextPattern> =     
+    let GetTextPattern (q : Query) : Scenario<TextPattern> =     
         scenario {
-                    let! p = GetPattern elementName TextPattern.Pattern
+                    let! p = GetPattern q TextPattern.Pattern
                     return p
                     }
 
-    let Invoke (elementName : string) : Scenario<unit> =     
+    let Invoke (q : Query) : Scenario<unit> =     
         scenario {
-                    let! pattern = GetInvokePattern elementName
+                    let! pattern = GetInvokePattern q
                     ignore <| pattern.Invoke()
                     return ()
                     }
 
-    let GetText (elementName : string) : Scenario<string> =     
+    let GetText (q : Query) : Scenario<string> =     
         scenario {
-                    let! pattern = GetTextPattern elementName
+                    let! pattern = GetTextPattern q
                     return pattern.DocumentRange.GetText(-1)
                     }
 

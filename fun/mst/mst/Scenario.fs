@@ -141,6 +141,14 @@ module Scenario =
             )
 
 
+    let Optional (l : Scenario<'T>) : Scenario<'T option> = 
+        Scenario<_>.New <| (fun ss ->   
+            let run = l.Run ss
+            match run.Result with
+            | Some v    -> ScenarioRun<_>.Success run.State (Some v)
+            | _         -> ScenarioRun<_>.Success ss None
+            )
+
     let GetParameter k : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             let pick = ss.Parameters |> Map.tryFind k

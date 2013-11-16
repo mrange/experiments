@@ -6,13 +6,9 @@ open System.Windows.Automation
 let main argv = 
 
     let myScenario = scenario {
-        do! UIScenario.StartWindowedProcess "mspaint.exe" "MSPaintApp"
+        do! UIScenario.StartWindowedProcess "mspaint.exe" <| ByClass "MSPaintApp"
 
-        do! UIScenario.SelectElement "Input"
-
-        do! UIScenario.Invoke "OK"
-
-        let! text = UIScenario.GetText "Input"
+        do! UIScenario.Invoke <| ByName "Line"
 
         return 1
         }
