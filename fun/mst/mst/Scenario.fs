@@ -58,20 +58,26 @@ type Scenario<'T> =
 module Scenario =
     let Nop () = ()
 
-    let Return v        : Scenario<_> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss v)
-    let Zero ()         : Scenario<_> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss Unchecked.defaultof<_>)
+    let Return v        : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss v)
+    let Zero ()         : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss Unchecked.defaultof<_>)
 
-    let Message msg     : Scenario<_> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Message ss msg)
-    let Failure error   : Scenario<_> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Failure ss error)
+    let Message msg     : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Message ss msg)
+    let Failure error   : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Failure ss error)
 
-    let ReturnFrom (l : Scenario<_>) : Scenario<_> = l
+    let ReturnFrom (l : Scenario<'T>) : Scenario<'T> = l
 
     let Yield       = Return
     let YieldFrom   = ReturnFrom
 
-    let Delay (l : unit -> Scenario<_>) : Scenario<_> = 
+    let Delay (l : unit -> Scenario<'T>) : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             l().Run ss
+            )
+
+    let Pause (ms : int) : Scenario<unit> = 
+        Scenario<_>.New <| (fun ss ->   
+            Thread.Sleep(ms)
+            ScenarioRun<_>.Success ss ()
             )
 
     let Run (l : Scenario<'T>) : Scenario<'T> = 
@@ -240,8 +246,8 @@ module ScenarioBuilder =
         member x.Run(func)                      = Scenario.Run func
         member x.Bind(func, comp)               = Scenario.Bind func comp
         member x.Combine(expr1, expr2)          = Scenario.Combine expr1 expr2
-        member x.For(expr1, expr2)              = Scenario.For expr1 expr2
-        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
+//        member x.For(expr1, expr2)              = Scenario.For expr1 expr2
+//        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
 
     let scenario = ScenarioBuilder()
 

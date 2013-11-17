@@ -9,16 +9,15 @@ namespace mst.lowlevel.test
         {
             Console.WriteLine("Please focus the application");
 
-            //for (var iter = 5; iter > 0; --iter)
-            //{
-            //    Console.WriteLine("{0}...", iter);
-            //    Thread.Sleep(1000);
-            //}
+            for (var iter = 5; iter > 0; --iter)
+            {
+                Console.WriteLine("{0}...", iter);
+                Thread.Sleep(1000);
+            }
 
             //Keyboard.Send ("Testing");
-            //Mouse.LeftClick(100,100);
-
-            Mouse.MoveTo(200,200);
+            Mouse.LeftClickAndHold(200,200);
+            Mouse.ReleaseLeft(400,400);
         }
     }
 }

@@ -1,6 +1,16 @@
 ﻿namespace mst
 
+open System
 open System.Windows.Automation
+open System.Windows
+
+open mst.lowlevel
+
+type MouseGesture =
+    |   LeftClick           of Point
+    |   LeftClickAndHold    of Point
+    |   ReleaseLeft         of Point
+    |   MoveTo              of Point
 
 module UIScenario =
     
@@ -61,6 +71,32 @@ module UIScenario =
                     do! Scenario.SetVariable State_Current element
                     }
 
+    let FocusElement (q : Query) : Scenario<unit> =     
+        scenario {
+                    let! element = GetElement q
+                    return element.SetFocus()
+                    }
+
+    let FindPropertyValue (q : Query) (ap : AutomationProperty) : Scenario<'T option> =     
+        scenario {
+                    let! element = GetElement q
+                    return
+                        match element.GetCurrentPropertyValue(ap) with
+                        | :? 'T as v    -> Some v
+                        | _             -> None
+                    }
+
+    let GetPropertyValue (q : Query) (ap : AutomationProperty) : Scenario<'T> =     
+        scenario {
+                    let! p = FindPropertyValue q ap
+                    if p.IsSome then
+                        return p.Value
+                    else
+                        return! Scenario.Raise (sprintf "Property not found: %A" ap)
+                    }
+
+    let GetBounds (q : Query) : Scenario<Rect> = GetPropertyValue q AutomationElementIdentifiers.BoundingRectangleProperty
+
     let GetPattern (q : Query) (p : AutomationPattern) : Scenario<#BasePattern> =     
         scenario {
                     let! element = GetElement q
@@ -71,17 +107,9 @@ module UIScenario =
                         return! Scenario.Raise (sprintf "Element with requested pattern not found: %A" q)
                     }
 
-    let GetInvokePattern (q : Query) : Scenario<InvokePattern> =     
-        scenario {
-                    let! p = GetPattern q InvokePattern.Pattern
-                    return p
-                    }
+    let GetInvokePattern (q : Query) : Scenario<InvokePattern> = GetPattern q InvokePattern.Pattern    
 
-    let GetTextPattern (q : Query) : Scenario<TextPattern> =     
-        scenario {
-                    let! p = GetPattern q TextPattern.Pattern
-                    return p
-                    }
+    let GetTextPattern (q : Query) : Scenario<TextPattern> = GetPattern q TextPattern.Pattern        
 
     let Invoke (q : Query) : Scenario<unit> =     
         scenario {
@@ -94,6 +122,33 @@ module UIScenario =
         scenario {
                     let! pattern = GetTextPattern q
                     return pattern.DocumentRange.GetText(-1)
+                    }
+
+    let DoMouseGesture (gs : MouseGesture list) : Scenario<unit> =
+        scenario {
+                    let round (v : float) = int <| Math.Round(v)
+                    let apply (gestures : MouseGesture list) = 
+                        let mutable p       = Point()
+                        let mutable left    = false
+
+                        for g in gestures do
+                            match g with
+                            | LeftClick pp          -> left <- false
+                                                       p <- pp
+                                                       ignore <| Mouse.LeftClick(round p.X, round p.Y)
+                            | LeftClickAndHold pp   -> left <- true
+                                                       p <- pp
+                                                       ignore <| Mouse.LeftClickAndHold(round p.X, round p.Y)
+                            | ReleaseLeft pp        -> left <- false
+                                                       p <- pp
+                                                       ignore <| Mouse.ReleaseLeft(round p.X, round p.Y)
+                            | MoveTo pp             -> p <- pp
+                                                       ignore <| Mouse.MoveTo(round p.X, round p.Y)
+
+                        if (left) then ignore <| Mouse.ReleaseLeft(round p.X, round p.Y)
+
+
+                    return apply gs
                     }
 
     let StartWindowedProcess exePath windowName = scenario {

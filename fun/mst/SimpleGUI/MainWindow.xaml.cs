@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+
 namespace SimpleGUI
 {
     public partial class MainWindow

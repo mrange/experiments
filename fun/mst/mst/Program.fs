@@ -1,25 +1,38 @@
 ﻿open mst
 
+open System.Windows
 open System.Windows.Automation
 
 [<EntryPoint>]
 let main argv = 
 
-    let DrawEllipse (cx : float) (cy : float) (w : float) (h : float)= 
+    let StartMSPaint = UIScenario.StartWindowedProcess "mspaint.exe" <| ByClass "MSPaintApp"
+
+    let DrawSomething (toolName : string) (cx : float) (cy : float) (w : float) (h : float) = 
         scenario {
-            do! UIScenario.Invoke <| ByName "Oval"
+            do! UIScenario.Invoke <| ByName toolName
 
-            let x : AutomationElement = null
+            let! bounds = UIScenario.GetBounds <| ByClass "MSPaintView"
 
-            
+            do! UIScenario.DoMouseGesture 
+                                            [
+                                                LeftClickAndHold<| Point(cx + bounds.Left, cy + bounds.Top)
+                                                ReleaseLeft     <| Point(cx + bounds.Left + w, cy + bounds.Top + h)
+                                            ]
 
             return ()
         }
 
-    let myScenario = scenario {
-        do! UIScenario.StartWindowedProcess "mspaint.exe" <| ByClass "MSPaintApp"
+    let DrawOval        = DrawSomething "Oval"
+    let DrawRectangle   = DrawSomething "Rectangle"
 
-        do! UIScenario.Invoke <| ByName "Line"
+    let myScenario = scenario {
+        do! StartMSPaint
+
+        do! DrawOval        100. 100. 200. 200.
+        do! DrawRectangle   200. 200. 100. 100.
+
+        do! Scenario.Pause  2000
 
         return 1
         }
