@@ -155,6 +155,14 @@ module Scenario =
             | _         -> ScenarioRun<_>.Success ss None
             )
 
+    let Ignore (l : Scenario<'T>) : Scenario<'T option> = 
+        Scenario<_>.New <| (fun ss ->   
+            let run = l.Run ss
+            match run.Result with
+            | Some v    -> ScenarioRun<_>.Success run.State (Some v)
+            | _         -> ScenarioRun<_>.Success run.State None
+            )
+
     let GetParameter k : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             let pick = ss.Parameters |> Map.tryFind k
@@ -250,4 +258,6 @@ module ScenarioBuilder =
 //        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
 
     let scenario = ScenarioBuilder()
+
+    let inline ( >>= ) l r = Scenario.Bind l r
 

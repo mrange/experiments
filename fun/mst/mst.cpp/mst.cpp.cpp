@@ -6,7 +6,7 @@
 
 int main()
 {
-    int x = KEYEVENTF_EXTENDEDKEY ;
+    int x = MAPVK_VK_TO_CHAR ;
 
 	return 0;
 }

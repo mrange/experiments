@@ -3,10 +3,12 @@
 open System.Windows
 open System.Windows.Automation
 
+open mst.lowlevel
+
 [<EntryPoint>]
 let main argv = 
 
-    let StartMSPaint = UIScenario.StartWindowedProcess "mspaint.exe" <| ByClass "MSPaintApp"
+    let StartMSPaint = UIScenario.StartWindowedProcess "mspaint.exe"
 
     let DrawSomething (toolName : string) (cx : float) (cy : float) (w : float) (h : float) = 
         scenario {
@@ -14,12 +16,10 @@ let main argv =
 
             let! bounds = UIScenario.GetBounds <| ByClass "MSPaintView"
 
-            do! UIScenario.DoMouseGesture 
-                                            [
+            do! UIScenario.DoMouseGesture   [
                                                 LeftClickAndHold<| Point(cx + bounds.Left, cy + bounds.Top)
                                                 ReleaseLeft     <| Point(cx + bounds.Left + w, cy + bounds.Top + h)
                                             ]
-
             return ()
         }
 
@@ -31,6 +31,9 @@ let main argv =
 
         do! DrawOval        100. 100. 200. 200.
         do! DrawRectangle   200. 200. 100. 100.
+
+        do! UIScenario.SendText "GGG"
+        do! UIScenario.SendChar 'o' Modifier.LeftControl
 
         do! Scenario.Pause  2000
 

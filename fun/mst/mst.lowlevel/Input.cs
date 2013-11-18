@@ -190,6 +190,173 @@ namespace mst.lowlevel
         const Int32     SM_SYSTEMDOCKED                 = 0x2004                    ;
 
 
+        const UInt16    VK_LBUTTON                      = 0x01  ;
+        const UInt16    VK_RBUTTON                      = 0x02  ;
+        const UInt16    VK_CANCEL                       = 0x03  ;
+        const UInt16    VK_MBUTTON                      = 0x04  ;
+        const UInt16    VK_XBUTTON1                     = 0x05  ;
+        const UInt16    VK_XBUTTON2                     = 0x06  ;
+        const UInt16    VK_BACK                         = 0x08  ;
+        const UInt16    VK_TAB                          = 0x09  ;
+        const UInt16    VK_CLEAR                        = 0x0C  ;
+        const UInt16    VK_RETURN                       = 0x0D  ;
+        const UInt16    VK_SHIFT                        = 0x10  ;
+        const UInt16    VK_CONTROL                      = 0x11  ;
+        const UInt16    VK_MENU                         = 0x12  ;
+        const UInt16    VK_PAUSE                        = 0x13  ;
+        const UInt16    VK_CAPITAL                      = 0x14  ;
+        const UInt16    VK_KANA                         = 0x15  ;
+        const UInt16    VK_HANGEUL                      = 0x15  ;
+        const UInt16    VK_HANGUL                       = 0x15  ;
+        const UInt16    VK_JUNJA                        = 0x17  ;
+        const UInt16    VK_FINAL                        = 0x18  ;
+        const UInt16    VK_HANJA                        = 0x19  ;
+        const UInt16    VK_KANJI                        = 0x19  ;
+        const UInt16    VK_ESCAPE                       = 0x1B  ;
+        const UInt16    VK_CONVERT                      = 0x1C  ;
+        const UInt16    VK_NONCONVERT                   = 0x1D  ;
+        const UInt16    VK_ACCEPT                       = 0x1E  ;
+        const UInt16    VK_MODECHANGE                   = 0x1F  ;
+        const UInt16    VK_SPACE                        = 0x20  ;
+        const UInt16    VK_PRIOR                        = 0x21  ;
+        const UInt16    VK_NEXT                         = 0x22  ;
+        const UInt16    VK_END                          = 0x23  ;
+        const UInt16    VK_HOME                         = 0x24  ;
+        const UInt16    VK_LEFT                         = 0x25  ;
+        const UInt16    VK_UP                           = 0x26  ;
+        const UInt16    VK_RIGHT                        = 0x27  ;
+        const UInt16    VK_DOWN                         = 0x28  ;
+        const UInt16    VK_SELECT                       = 0x29  ;
+        const UInt16    VK_PRINT                        = 0x2A  ;
+        const UInt16    VK_EXECUTE                      = 0x2B  ;
+        const UInt16    VK_SNAPSHOT                     = 0x2C  ;
+        const UInt16    VK_INSERT                       = 0x2D  ;
+        const UInt16    VK_DELETE                       = 0x2E  ;
+        const UInt16    VK_HELP                         = 0x2F  ;
+        const UInt16    VK_LWIN                         = 0x5B  ;
+        const UInt16    VK_RWIN                         = 0x5C  ;
+        const UInt16    VK_APPS                         = 0x5D  ;
+        const UInt16    VK_SLEEP                        = 0x5F  ;
+        const UInt16    VK_NUMPAD0                      = 0x60  ;
+        const UInt16    VK_NUMPAD1                      = 0x61  ;
+        const UInt16    VK_NUMPAD2                      = 0x62  ;
+        const UInt16    VK_NUMPAD3                      = 0x63  ;
+        const UInt16    VK_NUMPAD4                      = 0x64  ;
+        const UInt16    VK_NUMPAD5                      = 0x65  ;
+        const UInt16    VK_NUMPAD6                      = 0x66  ;
+        const UInt16    VK_NUMPAD7                      = 0x67  ;
+        const UInt16    VK_NUMPAD8                      = 0x68  ;
+        const UInt16    VK_NUMPAD9                      = 0x69  ;
+        const UInt16    VK_MULTIPLY                     = 0x6A  ;
+        const UInt16    VK_ADD                          = 0x6B  ;
+        const UInt16    VK_SEPARATOR                    = 0x6C  ;
+        const UInt16    VK_SUBTRACT                     = 0x6D  ;
+        const UInt16    VK_DECIMAL                      = 0x6E  ;
+        const UInt16    VK_DIVIDE                       = 0x6F  ;
+        const UInt16    VK_F1                           = 0x70  ;
+        const UInt16    VK_F2                           = 0x71  ;
+        const UInt16    VK_F3                           = 0x72  ;
+        const UInt16    VK_F4                           = 0x73  ;
+        const UInt16    VK_F5                           = 0x74  ;
+        const UInt16    VK_F6                           = 0x75  ;
+        const UInt16    VK_F7                           = 0x76  ;
+        const UInt16    VK_F8                           = 0x77  ;
+        const UInt16    VK_F9                           = 0x78  ;
+        const UInt16    VK_F10                          = 0x79  ;
+        const UInt16    VK_F11                          = 0x7A  ;
+        const UInt16    VK_F12                          = 0x7B  ;
+        const UInt16    VK_F13                          = 0x7C  ;
+        const UInt16    VK_F14                          = 0x7D  ;
+        const UInt16    VK_F15                          = 0x7E  ;
+        const UInt16    VK_F16                          = 0x7F  ;
+        const UInt16    VK_F17                          = 0x80  ;
+        const UInt16    VK_F18                          = 0x81  ;
+        const UInt16    VK_F19                          = 0x82  ;
+        const UInt16    VK_F20                          = 0x83  ;
+        const UInt16    VK_F21                          = 0x84  ;
+        const UInt16    VK_F22                          = 0x85  ;
+        const UInt16    VK_F23                          = 0x86  ;
+        const UInt16    VK_F24                          = 0x87  ;
+        const UInt16    VK_NUMLOCK                      = 0x90  ;
+        const UInt16    VK_SCROLL                       = 0x91  ;
+        const UInt16    VK_OEM_NEC_EQUAL                = 0x92  ;
+        const UInt16    VK_OEM_FJ_JISHO                 = 0x92  ;
+        const UInt16    VK_OEM_FJ_MASSHOU               = 0x93  ;
+        const UInt16    VK_OEM_FJ_TOUROKU               = 0x94  ;
+        const UInt16    VK_OEM_FJ_LOYA                  = 0x95  ;
+        const UInt16    VK_OEM_FJ_ROYA                  = 0x96  ;
+        const UInt16    VK_LSHIFT                       = 0xA0  ;
+        const UInt16    VK_RSHIFT                       = 0xA1  ;
+        const UInt16    VK_LCONTROL                     = 0xA2  ;
+        const UInt16    VK_RCONTROL                     = 0xA3  ;
+        const UInt16    VK_LMENU                        = 0xA4  ;
+        const UInt16    VK_RMENU                        = 0xA5  ;
+        const UInt16    VK_BROWSER_BACK                 = 0xA6  ;
+        const UInt16    VK_BROWSER_FORWARD              = 0xA7  ;
+        const UInt16    VK_BROWSER_REFRESH              = 0xA8  ;
+        const UInt16    VK_BROWSER_STOP                 = 0xA9  ;
+        const UInt16    VK_BROWSER_SEARCH               = 0xAA  ;
+        const UInt16    VK_BROWSER_FAVORITES            = 0xAB  ;
+        const UInt16    VK_BROWSER_HOME                 = 0xAC  ;
+        const UInt16    VK_VOLUME_MUTE                  = 0xAD  ;
+        const UInt16    VK_VOLUME_DOWN                  = 0xAE  ;
+        const UInt16    VK_VOLUME_UP                    = 0xAF  ;
+        const UInt16    VK_MEDIA_NEXT_TRACK             = 0xB0  ;
+        const UInt16    VK_MEDIA_PREV_TRACK             = 0xB1  ;
+        const UInt16    VK_MEDIA_STOP                   = 0xB2  ;
+        const UInt16    VK_MEDIA_PLAY_PAUSE             = 0xB3  ;
+        const UInt16    VK_LAUNCH_MAIL                  = 0xB4  ;
+        const UInt16    VK_LAUNCH_MEDIA_SELECT          = 0xB5  ;
+        const UInt16    VK_LAUNCH_APP1                  = 0xB6  ;
+        const UInt16    VK_LAUNCH_APP2                  = 0xB7  ;
+        const UInt16    VK_OEM_1                        = 0xBA  ;
+        const UInt16    VK_OEM_PLUS                     = 0xBB  ;
+        const UInt16    VK_OEM_COMMA                    = 0xBC  ;
+        const UInt16    VK_OEM_MINUS                    = 0xBD  ;
+        const UInt16    VK_OEM_PERIOD                   = 0xBE  ;
+        const UInt16    VK_OEM_2                        = 0xBF  ;
+        const UInt16    VK_OEM_3                        = 0xC0  ;
+        const UInt16    VK_OEM_4                        = 0xDB  ;
+        const UInt16    VK_OEM_5                        = 0xDC  ;
+        const UInt16    VK_OEM_6                        = 0xDD  ;
+        const UInt16    VK_OEM_7                        = 0xDE  ;
+        const UInt16    VK_OEM_8                        = 0xDF  ;
+        const UInt16    VK_OEM_AX                       = 0xE1  ;
+        const UInt16    VK_OEM_102                      = 0xE2  ;
+        const UInt16    VK_ICO_HELP                     = 0xE3  ;
+        const UInt16    VK_ICO_00                       = 0xE4  ;
+        const UInt16    VK_PROCESSKEY                   = 0xE5  ;
+        const UInt16    VK_ICO_CLEAR                    = 0xE6  ;
+        const UInt16    VK_PACKET                       = 0xE7  ;
+        const UInt16    VK_OEM_RESET                    = 0xE9  ;
+        const UInt16    VK_OEM_JUMP                     = 0xEA  ;
+        const UInt16    VK_OEM_PA1                      = 0xEB  ;
+        const UInt16    VK_OEM_PA2                      = 0xEC  ;
+        const UInt16    VK_OEM_PA3                      = 0xED  ;
+        const UInt16    VK_OEM_WSCTRL                   = 0xEE  ;
+        const UInt16    VK_OEM_CUSEL                    = 0xEF  ;
+        const UInt16    VK_OEM_ATTN                     = 0xF0  ;
+        const UInt16    VK_OEM_FINISH                   = 0xF1  ;
+        const UInt16    VK_OEM_COPY                     = 0xF2  ;
+        const UInt16    VK_OEM_AUTO                     = 0xF3  ;
+        const UInt16    VK_OEM_ENLW                     = 0xF4  ;
+        const UInt16    VK_OEM_BACKTAB                  = 0xF5  ;
+        const UInt16    VK_ATTN                         = 0xF6  ;
+        const UInt16    VK_CRSEL                        = 0xF7  ;
+        const UInt16    VK_EXSEL                        = 0xF8  ;
+        const UInt16    VK_EREOF                        = 0xF9  ;
+        const UInt16    VK_PLAY                         = 0xFA  ;
+        const UInt16    VK_ZOOM                         = 0xFB  ;
+        const UInt16    VK_NONAME                       = 0xFC  ;
+        const UInt16    VK_PA1                          = 0xFD  ;
+        const UInt16    VK_OEM_CLEAR                    = 0xFE  ;
+
+        const UInt32    MAPVK_VK_TO_VSC                 = 0     ;
+        const UInt32    MAPVK_VSC_TO_VK                 = 1     ;
+        const UInt32    MAPVK_VK_TO_CHAR                = 2     ;
+        const UInt32    MAPVK_VSC_TO_VK_EX              = 3     ;
+        const UInt32    MAPVK_VK_TO_VSC_EX              = 4     ;
+
         [DllImport("user32.dll")]
         static extern Int32 GetSystemMetrics(Int32 nIndex);
 
@@ -199,23 +366,94 @@ namespace mst.lowlevel
             [MarshalAs(UnmanagedType.LPArray), In] INPUT[] pInputs, 
             int cbSize);
 
+        [DllImport("user32.dll")]
+        static extern UInt32 MapVirtualKey(
+          UInt32 uCode      ,
+          UInt32 uMapType
+        );
 
-        static IEnumerable<KEYBDINPUT> CharInput (char ch)
+        static UInt16 GetVirtualKey (Modifier modifier)
         {
-            yield return new KEYBDINPUT 
+            switch (modifier)
+            {
+                case Modifier.LeftControl:
+                    return VK_LCONTROL;
+                case Modifier.RightControl:
+                    return VK_RCONTROL;
+                case Modifier.LeftShift:
+                    return VK_LSHIFT;
+                case Modifier.RightShift:
+                    return VK_RSHIFT;
+                case Modifier.LeftAlt:
+                    return VK_LMENU;
+                case Modifier.RightAlt:
+                    return VK_RMENU;
+                default:
+                    return 0;
+            }
+        }
+
+        static UInt16 GetScanCode (Modifier modifier)
+        {
+            return (ushort) MapVirtualKey(GetVirtualKey(modifier), MAPVK_VK_TO_VSC);
+        }
+
+        static KEYBDINPUT VirtualKeyDown(Modifier modifier)
+        {
+            return new KEYBDINPUT 
+            {
+                wVk     = 0                                 ,
+                wScan   = GetScanCode (modifier)            ,
+                dwFlags = KEYEVENTF_SCANCODE                ,
+                time    = 0                                 ,
+            };
+        }
+
+        static KEYBDINPUT VirtualKeyUp(Modifier modifier)
+        {
+            return new KEYBDINPUT 
+            {
+                wVk     = 0                                 ,
+                wScan   = GetScanCode (modifier)            ,
+                dwFlags = KEYEVENTF_SCANCODE|KEYEVENTF_KEYUP,
+                time    = 0                                 ,
+            };
+        }
+
+        static KEYBDINPUT KeyDown(char ch)
+        {
+            return new KEYBDINPUT
             {
                 wVk     = 0                                 ,
                 wScan   = ch                                ,
                 dwFlags = KEYEVENTF_UNICODE                 ,
                 time    = 0                                 ,
             };
-            yield return new KEYBDINPUT 
+        }
+
+        static KEYBDINPUT KeyUp(char ch)
+        {
+            return new KEYBDINPUT
             {
                 wVk     = 0                                 ,
                 wScan   = ch                                ,
                 dwFlags = KEYEVENTF_UNICODE|KEYEVENTF_KEYUP ,
                 time    = 0                                 ,
             };
+        }
+
+        static IEnumerable<KEYBDINPUT> KeyboardInput (char ch, Modifier modifier)
+        {
+            yield return VirtualKeyDown (modifier);
+            yield return KeyDown(ch);
+            yield return KeyUp(ch);
+            yield return VirtualKeyUp (modifier);
+        }
+
+        static IEnumerable<KEYBDINPUT> KeyboardInput (char ch)
+        {
+            yield return KeyDown(ch);
+            yield return KeyUp(ch);
         }
 
         static IEnumerable<MOUSEINPUT> MouseLeftClick (int x, int y)
@@ -302,8 +540,17 @@ namespace mst.lowlevel
                 return true;
             }
 
-            var inputs = s.SelectMany(CharInput).Select(ToInput).ToArray();
+            var inputs = s.SelectMany(KeyboardInput).Select(ToInput).ToArray();
 
+            var received = SendInput(inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+
+            return received == inputs.Length;
+        }
+
+        public static bool SendChar (char ch, Modifier modifier)
+        {
+            var inputs = KeyboardInput(ch, modifier).Select(ToInput).ToArray();            
+        
             var received = SendInput(inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
 
             return received == inputs.Length;
@@ -354,5 +601,6 @@ namespace mst.lowlevel
                 GetSystemMetrics(SM_CYVIRTUALSCREEN)
                 );
         }
+
     }
 }

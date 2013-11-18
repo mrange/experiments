@@ -6,5 +6,11 @@
         {
             return Input.SendString (s);
         }
+
+
+        public static bool Send (char ch, Modifier modifier)
+        {
+            return Input.SendChar (ch, modifier);
+        }
     }
 }

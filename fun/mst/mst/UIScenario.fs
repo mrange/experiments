@@ -25,6 +25,7 @@ module UIScenario =
                     if root = null then
                         do! Scenario.Raise (sprintf "RootElement not found: %A" q)
                     else
+                        root.SetFocus()
                         do! Scenario.SetVariable State_Window root
                         do! Scenario.SetVariable State_Current root
                     }
@@ -124,6 +125,20 @@ module UIScenario =
                     return pattern.DocumentRange.GetText(-1)
                     }
 
+    let SendText (s : string) : Scenario<unit> =
+        scenario {
+                    ignore <| Keyboard.Send (s)
+                    
+                    return ()
+                    }
+
+    let SendChar (ch : char) (m : Modifier) : Scenario<unit> =
+        scenario {
+                    ignore <| Keyboard.Send (ch, m)
+                    
+                    return ()
+                    }
+
     let DoMouseGesture (gs : MouseGesture list) : Scenario<unit> =
         scenario {
                     let round (v : float) = int <| Math.Round(v)
@@ -151,10 +166,10 @@ module UIScenario =
                     return apply gs
                     }
 
-    let StartWindowedProcess exePath windowName = scenario {
+    let StartWindowedProcess exePath = scenario {
         do! Scenario.LiftStackFrame
 
-        do! ProcessScenario.StartProcess exePath
-        do! Scenario.Retry 10 500 (SetRootElement windowName)
+        let! pid = ProcessScenario.StartProcess exePath
+        do! Scenario.Retry 10 500 (SetRootElement <| ByProcessId pid)
         }
     

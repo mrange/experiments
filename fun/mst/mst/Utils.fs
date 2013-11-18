@@ -9,14 +9,16 @@ module Utils =
         |   ByName      of string
         |   ByClass     of string
         |   ById        of string
+        |   ByProcessId of int
 
     let FindChild (q : Query) (ts : TreeScope) (elem : AutomationElement)= 
-        let p,n = 
+        let p,n,f = 
             match q with
-            |   ByName  n   ->  AutomationElement.NameProperty          , n
-            |   ByClass n   ->  AutomationElement.ClassNameProperty     , n
-            |   ById    n   ->  AutomationElement.AutomationIdProperty  , n
-        let cond = PropertyCondition(p, n, PropertyConditionFlags.IgnoreCase)
+            |   ByName      n   ->  AutomationElement.NameProperty          , n :> obj  , PropertyConditionFlags.IgnoreCase
+            |   ByClass     n   ->  AutomationElement.ClassNameProperty     , n :> obj  , PropertyConditionFlags.IgnoreCase
+            |   ById        n   ->  AutomationElement.AutomationIdProperty  , n :> obj  , PropertyConditionFlags.IgnoreCase
+            |   ByProcessId n   ->  AutomationElement.ProcessIdProperty     , n :> obj  , PropertyConditionFlags.None
+        let cond = PropertyCondition(p, n, f)
         elem.FindFirst(ts, cond)
 
     let ShallowFindChild (q : Query) (elem : AutomationElement)= 
