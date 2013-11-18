@@ -444,10 +444,16 @@ namespace mst.lowlevel
 
         static IEnumerable<KEYBDINPUT> KeyboardInput (char ch, Modifier modifier)
         {
-            yield return VirtualKeyDown (modifier);
+            if (modifier != Modifier.None)
+            {
+                yield return VirtualKeyDown (modifier);
+            }
             yield return KeyDown(ch);
             yield return KeyUp(ch);
-            yield return VirtualKeyUp (modifier);
+            if (modifier != Modifier.None)
+            {
+                yield return VirtualKeyUp (modifier);
+            }
         }
 
         static IEnumerable<KEYBDINPUT> KeyboardInput (char ch)

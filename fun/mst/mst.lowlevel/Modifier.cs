@@ -2,6 +2,7 @@
 {
     public enum Modifier
     {
+        None            ,
         LeftControl     ,
         RightControl    ,
         LeftShift       ,

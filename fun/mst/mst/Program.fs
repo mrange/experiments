@@ -9,6 +9,9 @@ open mst.lowlevel
 let main argv = 
 
     let StartMSPaint = UIScenario.StartWindowedProcess "mspaint.exe"
+    let StartNotepad = UIScenario.StartWindowedProcess "notepad.exe"
+
+    let WaitForPopup = Scenario.Retry 5 100
 
     let DrawSomething (toolName : string) (cx : float) (cy : float) (w : float) (h : float) = 
         scenario {
@@ -26,14 +29,51 @@ let main argv =
     let DrawOval        = DrawSomething "Oval"
     let DrawRectangle   = DrawSomething "Rectangle"
 
+    let ConfirmSaveAs : Scenario<unit> = 
+        scenario {
+            do! WaitForPopup (UIScenario.FocusElement <| ByName "Confirm Save As")
+            do! UIScenario.SendChar 'y' Modifier.LeftAlt
+        }
+
+    let SaveFile fileName : Scenario<unit> = 
+        scenario {
+            do! UIScenario.SendChar 'f' Modifier.LeftAlt
+            do! UIScenario.SendChar 'a' Modifier.None
+
+            do! WaitForPopup (UIScenario.SetCurrentElement <| ByName "Save As")
+            do! UIScenario.FocusElement <| ById "1001"
+
+            do! UIScenario.SendText fileName
+
+            do! UIScenario.SendChar 's' Modifier.LeftAlt
+
+            let! x = Scenario.Optional ConfirmSaveAs
+
+            return ()
+        }
+
     let myScenario = scenario {
         do! StartMSPaint
 
         do! DrawOval        100. 100. 200. 200.
         do! DrawRectangle   200. 200. 100. 100.
 
-        do! UIScenario.SendText "GGG"
-        do! UIScenario.SendChar 'o' Modifier.LeftControl
+        do! SaveFile "tester.png"
+
+        do! Scenario.Pause  2000
+
+        return 1
+        }
+
+    let myScenario2 = scenario {
+        do! StartNotepad
+
+        do! Scenario.Pause  500
+
+        do! UIScenario.SendText "Good game!"
+
+        do! UIScenario.SendChar 'f' Modifier.LeftAlt
+        do! UIScenario.SendChar 'o' Modifier.None
 
         do! Scenario.Pause  2000
 
@@ -41,5 +81,8 @@ let main argv =
         }
 
     let run = Scenario.RunScenario Map.empty myScenario
+
+    for result in run.State.Results do
+        printfn "Result: %A" result
 
     0
