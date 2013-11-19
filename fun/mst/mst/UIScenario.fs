@@ -17,19 +17,6 @@ module UIScenario =
     let State_Window    = "UISCENARIO_STATE_WINDOW"
     let State_Current   = "UISCENARIO_STATE_CURRENT"
 
-    let SetRootElement (q : Query) : Scenario<unit> =
-        scenario {
-                    do! Scenario.LiftStackFrame
-
-                    let root = AutomationElement.RootElement |> ShallowFindChild q
-                    if root = null then
-                        do! Scenario.Raise (sprintf "RootElement not found: %A" q)
-                    else
-                        root.SetFocus()
-                        do! Scenario.SetVariable State_Window root
-                        do! Scenario.SetVariable State_Current root
-                    }
-
     let GetCurrentElement : Scenario<AutomationElement> = 
         scenario {
                     return! Scenario.GetVariable State_Current
@@ -64,14 +51,6 @@ module UIScenario =
                     return! Scenario.GetVariable State_Window
                     }
 
-    let SetCurrentElement (q : Query) : Scenario<unit> =     
-        scenario {
-                    do! Scenario.LiftStackFrame
-
-                    let! element = GetElement q
-                    do! Scenario.SetVariable State_Current element
-                    }
-
     let FocusElement (q : Query) : Scenario<unit> =     
         scenario {
                     let! element = GetElement q
@@ -96,7 +75,9 @@ module UIScenario =
                         return! Scenario.Raise (sprintf "Property not found: %A" ap)
                     }
 
-    let GetBounds (q : Query) : Scenario<Rect> = GetPropertyValue q AutomationElementIdentifiers.BoundingRectangleProperty
+    let GetBounds       (q : Query) : Scenario<Rect>    = GetPropertyValue q AutomationElementIdentifiers.BoundingRectangleProperty
+    let GetName         (q : Query) : Scenario<string>  = GetPropertyValue q AutomationElementIdentifiers.NameProperty
+    let GetClassName    (q : Query) : Scenario<string>  = GetPropertyValue q AutomationElementIdentifiers.ClassNameProperty
 
     let GetPattern (q : Query) (p : AutomationPattern) : Scenario<#BasePattern> =     
         scenario {
@@ -164,6 +145,27 @@ module UIScenario =
 
 
                     return apply gs
+                    }
+
+    let SetRootElement (q : Query) : Scenario<unit> =
+        scenario {
+                    do! Scenario.LiftStackFrame
+
+                    let root = AutomationElement.RootElement |> ShallowFindChild q
+                    if root = null then
+                        do! Scenario.Raise (sprintf "RootElement not found: %A" q)
+                    else
+                        root.SetFocus();
+                        do! Scenario.SetVariable State_Window root
+                        do! Scenario.SetVariable State_Current root
+                    }
+
+    let SetCurrentElement (q : Query) : Scenario<unit> =     
+        scenario {
+                    do! Scenario.LiftStackFrame
+
+                    let! element = GetElement q
+                    do! Scenario.SetVariable State_Current element
                     }
 
     let StartWindowedProcess exePath = scenario {

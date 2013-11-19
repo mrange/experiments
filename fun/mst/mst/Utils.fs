@@ -10,16 +10,19 @@ module Utils =
         |   ByClass     of string
         |   ById        of string
         |   ByProcessId of int
+        |   Current
 
     let FindChild (q : Query) (ts : TreeScope) (elem : AutomationElement)= 
-        let p,n,f = 
-            match q with
-            |   ByName      n   ->  AutomationElement.NameProperty          , n :> obj  , PropertyConditionFlags.IgnoreCase
-            |   ByClass     n   ->  AutomationElement.ClassNameProperty     , n :> obj  , PropertyConditionFlags.IgnoreCase
-            |   ById        n   ->  AutomationElement.AutomationIdProperty  , n :> obj  , PropertyConditionFlags.IgnoreCase
-            |   ByProcessId n   ->  AutomationElement.ProcessIdProperty     , n :> obj  , PropertyConditionFlags.None
-        let cond = PropertyCondition(p, n, f)
-        elem.FindFirst(ts, cond)
+        let finder (e : AutomationElement) p (n : 'T) f = 
+            let cond = PropertyCondition(p, n, f)
+            e.FindFirst(ts, cond)
+
+        match q with
+        |   ByName      n   ->  finder elem AutomationElement.NameProperty          n   PropertyConditionFlags.IgnoreCase
+        |   ByClass     n   ->  finder elem AutomationElement.ClassNameProperty     n   PropertyConditionFlags.IgnoreCase
+        |   ById        n   ->  finder elem AutomationElement.AutomationIdProperty  n   PropertyConditionFlags.IgnoreCase
+        |   ByProcessId n   ->  finder elem AutomationElement.ProcessIdProperty     n   PropertyConditionFlags.None
+        |   Current         ->  elem
 
     let ShallowFindChild (q : Query) (elem : AutomationElement)= 
         FindChild q TreeScope.Children elem

@@ -19,10 +19,9 @@ namespace mst.lowlevel
         {
             var dim = Input.GetVirtualDesktopDimension();
 
-            // TODO: Support multimonitor
-
             var transform = Matrix.Identity;
 
+            transform.Translate (-dim.X, dim.Y);
             transform.Scale (0xFFFF/dim.Width, 0xFFFF/dim.Height);
 
             return transform;

@@ -86,18 +86,21 @@ module Scenario =
                 for cleanupAction in sf.CleanupActions do
                     cleanupAction()
         Scenario<_>.New <| (fun ss -> 
-            let length = ss.StackFrames.Length
+            try
+                let length = ss.StackFrames.Length
+                let run = l.Run {ss with StackFrames = StackFrame.Empty::ss.StackFrames}  
 
-            let run = l.Run {ss with StackFrames = StackFrame.Empty::ss.StackFrames}  
+                let kept,sfs = Slice (length + 1) run.State.StackFrames
 
-            let kept,sfs = Slice (length + 1) run.State.StackFrames
-
-            match sfs with
-            |   []                      ->  failwith "StackFrame unexpectedly empty"
-            |   sf::tail when sf.Lifted ->  run
-            |   sf::tail                ->  Cleanup kept
-                                            ScenarioRun<_>.New {run.State with StackFrames = tail} run.Result
+                match sfs with
+                |   []                      ->  failwith "StackFrame unexpectedly empty"
+                |   sf::tail when sf.Lifted ->  run
+                |   sf::tail                ->  Cleanup kept
+                                                ScenarioRun<_>.New {run.State with StackFrames = tail} run.Result
+            with
+            |   e   ->  ScenarioRun<_>.Failure ss <| sprintf "Caught exception: %A" e
             )
+                
         
     let Bind (l : Scenario<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> = 
         Scenario<_>.New <| (fun ss ->   
