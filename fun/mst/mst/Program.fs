@@ -112,6 +112,7 @@ module Turtle =
             let p = s.Cursor.Position + v*s.Cursor.Direction 
             let cc = Cursor.New p s.Cursor.Direction
             let ss = State.New cc s.DrawLine
+            ss.DrawLine s.Cursor.Position p
             Movement<_>.New () ss
         )
 
@@ -195,19 +196,30 @@ let main argv =
 
     let WaitForPopup = Scenario.Retry 5 100
 
+    let SelectTool (toolName : string) = UIScenario.Invoke <| ByName toolName
+
+    let GetDrawingBounds = UIScenario.GetBounds <| ByClass "MSPaintView" 
+
+    let offset = 16.
+
+    let Draw (bounds : Rect) (cx : float) (cy : float) (w : float) (h : float) = 
+        UIScenario.DoMouseGesture   [
+                                        LeftClickAndHold<| Point(cx + bounds.Left, cy + bounds.Top)
+                                        ReleaseLeft     <| Point(cx + bounds.Left + w, cy + bounds.Top + h)
+                                        LeftClick       <| Point(cx + bounds.Left + w + offset, cy + bounds.Top + h + offset)
+                                    ]
+
     let DrawSomething (toolName : string) (cx : float) (cy : float) (w : float) (h : float) = 
         scenario {
-            do! UIScenario.Invoke <| ByName toolName
+            do! SelectTool toolName
 
-            let! bounds = UIScenario.GetBounds <| ByClass "MSPaintView"
+            let! bounds = GetDrawingBounds
 
-            do! UIScenario.DoMouseGesture   [
-                                                LeftClickAndHold<| Point(cx + bounds.Left, cy + bounds.Top)
-                                                ReleaseLeft     <| Point(cx + bounds.Left + w, cy + bounds.Top + h)
-                                            ]
+            do! Draw bounds cx cy w h
             return ()
         }
 
+    let DrawLine        = DrawSomething "Line"
     let DrawOval        = DrawSomething "Oval"
     let DrawRectangle   = DrawSomething "Rectangle"
 
@@ -234,17 +246,16 @@ let main argv =
             return ()
         }
 
-    let myScenario = scenario {
+    let myScenario1 = scenario {
         do! StartMSPaint
 
         do! DrawOval        100. 100. 200. 200.
         do! DrawRectangle   200. 200. 100. 100.
+        do! DrawLine        300. 300. 200. 200.
 
         do! SaveFile "tester.png"
 
         do! Scenario.Pause  2000
-
-        return 1
         }
 
     let myScenario2 = scenario {
@@ -258,11 +269,21 @@ let main argv =
         do! UIScenario.SendChar 'o' Modifier.None
 
         do! Scenario.Pause  2000
-
-        return 1
         }
 
-    let run = Scenario.RunScenario Map.empty myScenario
+    let myScenario3 = scenario {
+        do! StartMSPaint
+
+        do! SelectTool "Line"
+        let! bounds = GetDrawingBounds
+
+        do! Draw bounds 100. 100. 100. 100.
+        do! Draw bounds 150. 100. 25.  25.
+
+        do! Scenario.Pause  2000
+        }
+
+    let run = Scenario.RunScenario Map.empty myScenario3
 
     for result in run.State.Results do
         printfn "Result: %A" result
