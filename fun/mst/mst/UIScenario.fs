@@ -106,6 +106,18 @@ module UIScenario =
             return pattern.DocumentRange.GetText(-1)
         }
 
+    let SetText (s : string) (q : Query) : Scenario<unit> =
+        scenario {
+            do! FocusElement q            
+            let! tp = GetTextPattern (q : Query)
+
+            tp.DocumentRange.Select()
+
+            ignore <| Keyboard.Send (s)
+                    
+            return ()
+        }
+
     let SendText (s : string) : Scenario<unit> =
         scenario {
             ignore <| Keyboard.Send (s)
