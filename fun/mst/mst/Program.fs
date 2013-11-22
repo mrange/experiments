@@ -36,22 +36,19 @@ module Turtle =
 
     type Line = Vector*Vector
     
-    type Cursor = 
-        {
-            Position    : Vector
-            Direction   : Vector
-        }
-        static member New p d = 
-            let dd : Vector = d
-            dd.Normalize()
-            {Position = p; Direction = dd;}
+    type DrawLine = float->Vector->Vector->unit
 
     type State =
         {
-            Cursor      : Cursor
-            DrawLine    : Vector->Vector->unit
+            Width       : float
+            Position    : Vector
+            Direction   : Vector
+            DrawLine    : DrawLine
         }
-        static member New c d = {Cursor = c; DrawLine = d;}
+        static member New w p d dl = 
+            let dd : Vector = d 
+            ignore <| dd.Normalize()
+            {Width = w; Position = p; Direction = dd; DrawLine = dl;}
 
     type Movement<'T> =
         {
@@ -107,12 +104,17 @@ module Turtle =
             result
         )
 
+    let Width w : Turtle<unit>= 
+        (fun s -> 
+            let ss = State.New w s.Position s.Direction s.DrawLine
+            Movement<_>.New () ss
+        )
+
     let Forward v : Turtle<unit>= 
         (fun s -> 
-            let p = s.Cursor.Position + v*s.Cursor.Direction 
-            let cc = Cursor.New p s.Cursor.Direction
-            let ss = State.New cc s.DrawLine
-            ss.DrawLine s.Cursor.Position p
+            let p = s.Position + v*s.Direction 
+            let ss = State.New s.Width p s.Direction s.DrawLine
+            ss.DrawLine s.Width s.Position p
             Movement<_>.New () ss
         )
 
@@ -120,12 +122,16 @@ module Turtle =
         (fun s -> 
             let r = Matrix.Identity
             r.Rotate(a)
-            let d = s.Cursor.Direction
-            ignore <| r.Transform(d)
-            let cc = Cursor.New s.Cursor.Position d
-            let ss = State.New cc s.DrawLine
+            let d = s.Direction
+            let d = r.Transform(d)
+            let ss = State.New s.Width s.Position d s.DrawLine
             Movement<_>.New () ss
         )
+
+
+    let Execute (w : float) (p : Vector) (d : Vector) (dl : DrawLine) (t : Turtle<'T>) =
+        let s = State.New w p d dl
+        t s
 
 [<AutoOpen>]
 module TurtleBuilder =
@@ -174,6 +180,7 @@ module TurtleFractal =
             if n <= 0 then
                 return ()
             else
+                do! Turtle.Width <| (1.5 * float n)
                 do! Turtle.Forward v
                 do! Turtle.Turn Left
                 do! GenerateSubTree n v
@@ -185,11 +192,15 @@ module TurtleFractal =
                 do! GenerateSubTree n v
         }
      
-
-
+type LineSize =
+    |   Px1
+    |   Px3
+    |   Px5
+    |   Px8
 
 [<EntryPoint>]
 let main argv = 
+
 
     let StartMSPaint = UIScenario.StartWindowedProcess "mspaint.exe"
     let StartNotepad = UIScenario.StartWindowedProcess "notepad.exe"
@@ -200,13 +211,16 @@ let main argv =
 
     let GetDrawingBounds = UIScenario.GetBounds <| ByClass "MSPaintView" 
 
-    let offset = 16.
+    let offset = 32.
 
-    let Draw (bounds : Rect) (cx : float) (cy : float) (w : float) (h : float) = 
+    let Draw (bounds : Rect) (f : Vector) (t : Vector) = 
+        let d = t - f
+        ignore <| d.Normalize()
+        let o = offset * d + t
         UIScenario.DoMouseGesture   [
-                                        LeftClickAndHold<| Point(cx + bounds.Left, cy + bounds.Top)
-                                        ReleaseLeft     <| Point(cx + bounds.Left + w, cy + bounds.Top + h)
-                                        LeftClick       <| Point(cx + bounds.Left + w + offset, cy + bounds.Top + h + offset)
+                                        LeftClickAndHold<| Point(bounds.Left + f.X, bounds.Top + f.Y)
+                                        ReleaseLeft     <| Point(bounds.Left + t.X, bounds.Top + t.Y)
+                                        LeftClick       <| Point(bounds.Left + o.X, bounds.Top + o.Y)
                                     ]
 
     let DrawSomething (toolName : string) (cx : float) (cy : float) (w : float) (h : float) = 
@@ -215,7 +229,24 @@ let main argv =
 
             let! bounds = GetDrawingBounds
 
-            do! Draw bounds cx cy w h
+            let f = Vector(cx,cy)
+            let t = Vector(cx + w,cy + h)
+
+            do! Draw bounds f t
+        }
+
+    let SelectSize (lz : LineSize) : Scenario<unit> = 
+        scenario {
+            let toolName = 
+                match lz with
+                |   Px1 -> "1px"
+                |   Px3 -> "3px"
+                |   Px5 -> "5px"
+                |   Px8 -> "8px"
+
+            do! UIScenario.Invoke <| ByName "Size"
+            do! UIScenario.Invoke <| ByName toolName
+
             return ()
         }
 
@@ -274,11 +305,48 @@ let main argv =
     let myScenario3 = scenario {
         do! StartMSPaint
 
+        let availableSizes = 
+            [
+                1.  , Px1
+                3.  , Px3
+                5.  , Px5
+                8.  , Px8
+            ]
+
         do! SelectTool "Line"
+
+        do! SelectSize Px1
+
         let! bounds = GetDrawingBounds
 
-        do! Draw bounds 100. 100. 100. 100.
-        do! Draw bounds 150. 100. 25.  25.
+        let points : (float*Vector*Vector) list ref = ref []
+        let generator   = TurtleFractal.Generate 5 100.
+        let cx          = 20.
+        let cy          = 20.
+        let start       = Vector(cx,cy)
+        let direction   = Vector(1., 1.)
+        ignore <| Turtle.Execute 4. start direction (fun w f t -> points := (w,f,t)::!points) generator
+
+        let gs = !points 
+                        |> List.toSeq
+                        |> Seq.map (fun (w,f,t) -> 
+                            let lz = 
+                                match w with
+                                | ww when ww <= 2.  -> Px1
+                                | ww when ww <= 4.  -> Px3
+                                | ww when ww <= 6.5 -> Px5
+                                | _                 -> Px8
+                            lz,f,t
+                            )
+                        |> Seq.groupBy (fun (lz,_,_) -> lz)
+                        |> Seq.toArray
+                        |> Array.rev
+
+        for (lz,ps) in gs do 
+            do! SelectSize lz
+            for (_,f,t) in ps do
+                do! Draw bounds f t
+                do! Scenario.Pause  50
 
         do! Scenario.Pause  2000
         }

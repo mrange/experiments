@@ -110,7 +110,7 @@ module Scenario =
             |   _           -> ScenarioRun<'U>.New lr.State None
             )    
 
-    let Combine (l : Scenario<unit>) (r : Scenario<_>) : Scenario<_> =
+    let Combine (l : Scenario<unit>) (r : Scenario<'T>) : Scenario<'T> =
         Scenario<_>.New <| (fun ss ->   
             let lr = l.Run ss 
             match lr.Result with
@@ -118,7 +118,7 @@ module Scenario =
             |   _           -> ScenarioRun<_>.New lr.State None
             )
 
-    let For (s : seq<'T>) (r : 'T -> Scenario<_>) : Scenario<_> =
+    let For (s : seq<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
             let mutable result  = Unchecked.defaultof<_>
@@ -130,11 +130,11 @@ module Scenario =
                 match rr.Result with
                 |   Some r      -> result <- r
                 |   _           -> cont := false
-            if !cont then result
+            if !cont then ScenarioRun<_>.Success state result
             else ScenarioRun<_>.New state None
             )
 
-    let While (e : unit -> bool) (r : Scenario<_>) : Scenario<_> =
+    let While (e : unit -> bool) (r : Scenario<'T>) : Scenario<'T> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
             let mutable result  = Unchecked.defaultof<_>
@@ -145,7 +145,7 @@ module Scenario =
                 match rr.Result with
                 |   Some r      -> result <- r
                 |   _           -> cont := false
-            if !cont then result
+            if !cont then ScenarioRun<_>.Success state result
             else ScenarioRun<_>.New state None
             )
 
@@ -257,7 +257,7 @@ module ScenarioBuilder =
         member x.Run(func)                      = Scenario.Run func
         member x.Bind(func, comp)               = Scenario.Bind func comp
         member x.Combine(expr1, expr2)          = Scenario.Combine expr1 expr2
-//        member x.For(expr1, expr2)              = Scenario.For expr1 expr2
+        member x.For(expr1, expr2)              = Scenario.For expr1 expr2
 //        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
 
     let scenario = ScenarioBuilder()

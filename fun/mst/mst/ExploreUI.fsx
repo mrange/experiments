@@ -81,7 +81,8 @@ let Children t =
 let rec DumpTree (element : UIElement) : Tree = 
     let subElements = element.Children() |> Array.map DumpTree
     Node (element,subElements)
-    
+
+let waitForAWhile = System.Threading.Thread.Sleep (2000)
                         
 let all = AllRootWindows ()
 
