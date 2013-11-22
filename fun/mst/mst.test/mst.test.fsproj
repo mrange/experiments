@@ -45,10 +45,28 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="UIAutomationTypes" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Turtle.fs" />
+    <Compile Include="LSystem.fs" />
+    <Compile Include="PlantFractal.fs" />
+    <Compile Include="MSPaint.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\mst.lowlevel\mst.lowlevel.csproj">
+      <Name>mst.lowlevel</Name>
+      <Project>{446424b3-0845-4ddd-8de8-ee86b744b48b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\mst\mst.fsproj">
+      <Name>mst</Name>
+      <Project>{4604b83b-43b9-4079-b9d5-bdf3813f0e3f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -1,7 +1,8 @@
-﻿namespace mst
+﻿namespace mst.test
 
 open System.Windows
 
+open mst
 open mst.lowlevel
 
 module MSPaint = 

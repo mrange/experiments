@@ -1,4 +1,4 @@
-﻿namespace mst
+﻿namespace mst.test
 
 open System.Windows
 open System.Windows.Media

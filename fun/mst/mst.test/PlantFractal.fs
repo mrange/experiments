@@ -1,4 +1,4 @@
-﻿namespace mst
+﻿namespace mst.test
 
 module PlantFractal =
     
