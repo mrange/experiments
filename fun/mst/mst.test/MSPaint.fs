@@ -89,6 +89,19 @@ module MSPaint =
             do! WaitForPopup <| SetColor c
         }
 
+    let Fill (c : Color) (cx : float) (cy : float) = 
+        scenario {
+            do! SelectColor c
+            do! SelectTool "Fill with color"
+
+            let! bounds = GetDrawingBounds
+
+            do! UIScenario.DoMouseGesture   [
+                                                LeftClick       <| Point(bounds.Left + cx, bounds.Top + cy)
+                                            ]
+        }
+
+
     let DrawLine        = DrawSomething "Line"
     let DrawOval        = DrawSomething "Oval"
     let DrawRectangle   = DrawSomething "Rectangle"

@@ -66,7 +66,7 @@ module SierpinskiTriangleFractal =
     let  Generate n v =
 
         turtle {
-               do! Width <| 1.
+               do! Width <| 3.
                do! GenerateSubTree (n - 1) (v / 2.)
                do! Turn Left
                do! Forward v

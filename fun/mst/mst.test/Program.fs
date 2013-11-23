@@ -29,6 +29,8 @@ let main argv =
     let myScenario drawFractal = scenario {
         do! StartMSPaint
 
+        do! Fill (Color.New 240 240 240) 40. 40.
+
         do! SelectTool "Line"
 
         let! bounds = GetDrawingBounds
@@ -38,7 +40,7 @@ let main argv =
         let generator,start,direction = 
             match drawFractal with
             | SierpinskiTriangle    ->
-                SierpinskiTriangleFractal.Generate 5 500.   ,
+                SierpinskiTriangleFractal.Generate 6 500.   ,
                 Vector()                                    ,
                 Vector(1., 0.)
             | Plant                 ->
@@ -94,7 +96,7 @@ let main argv =
         do! Scenario.Pause  2000
         }
 
-    let run = Scenario.RunScenario Map.empty <| myScenario Tree
+    let run = Scenario.RunScenario Map.empty <| myScenario SierpinskiTriangle
 
     for result in run.State.Results do
         printfn "Result: %A" result
