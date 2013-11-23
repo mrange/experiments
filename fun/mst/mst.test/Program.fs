@@ -29,7 +29,7 @@ let main argv =
         let! bounds = GetDrawingBounds
 
         let points : (float*Vector*Vector) list ref = ref []
-        let generator   = PlantFractal.Generate 4 80.
+        let generator   = PlantFractal.Generate 5 80.
         let start       = Vector()
         let direction   = Vector(1., -2.)
         ignore <| Turtle.Execute 4. start direction (fun w f t -> points := (w,f,t)::!points) generator
@@ -52,7 +52,7 @@ let main argv =
             |> Seq.map (fun (w,f,t) -> 
                 let lz = 
                     match w with
-                    | ww when ww <= 2.  -> Px1, Color.New 000 255 000
+                    | ww when ww <= 2.  -> Px1, Color.New 000 200 000
                     | ww when ww <= 4.  -> Px3, Color.New 000 128 000
                     | ww when ww <= 6.5 -> Px5, Color.New 000 064 000
                     | _                 -> Px8, Color.New 128 064 000
@@ -73,7 +73,7 @@ let main argv =
 
         do! SaveFile "tester.png"
 
-        do! Scenario.Pause  2000
+        do! Scenario.Pause  200000
         }
 
     let run = Scenario.RunScenario Map.empty myScenario
