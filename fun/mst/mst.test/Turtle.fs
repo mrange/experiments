@@ -36,7 +36,9 @@ module Turtle =
     let Yield                                           = Return
     let YieldFrom                                       = ReturnFrom
     let Delay (tg : unit -> Turtle<'T>) : Turtle<'T>    = (fun s -> tg () s)
-    let Run (t : Turtle<'T>)            : Turtle<'T>    = 
+    let Run (t : Turtle<'T>)            : Turtle<'T>    = (fun s -> t s)
+
+    let RunAndReturn (t : Turtle<'T>)   : Turtle<'T>    = 
         (fun s ->   let m = t s
                     Movement<_>.New m.Value s
         )

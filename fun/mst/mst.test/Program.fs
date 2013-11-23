@@ -6,6 +6,11 @@ open System.Windows
 
 open MSPaint
 
+type DrawFractal = 
+    |   Plant  
+    |   Tree
+    |   SierpinskiTriangle
+
 [<EntryPoint>]
 let main argv = 
 
@@ -21,7 +26,7 @@ let main argv =
         do! Scenario.Pause  2000
         }
 
-    let myScenario = scenario {
+    let myScenario drawFractal = scenario {
         do! StartMSPaint
 
         do! SelectTool "Line"
@@ -29,9 +34,22 @@ let main argv =
         let! bounds = GetDrawingBounds
 
         let points : (float*Vector*Vector) list ref = ref []
-        let generator   = PlantFractal.Generate 5 80.
-        let start       = Vector()
-        let direction   = Vector(1., -2.)
+
+        let generator,start,direction = 
+            match drawFractal with
+            | SierpinskiTriangle    ->
+                SierpinskiTriangleFractal.Generate 5 500.   ,
+                Vector()                                    ,
+                Vector(1., 0.)
+            | Plant                 ->
+                PlantFractal.Generate 4 80.                 ,   
+                Vector()                                    ,   
+                Vector(1., -2.)
+            | Tree                  ->
+                TreeFractal.Generate 5 80.                  ,   
+                Vector()                                    ,   
+                Vector(0., -1.)
+                
         ignore <| Turtle.Execute 4. start direction (fun w f t -> points := (w,f,t)::!points) generator
 
         let insert = 60.
@@ -73,10 +91,10 @@ let main argv =
 
         do! SaveFile "tester.png"
 
-        do! Scenario.Pause  200000
+        do! Scenario.Pause  2000
         }
 
-    let run = Scenario.RunScenario Map.empty myScenario
+    let run = Scenario.RunScenario Map.empty <| myScenario Tree
 
     for result in run.State.Results do
         printfn "Result: %A" result

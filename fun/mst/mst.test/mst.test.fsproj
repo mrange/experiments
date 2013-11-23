@@ -51,7 +51,7 @@
   <ItemGroup>
     <Compile Include="Turtle.fs" />
     <Compile Include="LSystem.fs" />
-    <Compile Include="PlantFractal.fs" />
+    <Compile Include="Fractals.fs" />
     <Compile Include="MSPaint.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
