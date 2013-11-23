@@ -52,15 +52,15 @@ module SierpinskiTriangleFractal =
                 do! Forward <| 2. * v
                 return ()
             else
-               do! GenerateSubTree (n - 1) (v / 2.)
-               do! Turn Left
-               do! Forward v
-               do! Turn Right
-               do! GenerateSubTree (n - 1) (v / 2.)
-               do! Turn Right
-               do! Forward v
-               do! Turn Left
-               do! GenerateSubTree (n - 1) (v / 2.)
+                do! GenerateSubTree (n - 1) (v / 2.)
+                do! Turn Left
+                do! Forward v
+                do! Turn Right
+                do! GenerateSubTree (n - 1) (v / 2.)
+                do! Turn Right
+                do! Forward v
+                do! Turn Left
+                do! GenerateSubTree (n - 1) (v / 2.)
         }
 
     let  Generate n v =
@@ -101,6 +101,61 @@ module TreeFractal =
                 do! RunAndReturn <| GenerateBranch n v Left
                 do! GenerateBranch n v Right
 
+        }
+     
+
+module OtherTreeFractal =
+    
+    let Left    = -120.
+    let Right   = 120.
+
+    let Scaling = 1.2
+
+
+    let rec GenerateBranch n v a = 
+        turtle {
+            do! Turn (a / (float n))
+            do! Generate (n - 1) (v / Scaling)
+        }
+    and Generate n v = 
+        turtle {
+            if n <= 0 then
+                return ()
+            else
+                do! Width <| (1.5 * float n)
+                do! Forward v
+                do! Forward v
+                do! RunAndReturn <| GenerateBranch n v Right
+                do! Forward v
+                do! RunAndReturn <| GenerateBranch n v Left
+                do! Forward v
+                do! RunAndReturn <| GenerateBranch n (v / Scaling) Right
+                do! RunAndReturn <| GenerateBranch n (v / Scaling) Left
+
+        }
+     
+
+module AnotherTreeFractal =
+    
+    let Left    = -45.
+    let Right   = 45.
+
+    let Scaling = 1.5
+
+
+    let rec GenerateBranch n v a = 
+        turtle {
+            do! Turn a
+            do! Generate (n - 1) (v / Scaling)
+        }
+    and Generate n v = 
+        turtle {
+            if n <= 0 then
+                return ()
+            else
+                do! Forward v
+                do! RunAndReturn <| GenerateBranch n v Right
+                do! RunAndReturn <| GenerateBranch n v Left
         }
      
 

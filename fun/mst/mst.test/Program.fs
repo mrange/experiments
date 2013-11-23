@@ -9,6 +9,7 @@ open MSPaint
 type DrawFractal = 
     |   Plant  
     |   Tree
+    |   OtherTree
     |   SierpinskiTriangle
 
 [<EntryPoint>]
@@ -49,6 +50,10 @@ let main argv =
                 Vector(1., -2.)
             | Tree                  ->
                 TreeFractal.Generate 5 80.                  ,   
+                Vector()                                    ,   
+                Vector(0., -1.)
+            | OtherTree             ->
+                OtherTreeFractal.Generate 5 80.             ,   
                 Vector()                                    ,   
                 Vector(0., -1.)
                 
@@ -96,7 +101,7 @@ let main argv =
         do! Scenario.Pause  2000
         }
 
-    let run = Scenario.RunScenario Map.empty <| myScenario SierpinskiTriangle
+    let run = Scenario.RunScenario Map.empty <| myScenario OtherTree
 
     for result in run.State.Results do
         printfn "Result: %A" result

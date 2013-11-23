@@ -2,23 +2,14 @@
 // mst - Monadic Scenario Test
 namespace mst
 
+open System
 open System.Threading
 
-type ScenarioMessage = 
-    {
-        Message   : string
-    }
-    static member New message = {Message = message}
-
-type ScenarioFailure = 
-    {
-        Error   : string
-    }
-    static member New error = {Error = error}
-
 type ScenarioResult = 
-    | Message       of ScenarioMessage
-    | Failure       of ScenarioFailure
+    | InfoMessage       of string
+    | WarningMessage    of string
+    | ErrorMessage      of string
+    | ExceptionFailure  of Exception
 
 
 type StackFrame = 
@@ -44,10 +35,12 @@ type ScenarioRun<'T> =
         State       : ScenarioState
         Result      : 'T option
     }
-    static member New state result      = {State = state; Result = result; }
-    static member Success state result  = ScenarioRun<_>.New state (Some result)
-    static member Failure state error   = ScenarioRun<_>.New {state with Results = (Failure (ScenarioFailure.New error))::state.Results} None
-    static member Message state msg     = ScenarioRun<_>.New {state with Results = (Message (ScenarioMessage.New msg))::state.Results} None
+    static member New                   state result        = { State = state; Result = result; }
+    static member Success               state result        = ScenarioRun<_>.New state (Some result)
+    static member SuccessWithInfo       state result info   = ScenarioRun<_>.New {state with Results = (InfoMessage info)::state.Results} (Some result)
+    static member SuccessWithWarning    state result warning= ScenarioRun<_>.New {state with Results = (WarningMessage warning)::state.Results} (Some result)
+    static member ErrorMessage          state error         = ScenarioRun<_>.New {state with Results = (ErrorMessage error)::state.Results} None
+    static member ExceptionFailure      state exc           = ScenarioRun<_>.New {state with Results = (ExceptionFailure exc)::state.Results} None
 
 type Scenario<'T> = 
     {
@@ -58,11 +51,13 @@ type Scenario<'T> =
 module Scenario =
     let Nop () = ()
 
-    let Return v        : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss v)
-    let Zero ()         : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss Unchecked.defaultof<_>)
+    let Return v                    : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss v)
+    let Zero ()                     : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Success ss DefaultOf<'T>)
 
-    let Message msg     : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Message ss msg)
-    let Failure error   : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.Failure ss error)
+    let ReturnWithInfo    v info    : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.SuccessWithInfo       ss v info   )
+    let ReturnWithWarning v warning : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.SuccessWithWarning    ss v warning)
+    let ErrorMessage        error   : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.ErrorMessage          ss error    )
+    let ExceptionFailure    exc     : Scenario<'T> = Scenario<_>.New <| (fun ss -> ScenarioRun<_>.ExceptionFailure      ss exc      )
 
     let ReturnFrom (l : Scenario<'T>) : Scenario<'T> = l
 
@@ -98,7 +93,7 @@ module Scenario =
                 |   sf::tail                ->  Cleanup kept
                                                 ScenarioRun<_>.New {run.State with StackFrames = tail} run.Result
             with
-            |   e   ->  ScenarioRun<_>.Failure ss <| sprintf "Caught exception: %A" e
+            |   e   ->  ScenarioRun<_>.ExceptionFailure ss <| e
             )
                 
         
@@ -121,7 +116,7 @@ module Scenario =
     let For (s : seq<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
-            let mutable result  = Unchecked.defaultof<_>
+            let mutable result  = DefaultOf<_>
             let cont            = ref true
             for l in s |> Seq.filter (fun _ -> !cont) do
                 let rs = r l
@@ -137,7 +132,7 @@ module Scenario =
     let While (e : unit -> bool) (r : Scenario<'T>) : Scenario<'T> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
-            let mutable result  = Unchecked.defaultof<_>
+            let mutable result  = DefaultOf<_>
             let cont            = ref true
             while !cont && e() do
                 let rr = r.Run state
@@ -173,8 +168,8 @@ module Scenario =
             | Some v    -> 
                 match v with
                 | :? 'T as t    -> ScenarioRun<_>.Success ss t
-                | _             -> ScenarioRun<_>.Failure ss ("Parameter found but not castable to: " +  typeof<'T>.FullName)
-            | _         -> ScenarioRun<_>.Failure ss ("Parameter not found: " +  k)
+                | _             -> ScenarioRun<_>.ErrorMessage ss <| "Parameter found but not castable to: " +  typeof<'T>.FullName
+            | _         -> ScenarioRun<_>.ErrorMessage ss <| "Parameter not found: " +  k
             )
 
     let TryGetParameter k : Scenario<'T option> = 
@@ -184,7 +179,7 @@ module Scenario =
             | Some v    -> 
                 match v with
                 | :? 'T as t    -> ScenarioRun<_>.Success ss (Some t)
-                | _             -> ScenarioRun<_>.Failure ss ("Parameter found but not castable to: " +  typeof<'T>.FullName)
+                | _             -> ScenarioRun<_>.ErrorMessage ss <| "Parameter found but not castable to: " +  typeof<'T>.FullName
             | _         -> ScenarioRun<_>.Success ss None
             )
 
@@ -195,8 +190,8 @@ module Scenario =
             | Some v    -> 
                 match v with
                 | :? 'T as t    -> ScenarioRun<_>.Success ss t
-                | _             -> ScenarioRun<_>.Failure ss ("Variable found but not castable to: " +  typeof<'T>.FullName)
-            | _         -> ScenarioRun<_>.Failure ss ("Variable not found: " +  k)
+                | _             -> ScenarioRun<_>.ErrorMessage ss <| "Variable found but not castable to: " +  typeof<'T>.FullName
+            | _         -> ScenarioRun<_>.ErrorMessage ss <| "Variable not found: " +  k
             )
     
     let UpdateStackFrame (updater : StackFrame -> StackFrame) : Scenario<unit> =
@@ -221,7 +216,7 @@ module Scenario =
 
     let Raise error : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
-            ScenarioRun<_>.Failure ss error
+            ScenarioRun<_>.ErrorMessage ss error
             )
         
     let Retry (retries : int) (sleepInMilliSeconds : int) (s : Scenario<'T>) : Scenario<'T> = 
@@ -236,7 +231,7 @@ module Scenario =
                 |> Seq.tryFind (fun r -> r.Result.IsSome)
             match result with
             | Some run  -> run
-            | _         -> ScenarioRun<_>.Failure ss ("Giving up after: " + retries.ToString())
+            | _         -> ScenarioRun<_>.ErrorMessage ss <| "Giving up after: " + retries.ToString()
             )
 
     let RunScenario (p : Map<string, obj>) (s : Scenario<'T>) : ScenarioRun<'T> = 
@@ -258,7 +253,7 @@ module ScenarioBuilder =
         member x.Bind(func, comp)               = Scenario.Bind func comp
         member x.Combine(expr1, expr2)          = Scenario.Combine expr1 expr2
         member x.For(expr1, expr2)              = Scenario.For expr1 expr2
-//        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
+        member x.While(expr1, expr2)            = Scenario.While expr1 expr2
 
     let scenario = ScenarioBuilder()
 

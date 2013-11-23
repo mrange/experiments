@@ -40,5 +40,7 @@ module Utils =
                 res <- ll.Head::res
                 ll <- ll.Tail
             (res |> List.rev),ll
+
+    let DefaultOf<'T> = Unchecked.defaultof<'T>
                 
 

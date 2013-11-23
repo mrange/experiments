@@ -82,7 +82,7 @@ module UIScenario =
     let GetPattern (q : Query) (p : AutomationPattern) : Scenario<#BasePattern> =     
         scenario {
             let! element = GetElement q
-            let o = ref Unchecked.defaultof<obj>
+            let o = ref DefaultOf<obj>
             if element.TryGetCurrentPattern(p, o) then
                 return downcast !o
             else

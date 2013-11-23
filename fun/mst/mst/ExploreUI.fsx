@@ -17,7 +17,7 @@ let QueryPattern (element : AutomationElement) (query : 'BasePattern -> 'T) (def
     let typeName = typeof<'BasePattern>.FullName 
     let mp = Patterns |> Map.tryFind typeName
     match mp with
-    |   Some p  ->  let o = ref Unchecked.defaultof<obj>
+    |   Some p  ->  let o = ref DefaultOf<obj>
                     if element.TryGetCurrentPattern(p, o) then
                         match !o with
                         | :? 'BasePattern as bp -> query(bp)
