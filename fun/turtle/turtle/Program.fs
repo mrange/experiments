@@ -78,17 +78,26 @@ let main argv =
                                     )
                                 )
 
-    use solidColorBrush     = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Brown.ToColor4())
+    use brownBrush          = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Brown.ToColor4())
+    use limeGreenBrush      = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.LimeGreen.ToColor4())
+    use limeBrush           = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Lime.ToColor4())
+
+    let colors              =   [
+                                    Turtle.Brown        , brownBrush
+                                    Turtle.LimeGreen    , limeGreenBrush
+                                    Turtle.Lime         , limeBrush
+                                ] 
+                                |> List.fold (fun s (c,b) -> s |> Map.add c b) Map.empty
+                                
 
     let sw = Stopwatch()
     sw.Start()
 
-    let turtleGenerator = TreeFractal.Generate 9 200.F (sqrt 2.F) 
+    let turtleGenerator = TreeFractal.Generate 10 150.F
     
     Windows.RenderLoop.Run(form, fun () -> 
         
-        let degree = float32 <| (sw.Elapsed.TotalSeconds * 10.) % 180.
-        let turtle = turtleGenerator degree
+        let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
         d2dRenderTarget.BeginDraw()
         try
             let transform = 
@@ -98,10 +107,11 @@ let main argv =
             d2dRenderTarget.Transform <- transform
 
             let executor =  Turtle.Execute 
+                                Turtle.Brown
                                 3.F 
                                 (NewVector2 0.F 0.F) 
                                 (NewVector2 0.F 1.F)
-                                (fun w f t -> d2dRenderTarget.DrawLine(f, t, solidColorBrush, w))
+                                (fun c w f t -> d2dRenderTarget.DrawLine(f, t, colors.[c], w))
 
             d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
 

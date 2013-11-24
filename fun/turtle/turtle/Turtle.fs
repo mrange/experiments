@@ -4,21 +4,26 @@ open SharpDX
 
 module Turtle = 
 
-    type Line = Vector2*Vector2
+    type Line       = Vector2*Vector2
     
-    type DrawLine = float32->Vector2->Vector2->unit
+    type Color      = | Brown
+                      | LimeGreen
+                      | Lime
+
+    type DrawLine   = Color->float32->Vector2->Vector2->unit
 
     type State =
         {
+            Color       : Color
             Width       : float32
             Position    : Vector2
             Direction   : Vector2
             DrawLine    : DrawLine
         }
-        static member New w p d dl = 
+        static member New c w p d dl = 
             let dd : Vector2 = d 
             ignore <| dd.Normalize()
-            {Width = w; Position = p; Direction = dd; DrawLine = dl;}
+            {Color = c; Width = w; Position = p; Direction = dd; DrawLine = dl;}
 
     type Movement<'T> =
         {
@@ -78,17 +83,23 @@ module Turtle =
             Movement<_>.New result state
         )
 
+    let Color (c : Color) : Turtle<unit>= 
+        (fun s -> 
+            let ss = State.New c s.Width s.Position s.Direction s.DrawLine
+            Movement<_>.New () ss
+        )
+
     let Width (w : float32) : Turtle<unit>= 
         (fun s -> 
-            let ss = State.New w s.Position s.Direction s.DrawLine
+            let ss = State.New s.Color w s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
         )
 
     let Forward (v : float32) : Turtle<unit>= 
         (fun s -> 
             let p = s.Position + v*s.Direction 
-            let ss = State.New s.Width p s.Direction s.DrawLine
-            ss.DrawLine s.Width s.Position p
+            let ss = State.New s.Color s.Width p s.Direction s.DrawLine
+            ss.DrawLine s.Color s.Width s.Position p
             Movement<_>.New () ss
         )
 
@@ -96,13 +107,13 @@ module Turtle =
         (fun s -> 
             let r = Matrix3x2.Rotation(Deg2Rad * a)
             let d = Matrix3x2.TransformPoint(r, s.Direction)
-            let ss = State.New s.Width s.Position d s.DrawLine
+            let ss = State.New s.Color s.Width s.Position d s.DrawLine
             Movement<_>.New () ss
         )
 
 
-    let Execute (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
-        let s = State.New w p d dl
+    let Execute (c : Color) (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
+        let s = State.New c w p d dl
         t s
 
 [<AutoOpen>]
