@@ -29,6 +29,6 @@ module TreeFractal =
                 do! Width <| float32 n
                 do! Forward v
                 do! RunAndReturn <| GenerateBranch n (v * LeftScaling) time a
-                do! GenerateBranch n (v * RightScaling) time (-a - 5.F)
+                do! GenerateBranch n (v * RightScaling) time -a
         }
 
