@@ -71,6 +71,7 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Turtle.fs" />
+    <Compile Include="Fractals.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="packages.config" />

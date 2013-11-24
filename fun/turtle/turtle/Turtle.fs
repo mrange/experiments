@@ -1,21 +1,16 @@
 ﻿namespace TurtlePower
 
-
 open SharpDX
-open System
 
 module Turtle = 
 
-    let deg2rad = float32 Math.PI/180.F
-    let rad2deg = 1.F / deg2rad
-
     type Line = Vector2*Vector2
     
-    type DrawLine = float->Vector2->Vector2->unit
+    type DrawLine = float32->Vector2->Vector2->unit
 
     type State =
         {
-            Width       : float
+            Width       : float32
             Position    : Vector2
             Direction   : Vector2
             DrawLine    : DrawLine
@@ -53,41 +48,43 @@ module Turtle =
             (r m.Value) m.State
         )
 
-    let Combine (l : Turtle<unit>) (r : Turtle<_>)      : Turtle<_> =
+    let Combine (l : Turtle<unit>) (r : Turtle<'U>)      : Turtle<'U> =
         (fun s ->   
             let m = l s
             r m.State
         )
 
-    let For (seq : seq<'T>) (r : 'T -> Turtle<_>) : Turtle<_> =
+    let For (seq : seq<'T>) (r : 'T -> Turtle<'U>) : Turtle<'U> =
         (fun s ->   
             let mutable state   = s
-            let mutable result  = Unchecked.defaultof<_>
+            let mutable result  = Unchecked.defaultof<'U>
             for v in seq do
                 let mm = r v state 
                 state <- mm.State
                 result <- mm.Value
-            result
+            
+            Movement<_>.New result state
         )
 
-    let While (e : unit -> bool) (r : Turtle<_>) : Turtle<_> =
+    let While (e : unit -> bool) (r : Turtle<'T>) : Turtle<'T> =
         (fun s ->   
             let mutable state   = s
-            let mutable result  = Unchecked.defaultof<_>
+            let mutable result  = Unchecked.defaultof<'T>
             while e() do
                 let mm = r state
                 state <- mm.State
                 result <- mm.Value
-            result
+
+            Movement<_>.New result state
         )
 
-    let Width w : Turtle<unit>= 
+    let Width (w : float32) : Turtle<unit>= 
         (fun s -> 
             let ss = State.New w s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
         )
 
-    let Forward v : Turtle<unit>= 
+    let Forward (v : float32) : Turtle<unit>= 
         (fun s -> 
             let p = s.Position + v*s.Direction 
             let ss = State.New s.Width p s.Direction s.DrawLine
@@ -95,16 +92,16 @@ module Turtle =
             Movement<_>.New () ss
         )
 
-    let Turn a : Turtle<unit>= 
+    let Turn (a : float32) : Turtle<unit>= 
         (fun s -> 
-            let r = Matrix3x2.Rotation(deg2rad * a)
+            let r = Matrix3x2.Rotation(Deg2Rad * a)
             let d = Matrix3x2.TransformPoint(r, s.Direction)
             let ss = State.New s.Width s.Position d s.DrawLine
             Movement<_>.New () ss
         )
 
 
-    let Execute (w : float) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
+    let Execute (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
         let s = State.New w p d dl
         t s
 

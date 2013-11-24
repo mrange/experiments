@@ -1,5 +1,7 @@
 ﻿
 open System
+open System.Diagnostics
+
 open SharpDX
 open TurtlePower
 
@@ -50,6 +52,9 @@ let GetDeviceAndSwapChain (form : Windows.RenderForm) =
 let main argv = 
     use form                = new Windows.RenderForm("Turtle Power")
 
+    let width               = float32 form.ClientSize.Width
+    let height              = float32 form.ClientSize.Height
+
     let d,sc                = GetDeviceAndSwapChain form
 
     use device              = d
@@ -74,14 +79,37 @@ let main argv =
                                 )
 
     use solidColorBrush     = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Brown.ToColor4())
+
+    let sw = Stopwatch()
+    sw.Start()
+
+    let turtleGenerator = TreeFractal.Generate 9 200.F (sqrt 2.F) 
     
     Windows.RenderLoop.Run(form, fun () -> 
+        
+        let degree = float32 <| (sw.Elapsed.TotalSeconds * 10.) % 180.
+        let turtle = turtleGenerator degree
         d2dRenderTarget.BeginDraw()
-        d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
-        d2dRenderTarget.DrawRectangle(RectangleF(20.F, 20.F, 80.F, 80.F), solidColorBrush)
-        d2dRenderTarget.EndDraw()
+        try
+            let transform = 
+                Matrix3x2.Identity 
+                <*> Matrix3x2.Rotation (Deg2Rad * 180.F)
+                <*> Matrix3x2.Translation (width/2.F, height) 
+            d2dRenderTarget.Transform <- transform
 
-        (swapChain).Present(0, DXGI.PresentFlags.None)
+            let executor =  Turtle.Execute 
+                                3.F 
+                                (NewVector2 0.F 0.F) 
+                                (NewVector2 0.F 1.F)
+                                (fun w f t -> d2dRenderTarget.DrawLine(f, t, solidColorBrush, w))
+
+            d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
+
+            ignore <| executor turtle
+
+        finally
+            d2dRenderTarget.EndDraw()
+            swapChain.Present(0, DXGI.PresentFlags.None)
         )
 
     0
