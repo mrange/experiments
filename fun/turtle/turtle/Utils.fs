@@ -21,3 +21,7 @@ module Utils =
             a()
         with
         | e -> printfn "Caught exception: %A" e
+
+
+    let Normalize (v : Vector2) = v.Normalize()
+                                  v

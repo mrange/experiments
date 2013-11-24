@@ -21,9 +21,9 @@ module Turtle =
             DrawLine    : DrawLine
         }
         static member New c w p d dl = 
-            let dd : Vector2 = d 
-            ignore <| dd.Normalize()
-            {Color = c; Width = w; Position = p; Direction = dd; DrawLine = dl;}
+            {Color = c; Width = w; Position = p; Direction = Normalize d; DrawLine = dl;}
+        static member UnsafeNew c w p d dl = 
+            {Color = c; Width = w; Position = p; Direction = d; DrawLine = dl;}
 
     type Movement<'T> =
         {
@@ -85,20 +85,20 @@ module Turtle =
 
     let Color (c : Color) : Turtle<unit>= 
         (fun s -> 
-            let ss = State.New c s.Width s.Position s.Direction s.DrawLine
+            let ss = State.UnsafeNew c s.Width s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
         )
 
     let Width (w : float32) : Turtle<unit>= 
         (fun s -> 
-            let ss = State.New s.Color w s.Position s.Direction s.DrawLine
+            let ss = State.UnsafeNew s.Color w s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
         )
 
     let Forward (v : float32) : Turtle<unit>= 
         (fun s -> 
             let p = s.Position + v*s.Direction 
-            let ss = State.New s.Color s.Width p s.Direction s.DrawLine
+            let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
             ss.DrawLine s.Color s.Width s.Position p
             Movement<_>.New () ss
         )
@@ -107,7 +107,7 @@ module Turtle =
         (fun s -> 
             let r = Matrix3x2.Rotation(Deg2Rad * a)
             let d = Matrix3x2.TransformPoint(r, s.Direction)
-            let ss = State.New s.Color s.Width s.Position d s.DrawLine
+            let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
             Movement<_>.New () ss
         )
 
