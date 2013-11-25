@@ -23,15 +23,16 @@ let main argv =
         let sw = Stopwatch()
         sw.Start()
 
-        let turtleGenerator = TreeFractal.Generate 11 250.F
+        let turtleGenerator = TreeFractal.Generate 11 150.F
     
         Windows.RenderLoop.Run(form, fun () -> 
             
             let ddr = !device
             let colors              =   [
-                                            Turtle.Brown        , ddr.BrownBrush
-                                            Turtle.LimeGreen    , ddr.LimeGreenBrush
-                                            Turtle.Lime         , ddr.LimeBrush
+                                            Turtle.Brown            , ddr.BrownBrush
+                                            Turtle.LimeGreen        , ddr.LimeGreenBrush
+                                            Turtle.Lime             , ddr.LimeGreenBrush
+                                            Turtle.MediumVioletRed  , ddr.MediumVioletRedBrush
                                         ] 
                                         |> List.fold (fun s (c,b) -> s |> Map.add c b) Map.empty
                                 
@@ -41,7 +42,7 @@ let main argv =
                 let transform = 
                     Matrix3x2.Identity 
                     <*> Matrix3x2.Rotation (Deg2Rad * 180.F)
-                    <*> Matrix3x2.Translation (ddr.Width/2.F, ddr.Height - 40.F) 
+                    <*> Matrix3x2.Translation (ddr.Width/2.F, ddr.Height - 20.F) 
                 d2dRenderTarget.Transform <- transform
 
                 let executor =  Turtle.Execute 

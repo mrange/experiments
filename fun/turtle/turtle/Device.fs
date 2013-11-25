@@ -71,15 +71,20 @@ type Device(form : Windows.RenderForm) =
                                     )
                                 )
 
-    let brownBrush          = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Brown.ToColor4())
-    let limeGreenBrush      = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.LimeGreen.ToColor4())
-    let limeBrush           = new Direct2D1.SolidColorBrush(d2dRenderTarget, Color.Lime.ToColor4())
+    let solid (c : Color)   = new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4())                                    
 
-    member x.Width          = width
-    member x.Height         = height
-    member x.BrownBrush     = brownBrush
-    member x.LimeGreenBrush = limeGreenBrush 
-    member x.LimeBrush      = limeBrush      
+    let brownBrush              = solid Color.Brown
+    let limeGreenBrush          = solid Color.LimeGreen
+    let limeBrush               = solid Color.Lime
+    let mediumVioletRedBrush    = solid Color.MediumVioletRed
+
+    member x.Width              = width
+    member x.Height             = height
+
+    member x.BrownBrush             = brownBrush
+    member x.LimeGreenBrush         = limeGreenBrush 
+    member x.LimeBrush              = limeBrush      
+    member x.MediumVioletRedBrush   = mediumVioletRedBrush
 
     member x.Draw (a : Direct2D1.RenderTarget->unit) =
         d2dRenderTarget.BeginDraw()

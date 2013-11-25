@@ -7,6 +7,19 @@ module TreeFractal =
     let LeftScaling     = 1.F / sqrt 2.F
     let RightScaling    = 1.1F * LeftScaling
     
+    let GenerateFlower v = 
+        turtle {
+            do! Color MediumVioletRed
+            do! Turn 90.F
+            do! Forward (v / 2.F)
+            do! Turn -120.F
+            do! Forward v
+            do! Turn -120.F
+            do! Forward v
+            do! Turn -120.F
+            do! Forward (v / 2.F)
+        }
+
     let rec GenerateBranch n v time a = 
         turtle {
             do! Turn a
@@ -15,7 +28,7 @@ module TreeFractal =
     and Generate n v time = 
         turtle {
             if n <= 0 then
-                return ()
+                do! GenerateFlower v
             else
                 let a = (5.F * time) % 180.F
                 let c = 

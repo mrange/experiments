@@ -9,6 +9,7 @@ module Turtle =
     type Color      = | Brown
                       | LimeGreen
                       | Lime
+                      | MediumVioletRed
 
     type DrawLine   = Color->float32->Vector2->Vector2->unit
 
