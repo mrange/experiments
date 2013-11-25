@@ -132,4 +132,7 @@ module TurtleBuilder =
         member x.For(expr1, expr2)              = Turtle.For expr1 expr2
         member x.While(expr1, expr2)            = Turtle.While expr1 expr2
 
+    let inline ( >>= ) l r = Turtle.Bind l r
+    let inline ( >>+ ) l r = Turtle.Combine l r
+    
     let turtle = TurtleBuilder()
