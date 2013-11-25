@@ -10,6 +10,8 @@ open TurtlePower
 let main argv = 
     use form                = new Windows.RenderForm("Turtle Power")
 
+    form.ClientSize         <- System.Drawing.Size(1600,1200)
+
     let device              = ref <| new Device(form)
 
     let disposeDevice ()    = TryRun (!device :> IDisposable).Dispose
@@ -23,7 +25,7 @@ let main argv =
         let sw = Stopwatch()
         sw.Start()
 
-        let turtleGenerator = TreeFractal.Generate 11 150.F
+        let turtleGenerator = TreeFractal.Generate 11 250.F
     
         Windows.RenderLoop.Run(form, fun () -> 
             

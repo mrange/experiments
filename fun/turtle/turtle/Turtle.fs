@@ -4,8 +4,6 @@ open SharpDX
 
 module Turtle = 
 
-    type Line       = Vector2*Vector2
-    
     type Color      = | Brown
                       | LimeGreen
                       | Lime

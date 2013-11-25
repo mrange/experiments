@@ -30,7 +30,7 @@ module TreeFractal =
             if n <= 0 then
                 do! GenerateFlower v
             else
-                let a = (5.F * time) % 180.F
+                let a = 15.F
                 let c = 
                     match n with
                     | nn when nn < 3    -> Lime
@@ -38,7 +38,7 @@ module TreeFractal =
                     | _                 -> Brown
 
                 do! Color c
-                do! Turn -5.F
+                do! Turn <| 10.F * (sin <| 20.F * Deg2Rad * time)
                 do! Width <| float32 n
                 do! Forward v
                 do! RunAndReturn <| GenerateBranch n (v * LeftScaling) time a
