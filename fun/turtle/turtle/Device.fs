@@ -23,7 +23,7 @@ type Device(form : Windows.RenderForm) =
         desc.IsWindowed         <- Bool true
         desc.OutputHandle       <- form.Handle
         desc.SampleDescription  <- DXGI.SampleDescription(1,0)
-        desc.SwapEffect         <- DXGI.SwapEffect.Discard
+        desc.SwapEffect         <- DXGI.SwapEffect.Sequential
         desc.Usage              <- DXGI.Usage.RenderTargetOutput
 
         let device              = ref DefaultOf<Direct3D11.Device>
@@ -92,7 +92,7 @@ type Device(form : Windows.RenderForm) =
             a d2dRenderTarget
         finally
             d2dRenderTarget.EndDraw()
-            swapChain.Present(0, DXGI.PresentFlags.None)
+            swapChain.Present (1, DXGI.PresentFlags.None)
 
 
     interface IDisposable with

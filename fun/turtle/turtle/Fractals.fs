@@ -10,6 +10,7 @@ module TreeFractal =
     let GenerateFlower v = 
         turtle {
             do! Color MediumVioletRed
+            do! Forward v
             do! Turn 90.F
             do! Forward (v / 2.F)
             do! Turn -120.F

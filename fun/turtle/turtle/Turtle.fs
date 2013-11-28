@@ -94,14 +94,6 @@ module Turtle =
             Movement<_>.New () ss
         )
 
-    let Forward (v : float32) : Turtle<unit>= 
-        (fun s -> 
-            let p = s.Position + v*s.Direction 
-            let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
-            ss.DrawLine s.Color s.Width s.Position p
-            Movement<_>.New () ss
-        )
-
     let Turn (a : float32) : Turtle<unit>= 
         (fun s -> 
             let r = Matrix3x2.Rotation(Deg2Rad * a)
@@ -110,6 +102,13 @@ module Turtle =
             Movement<_>.New () ss
         )
 
+    let Forward (v : float32) : Turtle<unit>= 
+        (fun s -> 
+            let p = s.Position + v*s.Direction 
+            let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
+            ss.DrawLine s.Color s.Width s.Position p
+            Movement<_>.New () ss
+        )
 
     let Execute (c : Color) (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
         let s = State.New c w p d dl

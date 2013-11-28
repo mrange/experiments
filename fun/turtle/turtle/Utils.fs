@@ -4,6 +4,7 @@ open SharpDX
 
 open System
 
+
 [<AutoOpen>]
 module Utils =
     
@@ -25,3 +26,9 @@ module Utils =
 
     let Normalize (v : Vector2) = v.Normalize()
                                   v
+    type Disposer(action : unit->unit) = 
+    
+        interface IDisposable with
+            member x.Dispose() = TryRun action
+
+    let OnExit a = new Disposer(a)
