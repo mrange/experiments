@@ -16,6 +16,12 @@ type Line =
     }
     static member New c w f t = {Color = c; Width = w; From = f; To = t}
     
+type TurtleMessage = 
+    {
+        Turtle  : unit -> List<Line>
+        Reply   : List<Line> -> unit
+    }
+    static member New t r = {Turtle = t; Reply = r;}
 
 [<STAThread>]
 [<EntryPoint>]
@@ -32,6 +38,17 @@ let main argv =
             (fun c w f t -> lines.Add <| Line.New c w f t)
             t
         lines
+
+    let turtleProcessor (ct : CancellationToken) (input : MailboxProcessor<TurtleMessage>) : Async<unit> =
+        async {
+            while not ct.IsCancellationRequested do
+                let! message = input.Receive()
+                let lines = message.Turtle ()
+                message.Reply lines
+        }
+
+    let sw = Stopwatch()
+    sw.Start()
 
     use form                = new Windows.RenderForm("Turtle Power")
 
@@ -51,26 +68,16 @@ let main argv =
     let turtle = turtleGenerator 0.F
     let currentLines = ref <| turtleExecutor turtle
 
-    let turtleCreator = 
-        async {
-            Thread.CurrentThread.Priority <- ThreadPriority.Lowest
+    use mp = MailboxProcessor.Start (turtleProcessor ct, ct)
 
-            let sw = Stopwatch()
-            sw.Start()
-
-            while not ct.IsCancellationRequested do
-                let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
-                currentLines := turtleExecutor turtle
-        }
-
-    use task                = Async.StartAsTask turtleCreator
-
-    use onExitWaitForTask   = OnExit task.Wait
     use onExitCancelTask    = OnExit cts.Cancel
 
     form.Resize.Add         <|fun v -> recreateDevice ()
 
     Windows.RenderLoop.Run(form, fun () -> 
+
+        let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
+        mp.Post <| TurtleMessage.New (fun () -> turtleExecutor turtle) (fun lines -> currentLines := lines)
             
         let ddr = !device
         let colors              =   [
