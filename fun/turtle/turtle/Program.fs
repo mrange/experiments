@@ -1,6 +1,7 @@
 ﻿
 open System
 open System.Diagnostics
+open System.Threading
 open System.Collections.Generic
 
 open SharpDX
@@ -15,6 +16,13 @@ type Line =
     }
     static member New c w f t = {Color = c; Width = w; From = f; To = t}
     
+type TurtleMessage = 
+    {
+        Turtle  : unit -> List<Line>
+        Reply   : List<Line> -> unit
+    }
+    static member New t r = {Turtle = t; Reply = r;}
+
 [<STAThread>]
 [<EntryPoint>]
 let main argv = 
@@ -31,6 +39,14 @@ let main argv =
             t
         lines
 
+    let turtleProcessor (ct : CancellationToken) (input : MailboxProcessor<TurtleMessage>) : Async<unit> =
+        async {
+            while not ct.IsCancellationRequested do
+                let! message = input.Receive()
+                let lines = message.Turtle ()
+                message.Reply lines
+        }
+
     let sw = Stopwatch()
     sw.Start()
 
@@ -46,14 +62,23 @@ let main argv =
 
     use onExitDisposeDevice = OnExit disposeDevice
 
+    use cts = new CancellationTokenSource()
+    let ct = cts.Token
+
     let turtle = turtleGenerator 0.F
     let currentLines = ref <| turtleExecutor turtle
 
+    use mp = MailboxProcessor.Start (turtleProcessor ct, ct)
+
+    use onExitCancelTask    = OnExit cts.Cancel
+
     form.Resize.Add         <|fun v -> recreateDevice ()
 
-    Windows.RenderLoop.Run(form, fun () ->         
-        let time = float32 sw.Elapsed.TotalMilliseconds
+    Windows.RenderLoop.Run(form, fun () -> 
 
+        let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
+        mp.Post <| TurtleMessage.New (fun () -> turtleExecutor turtle) (fun lines -> currentLines := lines)
+            
         let ddr = !device
         let colors              =   [
                                         Turtle.Brown            , ddr.BrownBrush
@@ -78,10 +103,6 @@ let main argv =
             for l in lines do
                 d2dRenderTarget.DrawLine(l.From, l.To, colors.[l.Color], l.Width)
             )
-
-        let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
-        currentLines := turtleExecutor turtle
-
         )
 
     0
