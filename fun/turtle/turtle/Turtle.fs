@@ -82,37 +82,10 @@ module Turtle =
             Movement<_>.New result state
         
 
-    let Color (c : Color) : Turtle<unit>= 
-        fun s -> 
-            let ss = State.UnsafeNew c s.Width s.Position s.Direction s.DrawLine
-            Movement<_>.New () ss
-        
-
-    let Width (w : float32) : Turtle<unit>= 
-        fun s -> 
-            let ss = State.UnsafeNew s.Color w s.Position s.Direction s.DrawLine
-            Movement<_>.New () ss
-        
-
-    let Turn (a : float32) : Turtle<unit>= 
-        fun s -> 
-            let r = Matrix3x2.Rotation(Deg2Rad * a)
-            let d = Matrix3x2.TransformPoint(r, s.Direction)
-            let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
-            Movement<_>.New () ss
-        
-
-    let Forward (v : float32) : Turtle<unit>= 
-        fun s -> 
-            let p = s.Position + v*s.Direction 
-            let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
-            ss.DrawLine s.Color s.Width s.Position p
-            Movement<_>.New () ss
-        
-
     let Execute (c : Color) (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
         let s = State.New c w p d dl
         t s
+
 
 [<AutoOpen>]
 module TurtleBuilder =

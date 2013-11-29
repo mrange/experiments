@@ -1,0 +1,42 @@
+﻿
+module Box = 
+
+    let Generate v time =
+        turtle {
+
+            do! Forward v
+
+            for i in 0..3 do 
+                do! Forward v
+                do! Turn 90.F
+            
+        }
+
+    let Color (c : Color) : Turtle<unit>= 
+        fun s -> 
+            let ss = State.UnsafeNew c s.Width s.Position s.Direction s.DrawLine
+            Movement<_>.New () ss
+        
+
+    let Width (w : float32) : Turtle<unit>= 
+        fun s -> 
+            let ss = State.UnsafeNew s.Color w s.Position s.Direction s.DrawLine
+            Movement<_>.New () ss
+        
+
+    let Turn (a : float32) : Turtle<unit>= 
+        fun s -> 
+            let r = Matrix3x2.Rotation(Deg2Rad * a)
+            let d = Matrix3x2.TransformPoint(r, s.Direction)
+            let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
+            Movement<_>.New () ss
+        
+
+    let Forward (v : float32) : Turtle<unit>= 
+        fun s -> 
+            let p = s.Position + v*s.Direction 
+            let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
+            ss.DrawLine s.Color s.Width s.Position p
+            Movement<_>.New () ss
+        
+
