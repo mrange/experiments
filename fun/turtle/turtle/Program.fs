@@ -23,11 +23,7 @@ type TurtleMessage =
     }
     static member New t r = {Turtle = t; Reply = r;}
 
-[<STAThread>]
-[<EntryPoint>]
-let main argv = 
-    let turtleGenerator = TreeFractal.Generate 10 250.F
-
+let turtleWindow (turtleGenerator : float32 -> Turtle.Turtle<unit>) = 
     let turtleExecutor (t : Turtle.Turtle<unit>) : List<Line> =
         let lines = List<Line>(64)
         ignore <| Turtle.Execute 
@@ -72,7 +68,11 @@ let main argv =
 
     use onExitCancelTask    = OnExit cts.Cancel
 
-    form.Resize.Add         <|fun v -> recreateDevice ()
+    let resizer             = EventHandler(fun o e -> recreateDevice ())
+
+    form.Resize.AddHandler  resizer
+
+    use onExitRemoveHandler = OnExit <| fun () -> form.Resize.RemoveHandler resizer
 
     Windows.RenderLoop.Run(form, fun () -> 
 
@@ -104,5 +104,13 @@ let main argv =
                 d2dRenderTarget.DrawLine(l.From, l.To, colors.[l.Color], l.Width)
             )
         )
+
+
+[<STAThread>]
+[<EntryPoint>]
+let main argv = 
+
+    turtleWindow <| TreeFractal.Generate 10 250.F
+
 
     0
