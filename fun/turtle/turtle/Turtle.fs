@@ -42,24 +42,24 @@ module Turtle =
     let Run (t : Turtle<'T>)            : Turtle<'T>    = (fun s -> t s)
 
     let RunAndReturn (t : Turtle<'T>)   : Turtle<'T>    = 
-        (fun s ->   let m = t s
-                    Movement<_>.New m.Value s
-        )
+        fun s ->    
+            let m = t s
+            Movement<_>.New m.Value s
 
     let Bind (l : Turtle<'T>) (r : 'T -> Turtle<'U>)    : Turtle<'U> = 
-        (fun s ->   
+        fun s ->    
             let m = l s
             (r m.Value) m.State
-        )
+        
 
     let Combine (l : Turtle<unit>) (r : Turtle<'U>)      : Turtle<'U> =
-        (fun s ->   
+        fun s ->   
             let m = l s
             r m.State
-        )
+        
 
     let For (seq : seq<'T>) (r : 'T -> Turtle<'U>) : Turtle<'U> =
-        (fun s ->   
+        fun s ->   
             let mutable state   = s
             let mutable result  = Unchecked.defaultof<'U>
             for v in seq do
@@ -68,10 +68,10 @@ module Turtle =
                 result <- mm.Value
             
             Movement<_>.New result state
-        )
+        
 
     let While (e : unit -> bool) (r : Turtle<'T>) : Turtle<'T> =
-        (fun s ->   
+        fun s ->   
             let mutable state   = s
             let mutable result  = Unchecked.defaultof<'T>
             while e() do
@@ -80,35 +80,35 @@ module Turtle =
                 result <- mm.Value
 
             Movement<_>.New result state
-        )
+        
 
     let Color (c : Color) : Turtle<unit>= 
-        (fun s -> 
+        fun s -> 
             let ss = State.UnsafeNew c s.Width s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
-        )
+        
 
     let Width (w : float32) : Turtle<unit>= 
-        (fun s -> 
+        fun s -> 
             let ss = State.UnsafeNew s.Color w s.Position s.Direction s.DrawLine
             Movement<_>.New () ss
-        )
+        
 
     let Turn (a : float32) : Turtle<unit>= 
-        (fun s -> 
+        fun s -> 
             let r = Matrix3x2.Rotation(Deg2Rad * a)
             let d = Matrix3x2.TransformPoint(r, s.Direction)
             let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
             Movement<_>.New () ss
-        )
+        
 
     let Forward (v : float32) : Turtle<unit>= 
-        (fun s -> 
+        fun s -> 
             let p = s.Position + v*s.Direction 
             let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
             ss.DrawLine s.Color s.Width s.Position p
             Movement<_>.New () ss
-        )
+        
 
     let Execute (c : Color) (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
         let s = State.New c w p d dl
