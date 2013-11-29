@@ -24,6 +24,8 @@ type TurtleMessage =
     static member New t r = {Turtle = t; Reply = r;}
 
 let turtleWindow (turtleGenerator : float32 -> Turtle.Turtle<unit>) = 
+    let turtleGenerator = Box.Generate 500.F
+    let turtleGenerator = RecursiveBox.Generate 500.F
     let turtleExecutor (t : Turtle.Turtle<unit>) : List<Line> =
         let lines = List<Line>(64)
         ignore <| Turtle.Execute 
@@ -52,13 +54,13 @@ let turtleWindow (turtleGenerator : float32 -> Turtle.Turtle<unit>) =
 
     let device              = ref <| new Device(form)
 
-    let disposeDevice ()    = TryRun (!device :> IDisposable).Dispose
+    let disposeDevice ()    = TryRun (upcast !device : IDisposable).Dispose
     let recreateDevice ()   = disposeDevice ()
                               device := new Device(form)
 
     use onExitDisposeDevice = OnExit disposeDevice
 
-    use cts = new CancellationTokenSource()
+    use cts = new CancellationTokenSource ()
     let ct = cts.Token
 
     let turtle = turtleGenerator 0.F
@@ -79,31 +81,30 @@ let turtleWindow (turtleGenerator : float32 -> Turtle.Turtle<unit>) =
         let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
         mp.Post <| TurtleMessage.New (fun () -> turtleExecutor turtle) (fun lines -> currentLines := lines)
             
-        let ddr = !device
+        let d = !device
         let colors              =   [
-                                        Turtle.Brown            , ddr.BrownBrush
-                                        Turtle.LimeGreen        , ddr.LimeGreenBrush
-                                        Turtle.Lime             , ddr.LimeGreenBrush
-                                        Turtle.MediumVioletRed  , ddr.MediumVioletRedBrush
+                                        Turtle.Brown            , d.BrownBrush
+                                        Turtle.LimeGreen        , d.LimeGreenBrush
+                                        Turtle.Lime             , d.LimeGreenBrush
+                                        Turtle.MediumVioletRed  , d.MediumVioletRedBrush
                                     ] 
                                     |> List.fold (fun s (c,b) -> s |> Map.add c b) Map.empty
                                 
         let lines = !currentLines
 
-        ddr.Draw (fun d2dRenderTarget -> 
+        d.Draw <| fun d2dRenderTarget -> 
                 
             d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
 
             let transform = 
                 Matrix3x2.Identity 
                 <*> Matrix3x2.Rotation (Deg2Rad * 180.F)
-                <*> Matrix3x2.Translation (ddr.Width/2.F, ddr.Height - 20.F) 
+                <*> Matrix3x2.Translation (d.Width/2.F, d.Height - 20.F) 
             d2dRenderTarget.Transform <- transform
 
             for l in lines do
                 d2dRenderTarget.DrawLine(l.From, l.To, colors.[l.Color], l.Width)
             )
-        )
 
 
 [<STAThread>]

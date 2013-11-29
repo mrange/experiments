@@ -31,7 +31,7 @@ module TreeFractal =
             if n <= 0 then
                 do! GenerateFlower v
             else
-                let a = 15.F
+                let a = min 20.F <| 1.F + time
                 let c = 
                     match n with
                     | nn when nn < 3    -> Lime
@@ -46,3 +46,28 @@ module TreeFractal =
                 do! GenerateBranch n (v * RightScaling) time -a
         }
 
+module RecursiveBox = 
+
+    let Generate v time = 
+        turtle {
+            let d = v + 50.0F * (sin <| 20.F * Deg2Rad * time)
+            do! Forward v
+            do! Forward v
+            for i in 0..200 do
+                do! Turn -88.F
+                let divisor = pown 1.02F i
+                do! Forward <| d / divisor
+        }
+
+
+module Box = 
+
+    let Generate v time = 
+        turtle {
+            do! Forward v
+            do! Forward v
+            for i in 0..3 do
+                do! Turn 90.F
+                do! Forward v
+        }
+        
