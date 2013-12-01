@@ -33,18 +33,13 @@ module Turtle =
 
     type Turtle<'T> = State -> Movement<'T>
 
-    let Return v                        : Turtle<'T>    = (fun s ->   Movement<_>.New v s)
-    let Zero ()                         : Turtle<'T>    = (fun s ->   Movement<_>.New Unchecked.defaultof<_> s)
+    let Return v                        : Turtle<'T>    = fun s ->   Movement<_>.New v s
+    let Zero ()                         : Turtle<'T>    = fun s ->   Movement<_>.New Unchecked.defaultof<_> s
     let ReturnFrom (t : Turtle<'T>)     : Turtle<'T>    = t
     let Yield                                           = Return
     let YieldFrom                                       = ReturnFrom
-    let Delay (tg : unit -> Turtle<'T>) : Turtle<'T>    = (fun s -> tg () s)
-    let Run (t : Turtle<'T>)            : Turtle<'T>    = (fun s -> t s)
-
-    let RunAndReturn (t : Turtle<'T>)   : Turtle<'T>    = 
-        fun s ->    
-            let m = t s
-            Movement<_>.New m.Value s
+    let Delay (tg : unit -> Turtle<'T>) : Turtle<'T>    = fun s -> tg () s
+    let Run (t : Turtle<'T>)            : Turtle<'T>    = fun s -> t s
 
     let Bind (l : Turtle<'T>) (r : 'T -> Turtle<'U>)    : Turtle<'U> = 
         fun s ->    
@@ -81,6 +76,10 @@ module Turtle =
 
             Movement<_>.New result state
         
+    let RunAndReturn (t : Turtle<'T>)   : Turtle<'T>    = 
+        fun s ->    
+            let m = t s
+            Movement<_>.New m.Value s
 
     let Color (c : Color) : Turtle<unit>= 
         fun s -> 
