@@ -71,3 +71,43 @@ module Box =
                 do! Forward v
         }
         
+
+module OptimizedTreeFractal =
+
+    let LeftScaling     = 1.F / sqrt 2.F
+    let RightScaling    = 1.1F * LeftScaling
+    
+    let GenerateFlower v = 
+        Color MediumVioletRed
+        >>+ Forward v
+        >>+ Turn 90.F
+        >>+ Forward (v / 2.F)
+        >>+ Turn -120.F
+        >>+ Forward v
+        >>+ Turn -120.F
+        >>+ Forward v
+        >>+ Turn -120.F
+        >>+ Forward (v / 2.F)
+
+    let rec GenerateBranch n v time a = 
+        Turn a
+        >>+ Generate (n - 1) v time
+
+    and Generate n v time = 
+        if n <= 0 then
+            GenerateFlower v
+        else
+            let a = min 20.F <| 1.F + time
+            let c = 
+                match n with
+                | nn when nn < 3    -> Lime
+                | nn when nn < 6    -> LimeGreen
+                | _                 -> Brown
+            let turn = 10.F * (sin <| 20.F * Deg2Rad * time)
+
+            Color c
+            >>+ Turn turn
+            >>+ Width (float32 n)
+            >>+ Forward v
+            >>+ RunAndReturn (GenerateBranch n (v * LeftScaling) time a)
+            >>+ GenerateBranch n (v * RightScaling) time -a
