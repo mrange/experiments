@@ -16,10 +16,8 @@ type ObservableSource<'TPayload, 'T>(onStart : IObservableSource<'T> -> 'TPayloa
 
     [<Literal>]
     let Idle        = 0
-
     [<Literal>]
     let Running     = 1
-
     [<Literal>]
     let Finished    = 2
 

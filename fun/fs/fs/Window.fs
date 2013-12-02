@@ -42,6 +42,6 @@ module Window =
 
             d.Draw <| fun d2dRenderTarget -> 
                 
-                d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
+                d2dRenderTarget.Clear(AsNullable <| Color.White.ToColor4())
 
                 )

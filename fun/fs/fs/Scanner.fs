@@ -25,6 +25,8 @@ module Scanner =
 
     let Start (rootFolder : string) : IObservableSource<Folder> = 
         
+        let root = Path.GetFullPath rootFolder
+
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
 
@@ -40,7 +42,7 @@ module Scanner =
                             let parent  = message.Parent
                             if not ct.IsCancellationRequested && Directory.Exists message.Path && not ct.IsCancellationRequested then 
                             
-                                let name = Path.GetDirectoryName path
+                                let name = Path.GetFileName path
 
                                 let fc, fz = 
                                     Directory.EnumerateFiles path
@@ -65,7 +67,7 @@ module Scanner =
 
             let mbp = MailboxProcessor<ScannerMessage>.Start (processor, ct)    
 
-            mbp.Post <| ScannerMessage.New rootFolder None
+            mbp.Post <| ScannerMessage.New root None
 
             mbp
 

@@ -40,6 +40,9 @@ module Utils =
 
     let OnExit a : IDisposable = upcast new Disposable(a)
 
+    let AsNullable v = Nullable<_>(v)
+
     let CompareAndExchange<'T when 'T : not struct> (f : 'T -> 'T) (v : 'T ref) = 
         while let v' = !v in not (Object.ReferenceEquals (Interlocked.CompareExchange (v, f v', v'), v')) do
             ()
+
