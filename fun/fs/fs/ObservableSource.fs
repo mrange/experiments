@@ -3,9 +3,90 @@
 open System
 open System.Diagnostics
 open System.Threading
+open System.Windows.Forms
+
+
+module ObservableEx = 
+    
+    type Observer<'T> =
+        {
+            OnNext      : 'T -> unit
+            OnCompleted : unit -> unit
+            OnError     : exn -> unit
+        }
+
+        interface IObserver<'T> with
+            member this.OnNext t =
+                this.OnNext t
+
+            member this.OnCompleted() =
+                this.OnCompleted()
+
+            member this.OnError err =
+                this.OnError err
+
+        static member New onNext onComplete onError =
+            {
+                OnNext      = onNext
+                OnCompleted = onComplete
+                OnError     = onError
+            } :> IObserver<'T>
+
+    type Observable<'T> =
+        {
+            OnSubscribe : IObserver<'T> -> IDisposable
+        }
+
+        interface IObservable<'T> with
+
+            member this.Subscribe o =
+                this.OnSubscribe o
+
+        member this.Subscribe (onNext: 'T -> unit) (onComplete: unit -> unit) (onError: exn -> unit) =
+            let observer = Observer<_>.New onNext onComplete onError
+            this.OnSubscribe observer
+
+        static member New onSubscribe = { OnSubscribe = onSubscribe } :> IObservable<'T>
+
+    let terminator onNext onComplete onError (o : IObservable<'T>) = 
+        let obs = Observer<_>.New   onNext
+                                    onComplete
+                                    onError
+        o.Subscribe obs
+
+    let asyncTerminator onNext onComplete onError (o : IObservable<'T>) = 
+        let cts = new CancellationTokenSource ()
+        let ct = cts.Token
+
+        let processor (input : MailboxProcessor<unit->unit>) = 
+            async {
+                while not ct.IsCancellationRequested do
+                    let! a = input.Receive ()
+                    a()
+            }
+        let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
+
+        let obs = Observer<_>.New   (fun v  -> mb.Post <| fun () -> onNext v)
+                                    (fun () -> mb.Post <| fun () -> onComplete ())
+                                    (fun e  -> mb.Post <| fun () -> onError e)
+
+        let disposable = o.Subscribe obs
+        OnExit <| fun () -> TryDispose disposable
+                            TryDispose cts
+
+    let dispatch (c : Control) (o : IObservable<'T>) : IObservable<'T> = 
+        let dispatcher = DispatchAction c
+        Observable<_>.New <| 
+            fun observer -> 
+                let obs = Observer<_>.New   (fun v  -> dispatcher (fun () -> observer.OnNext v))
+                                            (fun () -> dispatcher (fun () -> observer.OnCompleted ()))
+                                            (fun exn-> dispatcher (fun () -> observer.OnError exn))
+                o.Subscribe obs
+                                        
 
 type IObservableSource<'T> = 
     inherit IObservable<'T>
+    inherit IDisposable
 
     abstract member Start       : unit -> unit
     abstract member Next        : 'T -> unit 

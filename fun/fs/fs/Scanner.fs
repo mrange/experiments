@@ -4,18 +4,18 @@ open System
 open System.Threading
 open System.IO
 
+type Folder = 
+    {
+        Parent              : Folder option
+        Name                : string
+        FileCount           : int
+        FileSize            : Int64
+        PhysicalFileSize    : Int64
+    }
+    static member New p nm fc fz pfz = {Parent = p; Name = nm; FileCount = fc; FileSize = fz; PhysicalFileSize = pfz}
+    
 module Scanner = 
 
-    type Folder = 
-        {
-            Parent              : Folder option
-            Name                : string
-            FileCount           : int
-            FileSize            : Int64
-            PhysicalFileSize    : Int64
-        }
-        static member New p nm fc fz pfz = {Parent = p; Name = nm; FileCount = fc; FileSize = fz; PhysicalFileSize = pfz}
-    
     type ScannerMessage =
         {
             Path    : string

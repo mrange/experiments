@@ -4,6 +4,7 @@ open SharpDX
 
 open System
 open System.Threading
+open System.Windows.Forms
 
 [<AutoOpen>]
 module Utils =
@@ -46,3 +47,13 @@ module Utils =
         while let v' = !v in not (Object.ReferenceEquals (Interlocked.CompareExchange (v, f v', v'), v')) do
             ()
 
+    let DispatchAction (c : Control) (a : unit->unit) = 
+        let ac = Action a
+        ignore <| c.BeginInvoke(ac)
+
+    let DefaultTo (o : 'T option) (d : 'T) = 
+        match o with
+        | Some v    -> v
+        | _         -> d
+
+    let inline ( <??> ) o d = DefaultTo o d
