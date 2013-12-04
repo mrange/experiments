@@ -6,8 +6,16 @@ open System
 [<EntryPoint>]
 let main argv = 
 
-    use o = Scanner.Start """C:\temp"""
+    let os,o = FolderTree.BuildPipe <| Scanner.Start """C:\temp"""
 
-    Window.Show o
+    use onExitDisposeSource = OnExit <| fun () -> TryDispose os
+
+    let receiveFolder f     = printfn "%A" f
+    let scannerCompleted () = ()
+    let scannerError exn    = ()
+
+    use terminator = o |> ObservableEx.terminator receiveFolder scannerCompleted scannerError
+
+    // Window.Show ()
 
     0

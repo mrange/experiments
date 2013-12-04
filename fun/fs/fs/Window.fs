@@ -9,7 +9,7 @@ open SharpDX
 
 module Window = 
 
-    let Show (input : IObservableSource<Folder>) = 
+    let Show () = 
 
         let sw = Stopwatch()
         sw.Start()
@@ -20,7 +20,7 @@ module Window =
 
         let device              = ref <| new Device(form)
 
-        let disposeDevice ()    = TryRun (upcast !device : IDisposable).Dispose
+        let disposeDevice ()    = TryDispose !device
         let recreateDevice ()   = disposeDevice ()
                                   device := new Device(form)
 
@@ -36,16 +36,6 @@ module Window =
         form.Resize.AddHandler  resizer
 
         use onExitRemoveHandler = OnExit <| fun () -> form.Resize.RemoveHandler resizer
-
-        let receiveFolder f     = ()
-        let scannerCompleted () = ()
-        let scannerError exn    = ()
-
-        use tearDownPipeOnExit = 
-            input 
-            |> ObservableEx.asyncTerminator receiveFolder scannerCompleted scannerError
-
-        input.Start ()
 
         Windows.RenderLoop.Run(form, fun () -> 
 

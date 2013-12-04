@@ -70,10 +70,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="ObservableSource.fs" />
+    <Compile Include="Observable.fs" />
     <Compile Include="Scanner.fs" />
     <Compile Include="Device.fs" />
     <Compile Include="VisualTree.fs" />
+    <Compile Include="FolderTree.fs" />
     <Compile Include="Window.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

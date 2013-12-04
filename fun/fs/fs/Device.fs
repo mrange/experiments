@@ -96,16 +96,16 @@ type Device(form : Windows.RenderForm) =
 
     interface IDisposable with
         member x.Dispose() =
-            TryRun limeBrush.Dispose 
-            TryRun limeGreenBrush.Dispose 
-            TryRun brownBrush.Dispose 
-            TryRun d2dRenderTarget.Dispose 
-            TryRun surface.Dispose 
-            TryRun backBuffer.Dispose 
-            TryRun factory.Dispose 
-            TryRun swapChain.Dispose 
-            TryRun device.Dispose 
-            TryRun d2dFactory.Dispose
+            TryDispose limeBrush
+            TryDispose limeGreenBrush
+            TryDispose brownBrush
+            TryDispose d2dRenderTarget
+            TryDispose surface
+            TryDispose backBuffer
+            TryDispose factory
+            TryDispose swapChain
+            TryDispose device
+            TryDispose d2dFactory
             
 
 

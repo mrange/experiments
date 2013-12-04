@@ -3,12 +3,18 @@
 open SharpDX
 
 open System
+open System.Diagnostics
 open System.Threading
 open System.Windows.Forms
 
 [<AutoOpen>]
 module Utils =
     
+    let GlobalTime =    let sw = new Stopwatch ()
+                        sw.Start ()
+                        sw
+                        
+
     let Deg2Rad = float32 Math.PI/180.F
     let Rad2Deg = 1.F / Deg2Rad
 
@@ -56,4 +62,63 @@ module Utils =
         | Some v    -> v
         | _         -> d
 
+    let CombineDisposable (l : #IDisposable) (r : #IDisposable) = 
+        OnExit <| fun () -> 
+                    TryDispose l
+                    r.Dispose ()
+
+    type ActionProcessor (post:(unit->unit)->unit, dispose:unit->unit) = 
+        member x.Post a = post a
+        interface IDisposable with
+            member this.Dispose () = TryRun dispose
+
+    let ActionProcessorWithTimeOut (timeOut:int64) (ontimeout : unit->unit)=
+        if timeOut < 1L then failwith "Timeout must be greater than 0"
+
+        let cts = new CancellationTokenSource ()
+        let ct = cts.Token
+        let processor (input : MailboxProcessor<unit->unit>) = 
+            async {
+                let nextTimeOut = ref <| GlobalTime.ElapsedMilliseconds + timeOut
+                while not ct.IsCancellationRequested do
+                    let diff = !nextTimeOut - GlobalTime.ElapsedMilliseconds
+                    if diff < 1L then
+                        ontimeout ()
+                        nextTimeOut := GlobalTime.ElapsedMilliseconds + (diff % timeOut) + timeOut
+                    let! a = input.TryReceive (int diff)
+                    if not ct.IsCancellationRequested then 
+                        match a with
+                        | Some aa ->    aa()
+                        | _       ->    ontimeout()
+                                        nextTimeOut := GlobalTime.ElapsedMilliseconds + (diff % timeOut) + timeOut
+            }
+        let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
+        new ActionProcessor (
+            mb.Post, 
+            fun () -> 
+                mb.Post <| fun () -> ()
+                TryDispose cts
+                TryDispose mb 
+                )
+
+    let ActionProcessor () = 
+        let cts = new CancellationTokenSource ()
+        let ct = cts.Token
+        let processor (input : MailboxProcessor<unit->unit>) = 
+            async {
+                while not ct.IsCancellationRequested do
+                    let! a = input.Receive ()
+                    if not ct.IsCancellationRequested then 
+                        a()
+            }
+        let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
+        new ActionProcessor (
+            mb.Post, 
+            fun () -> 
+                mb.Post <| fun () -> ()
+                TryDispose cts
+                TryDispose mb 
+                )
     let inline ( <??> ) o d = DefaultTo o d
+
+    let inline ( <?+?> ) l r = CombineDisposable l r

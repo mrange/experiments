@@ -54,33 +54,57 @@ module ObservableEx =
                                     onError
         o.Subscribe obs
 
+    let fold (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) : IObservable<'U> = 
+        Observable<_>.New <| 
+            fun observer -> 
+                let state = ref s
+
+                let obs = Observer<_>.New   (fun v  -> state := f !state v)
+                                            (fun () -> observer.OnNext !state; observer.OnCompleted ())
+                                            (fun exn-> observer.OnError exn)
+
+                o.Subscribe obs
+
+    let asyncFold (timeout : int) (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) = 
+        Observable<_>.New <| 
+            fun observer -> 
+                let state = ref s
+
+                let actionProcessor = ActionProcessorWithTimeOut (int64 timeout) (fun () -> observer.OnNext !state)
+
+                let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> state := f !state v)
+                                            (fun () -> actionProcessor.Post <| fun () -> observer.OnNext !state; observer.OnCompleted ())
+                                            (fun exn-> actionProcessor.Post <| fun () -> observer.OnError exn)
+
+                actionProcessor <?+?> o.Subscribe obs
+
+    let async (o : IObservable<'T>) = 
+        Observable<_>.New <| 
+            fun observer -> 
+                let actionProcessor = ActionProcessor ()
+
+                let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> observer.OnNext v)
+                                            (fun () -> actionProcessor.Post <| fun () -> observer.OnCompleted ())
+                                            (fun exn-> actionProcessor.Post <| fun () -> observer.OnError exn)
+
+                actionProcessor <?+?> o.Subscribe obs
+
     let asyncTerminator onNext onComplete onError (o : IObservable<'T>) = 
-        let cts = new CancellationTokenSource ()
-        let ct = cts.Token
+        let actionProcessor = ActionProcessor ()
 
-        let processor (input : MailboxProcessor<unit->unit>) = 
-            async {
-                while not ct.IsCancellationRequested do
-                    let! a = input.Receive ()
-                    a()
-            }
-        let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
+        let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> onNext v)
+                                    (fun () -> actionProcessor.Post <| fun () -> onComplete ())
+                                    (fun exn-> actionProcessor.Post <| fun () -> onError exn)
 
-        let obs = Observer<_>.New   (fun v  -> mb.Post <| fun () -> onNext v)
-                                    (fun () -> mb.Post <| fun () -> onComplete ())
-                                    (fun e  -> mb.Post <| fun () -> onError e)
-
-        let disposable = o.Subscribe obs
-        OnExit <| fun () -> TryDispose disposable
-                            TryDispose cts
+        actionProcessor <?+?> o.Subscribe obs
 
     let dispatch (c : Control) (o : IObservable<'T>) : IObservable<'T> = 
         let dispatcher = DispatchAction c
         Observable<_>.New <| 
             fun observer -> 
-                let obs = Observer<_>.New   (fun v  -> dispatcher (fun () -> observer.OnNext v))
-                                            (fun () -> dispatcher (fun () -> observer.OnCompleted ()))
-                                            (fun exn-> dispatcher (fun () -> observer.OnError exn))
+                let obs = Observer<_>.New   (fun v  -> dispatcher <| fun () -> observer.OnNext v)
+                                            (fun () -> dispatcher <| fun () -> observer.OnCompleted ())
+                                            (fun exn-> dispatcher <| fun () -> observer.OnError exn)
                 o.Subscribe obs
                                         
 

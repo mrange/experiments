@@ -4,19 +4,18 @@ open System
 open System.Threading
 open System.IO
 
-type Folder = 
-    {
-        Parent              : Folder option
-        Name                : string
-        FileCount           : int
-        FileSize            : Int64
-        PhysicalFileSize    : Int64
-    }
-    static member New p nm fc fz pfz = {Parent = p; Name = nm; FileCount = fc; FileSize = fz; PhysicalFileSize = pfz}
-    
 module Scanner = 
 
-    type ScannerMessage =
+    type Folder = 
+        {
+            Parent              : Folder option
+            Name                : string
+            FileCount           : int64
+            FileSize            : int64
+        }
+        static member New p nm fc fz = {Parent = p; Name = nm; FileCount = fc; FileSize = fz}
+    
+    type Message =
         {
             Path    : string
             Parent  : Folder option
@@ -31,7 +30,7 @@ module Scanner =
         let ct = cts.Token
 
         let onStart (source : IObservableSource<Folder>) =    
-            let processor (input : MailboxProcessor<ScannerMessage>)  = 
+            let processor (input : MailboxProcessor<Message>)  = 
                 async {
                     let takeWhile = Seq.takeWhile (fun _ -> not ct.IsCancellationRequested)
                     while not ct.IsCancellationRequested do
@@ -48,16 +47,16 @@ module Scanner =
                                     Directory.EnumerateFiles path
                                     |> takeWhile
                                     |> Seq.map (fun p -> FileInfo p)
-                                    |> Seq.fold (fun (fc, fz) file -> fc + 1, fz + file.Length) (0,0L)
+                                    |> Seq.fold (fun (fc, fz) file -> fc + 1L, fz + file.Length) (0L,0L)
                             
 
-                                let folder = Folder.New parent name fc fz fz
+                                let folder = Folder.New parent name fc fz
 
                                 if not ct.IsCancellationRequested then
                                     source.Next folder
 
                                 for d in Directory.EnumerateDirectories path |> takeWhile do
-                                    input.Post <| ScannerMessage.New d (Some folder) 
+                                    input.Post <| Message.New d (Some folder) 
 
                         with
                         | e -> source.Error e
@@ -65,14 +64,14 @@ module Scanner =
                         ()
                 }
 
-            let mbp = MailboxProcessor<ScannerMessage>.Start (processor, ct)    
+            let mbp = MailboxProcessor<Message>.Start (processor, ct)    
 
-            mbp.Post <| ScannerMessage.New root None
+            mbp.Post <| Message.New root None
 
             mbp
 
         let onDispose mbp = TryRun cts.Cancel
-                            TryRun cts.Dispose
+                            TryDispose cts
                             TryDispose mbp
 
         let obs = new ObservableSource<_,_> (onStart, onDispose)
