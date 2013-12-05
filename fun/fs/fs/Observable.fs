@@ -54,6 +54,18 @@ module ObservableEx =
                                     onError
         o.Subscribe obs
 
+    let deref (o : IObservable<'T option>) : IObservable<'T> =
+        Observable<_>.New <| 
+            fun observer -> 
+                let obs = Observer<_>.New   (fun v  -> match v with 
+                                                       | Some vv -> observer.OnNext vv 
+                                                       | _ -> ()
+                                            )
+                                            (fun () -> observer.OnCompleted ())
+                                            (fun exn-> observer.OnError exn)
+
+                o.Subscribe obs
+
     let fold (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) : IObservable<'U> = 
         Observable<_>.New <| 
             fun observer -> 

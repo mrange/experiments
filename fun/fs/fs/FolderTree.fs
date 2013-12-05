@@ -13,7 +13,7 @@ module FolderTree =
             mutable TotalFileCount  : int64
             mutable TotalFileSize   : int64
         }
-        static member New sf p = { Folder = sf; Parent = p; Children = List<MutableFolder>(); TotalFileSize = sf.FileSize; TotalFileCount = sf.FileCount }
+
         member x.AddFolder (vf : MutableFolder) = 
             x.Children.Add vf
             x.UpdateRecursively vf
@@ -27,6 +27,12 @@ module FolderTree =
             | Some p    -> p.UpdateRecursively vf
             | _         -> ()
 
+        static member New sf p = 
+            let vf = { Folder = sf; Parent = p; Children = List<MutableFolder>(); TotalFileSize = sf.FileSize; TotalFileCount = sf.FileCount }
+            match p with
+            | Some pp   -> pp.AddFolder vf
+            | _         -> ()
+            vf
 
     type Folder = 
         {
@@ -57,11 +63,12 @@ module FolderTree =
     let BuildPipe (os : IObservableSource<Scanner.Folder>) = 
         let o = os 
                 |> ObservableEx.asyncFold 
-                        20 
+                        100 
                         FoldFolder
                         EmptyFoldFolder
-                |> Observable.filter (fun (_,root) -> root.IsSome)
-                |> Observable.map (fun (_,root) -> MakeFolder root.Value)
+                |> Observable.map (fun (_,root) -> root)
+                |> ObservableEx.deref
+                |> Observable.map (fun root -> MakeFolder root)
         os,o
 
     
