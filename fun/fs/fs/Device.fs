@@ -4,6 +4,19 @@ open System
 open System.Diagnostics
 
 open SharpDX
+open SharpDX.Direct2D1
+
+type ColorDescriptor = 
+    {
+        Alpha   : float32
+        Red     : float32
+        Green   : float32
+        Blue    : float32
+    }
+
+type BrushDescriptor    =
+    |   Transparent
+    |   SolidColor  of ColorDescriptor
 
 type Device(form : Windows.RenderForm) = 
 
@@ -70,20 +83,27 @@ type Device(form : Windows.RenderForm) =
                                     )
                                 )
 
-    let solid (c : Color)   = new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4())                                    
+    let solid (c : ColorDescriptor)   = 
+        let cc = new Color4(c.Red, c.Green, c.Blue, c.Alpha)
+        new Direct2D1.SolidColorBrush(d2dRenderTarget, cc)                                    
 
-    let brownBrush              = solid Color.Brown
-    let limeGreenBrush          = solid Color.LimeGreen
-    let limeBrush               = solid Color.Lime
-    let mediumVioletRedBrush    = solid Color.MediumVioletRed
+    let mutable brushCache : Map<BrushDescriptor, Brush> = Map.empty
+
+    member x.GetBrush (bd : BrushDescriptor) : Brush =
+        let find = brushCache.TryFind bd
+        match find with
+        | Some b    -> b
+        | _         ->
+            let b : Brush= 
+                match bd with
+                | Transparent       -> null
+                | SolidColor c      -> upcast solid c
+            brushCache <- brushCache |> Map.add bd b
+            b
+        
 
     member x.Width              = width
     member x.Height             = height
-
-    member x.BrownBrush             = brownBrush
-    member x.LimeGreenBrush         = limeGreenBrush 
-    member x.LimeBrush              = limeBrush      
-    member x.MediumVioletRedBrush   = mediumVioletRedBrush
 
     member x.Draw (a : Direct2D1.RenderTarget->unit) =
         d2dRenderTarget.BeginDraw()
@@ -96,9 +116,10 @@ type Device(form : Windows.RenderForm) =
 
     interface IDisposable with
         member x.Dispose() =
-            TryDispose limeBrush
-            TryDispose limeGreenBrush
-            TryDispose brownBrush
+            let bc = brushCache
+            brushCache <- Map.empty
+            for kv in bc do
+                TryDispose kv.Value 
             TryDispose d2dRenderTarget
             TryDispose surface
             TryDispose backBuffer

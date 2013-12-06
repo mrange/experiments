@@ -13,7 +13,6 @@ module Utils =
     let GlobalTime =    let sw = new Stopwatch ()
                         sw.Start ()
                         sw
-                        
 
     let Deg2Rad = float32 Math.PI/180.F
     let Rad2Deg = 1.F / Deg2Rad

@@ -54,6 +54,9 @@ module ObservableEx =
                                     onError
         o.Subscribe obs
 
+    let terminator_Next onNext (o : IObservable<'T>) = 
+        terminator onNext (fun () -> ()) (fun exn -> ()) o
+
     let deref (o : IObservable<'T option>) : IObservable<'T> =
         Observable<_>.New <| 
             fun observer -> 
@@ -66,13 +69,16 @@ module ObservableEx =
 
                 o.Subscribe obs
 
-    let fold (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) : IObservable<'U> = 
+    let foldMap (f : 'U -> 'T -> 'U*'V) (s : 'U) (o : IObservable<'T>) : IObservable<'V> = 
         Observable<_>.New <| 
             fun observer -> 
                 let state = ref s
 
-                let obs = Observer<_>.New   (fun v  -> state := f !state v)
-                                            (fun () -> observer.OnNext !state; observer.OnCompleted ())
+                let obs = Observer<_>.New   (fun v  -> let s,vv = f !state v
+                                                       state := s
+                                                       observer.OnNext vv
+                                            )
+                                            (fun () -> observer.OnCompleted ())
                                             (fun exn-> observer.OnError exn)
 
                 o.Subscribe obs
@@ -120,11 +126,15 @@ module ObservableEx =
                 o.Subscribe obs
                                         
 
-type IObservableSource<'T> = 
-    inherit IObservable<'T>
+type IObservableSource = 
     inherit IDisposable
 
     abstract member Start       : unit -> unit
+
+type IObservableSource<'T> = 
+    inherit IObservable<'T>
+    inherit IObservableSource
+
     abstract member Next        : 'T -> unit 
     abstract member Completed   : unit -> unit
     abstract member Error       : Exception -> unit
@@ -188,8 +198,10 @@ type ObservableSource<'TPayload, 'T>(onStart : IObservableSource<'T> -> 'TPayloa
                 with
                 | e ->  onerror e
 
-    interface IObservableSource<'T> with
+    interface IObservableSource with
         member this.Start ()        = this.Start ()
+
+    interface IObservableSource<'T> with
         member this.Next v          = this.Next v
         member this.Completed ()    = this.Completed ()
         member this.Error e         = this.Error e

@@ -9,48 +9,66 @@ module Visual =
     type AnimatedFloat      = float32->float32
     type AnimatedVector2    = float32->Vector2
     type AnimatedRectangleF = float32->RectangleF
-    type AnimatedBrush      = float32->Brush
+    type AnimatedBrush      = float32->BrushDescriptor*float32
     type AnimatedMatrix     = float32->Matrix3x2
 
     type VisualTree =
-        |   Rectangle   of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat*StrokeStyle:StrokeStyle
-        |   Line        of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush
-        |   Text        of Text:string*TextFormat:DirectWrite.TextFormat*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
-        |   Node        of Transform:AnimatedMatrix option*Opacity:AnimatedFloat option*Nodes:VisualTree list
+        |   Empty           
+        |   Rectangle       of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat
+        |   Line            of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush
+        |   Text            of Text:string*TextFormat:DirectWrite.TextFormat*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
+        |   Transform       of Transform:AnimatedMatrix*Child:VisualTree
+        |   Group           of Children:VisualTree list
+        |   Fork            of Left:VisualTree*Right:VisualTree
+        |   State           of State:obj*Child:VisualTree
 
-    let rec RenderTree (time : float32) (rt : RenderTarget) (vt : VisualTree) = 
+    let rec RenderTree (time : float32) (rt : RenderTarget) (bc : BrushDescriptor*float32->Brush)  (vt : VisualTree) = 
         match vt with 
-        |   Rectangle (Stroke = s; Fill = f; Rect = r; StrokeWidth = sw; StrokeStyle = ss) ->
+        |   Empty   -> ()
+        |   Rectangle (Stroke = s; Fill = f; Rect = r; StrokeWidth = sw) ->
                 let rect        = r time
                 let strokeWidth = sw time
                 let fill        = f time
                 let stroke      = s time
-                if fill <> null then rt.FillRectangle (rect, fill)
-                if stroke <> null then rt.DrawRectangle (rect, stroke, strokeWidth, ss)
+
+                let bfill       = bc fill
+                let bstroke     = bc stroke
+
+                if bfill <> null then rt.FillRectangle (rect, bfill)
+                if bstroke <> null then rt.DrawRectangle (rect, bstroke, strokeWidth, null)
         |   Line (Point0 = p0; Point1 = p1; Brush = b) ->
                 let point0  = p0 time
                 let point1  = p1 time
-                let brush   = b time
-                if brush <> null then rt.DrawLine (point0, point1, brush)
+                let stroke  = b time
+
+                let bstroke     = bc stroke
+
+                if bstroke <> null then rt.DrawLine (point0, point1, bstroke)
         |   Text (Foreground = fg; Text = t; TextFormat = tf; LayoutRect = lr) ->
                 let layoutRect  = lr time
                 let foreground  = fg time
-                if foreground <> null then rt.DrawText(t, tf, layoutRect, foreground)
-        |   Node (Transform = t; Opacity = o; Nodes = n) ->
-                let transform = 
-                    match t with
-                    |   Some tt ->  let transform = tt time
-                                    let currentTransform = rt.Transform
-                                    rt.Transform <- Matrix3x2.Multiply(currentTransform, transform)
-                                    Some currentTransform
-                    |   _       ->  None
 
-                for node in n do
-                    RenderTree time rt node 
+                let bforeground = bc foreground
 
-                match transform with
-                | Some tt   -> rt.Transform <- tt
-                | _         -> ()
+                if bforeground <> null then rt.DrawText(t, tf, layoutRect, bforeground)
+        |   Transform (Transform = t; Child = c) ->
+                let transform = t time
+
+                let old = rt.Transform
+
+                rt.Transform <- old <*> transform
+                                
+                RenderTree time rt bc c
+
+                rt.Transform <- old
+        |   Group (Children = c) ->
+                for branch in c do
+                    RenderTree time rt bc branch 
+        |   Fork (Left = l; Right = r) ->
+                RenderTree time rt bc l 
+                RenderTree time rt bc r
+        |   State (Child = c) ->
+                RenderTree time rt bc c
 
     let ( <**> ) (l : AnimatedMatrix) (r : AnimatedMatrix) : AnimatedMatrix = 
         fun time -> let left    = l time
@@ -86,10 +104,12 @@ module Animated =
         let h = ease f.Width t.Width b e
         fun time -> RectangleF (x time,y time,w time,h time)
 
-    let Brush (ease : Ease) (v : Brush) (f : float32) (t : float32) b e : AnimatedBrush = 
+    let Brush_Opacity (ease : Ease) (v : BrushDescriptor) (f : float32) (t : float32) b e : AnimatedBrush = 
         let o = ease f t b e
-        fun time -> v.Opacity <- o time
-                    v
+        fun time -> v, o time
+
+    let Brush_Solid (v : BrushDescriptor) : AnimatedBrush = 
+        fun time -> v, 1.F
 
     let Matrix_Rotation (ease : Ease) (f : float32) (t : float32) b e : AnimatedMatrix = 
         let d = ease f t b e
