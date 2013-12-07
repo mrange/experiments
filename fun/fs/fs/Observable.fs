@@ -55,7 +55,7 @@ module ObservableEx =
         o.Subscribe obs
 
     let terminator_Next onNext (o : IObservable<'T>) = 
-        terminator onNext (fun () -> ()) (fun exn -> ()) o
+        terminator onNext (fun () -> ()) LogException o
 
     let deref (o : IObservable<'T option>) : IObservable<'T> =
         Observable<_>.New <| 

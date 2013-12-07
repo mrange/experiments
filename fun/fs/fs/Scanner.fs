@@ -65,7 +65,7 @@ module Scanner =
                                         input.Post <| Message.New d (Some folder) 
 
                             with
-                            | e -> source.Error e
+                            | e ->  source.Error e
                         | _             -> completed := true
 
                     source.Completed ()

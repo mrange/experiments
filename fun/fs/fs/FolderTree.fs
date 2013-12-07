@@ -79,7 +79,18 @@ module FolderTree =
         let formatter = sprintf "%s %.2f %s"
         formatter f.Folder.Name sz u
 
-    let rec CreateVisualTree (stroke : BrushDescriptor) (fill : BrushDescriptor) (foreground : BrushDescriptor) (textFormat : TextFormatDescriptor) (xscale : float32) (yscale : float32) (ycutoff : float32) (x : float32) (y : float32) (f : Folder)=
+    let rec CreateVisualTree 
+        (stroke     : BrushDescriptor       ) 
+        (fill       : BrushDescriptor       ) 
+        (foreground : BrushDescriptor       ) 
+        (textFormat : TextFormatDescriptor  ) 
+        (xscale     : float32               ) 
+        (yscale     : float32               ) 
+        (ycutoff    : float32               ) 
+        (x          : float32               ) 
+        (y          : float32               ) 
+        (f          : Folder                ) 
+        =
         let xpos    = xscale * x
         let ypos    = yscale * y
         let width   = xscale

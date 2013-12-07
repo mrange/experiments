@@ -10,6 +10,11 @@ open System.Windows.Forms
 [<AutoOpen>]
 module Utils =
     
+    let Log             (i : string)= printfn "Information : %s" i
+    let LogWarning      (w : string)= printfn "Warning     : %s" w
+    let LogError        (e : string)= printfn "Error       : %s" e
+    let LogException    (e : exn)   = printfn "Exception   : %s" e.Message
+
     let GlobalTime =    let sw = new Stopwatch ()
                         sw.Start ()
                         sw

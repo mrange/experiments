@@ -26,7 +26,15 @@ module Visual =
         | Fork (l,r)        -> (HasVisuals l) && (HasVisuals r)
         | State (_,c)       -> HasVisuals c
 
-    let rec RenderTreeImpl (time : float32) (rt : Direct2D1.RenderTarget) (tfc : TextFormatDescriptor->DirectWrite.TextFormat) (bc : BrushDescriptor*float32->Direct2D1.Brush) (transform : Matrix3x2) (pixelScale : float32)  (vt : VisualTree) = 
+    let rec RenderTreeImpl 
+        (time       : float32                                       ) 
+        (rt         : Direct2D1.RenderTarget                        ) 
+        (tfc        : TextFormatDescriptor->DirectWrite.TextFormat  ) 
+        (bc         : BrushDescriptor*float32->Direct2D1.Brush      ) 
+        (transform  : Matrix3x2                                     ) 
+        (pixelScale : float32                                       )  
+        (vt         : VisualTree                                    ) 
+        = 
         match vt with 
         |   Empty   -> ()
         |   Rectangle (s,f,r,sw) ->
@@ -82,5 +90,11 @@ module Visual =
         |   State (_,c) ->
                 RenderTreeImpl time rt tfc bc transform pixelScale c
 
-    let RenderTree (time : float32) (rt : Direct2D1.RenderTarget) (tfc : TextFormatDescriptor->DirectWrite.TextFormat) (bc : BrushDescriptor*float32->Direct2D1.Brush) (vt : VisualTree) = 
+    let RenderTree 
+        (time       : float32                                       ) 
+        (rt         : Direct2D1.RenderTarget                        ) 
+        (tfc        : TextFormatDescriptor->DirectWrite.TextFormat  ) 
+        (bc         : BrushDescriptor*float32->Direct2D1.Brush      ) 
+        (vt         : VisualTree                                    ) 
+        = 
         RenderTreeImpl time rt tfc bc Matrix3x2.Identity 1.0F vt
