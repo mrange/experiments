@@ -52,7 +52,7 @@ module FolderTree =
         static member New f c d tfc tfs = {Folder = f; Children = c; Depth = d; TotalFileCount = tfc; TotalFileSize = tfs}
 
     let rec MakeFolder (mf : MutableFolder) : Folder = 
-        let c = mf.Children |> Seq.map MakeFolder |> Seq.toList
+        let c = mf.Children |> Seq.map MakeFolder |> Seq.sortBy (fun f -> -f.TotalFileSize) |> Seq.toList
 
         Folder.New mf.Folder c mf.Depth mf.TotalFileCount mf.TotalFileSize
 
@@ -68,10 +68,18 @@ module FolderTree =
     let EmptyFoldFolder : Map<Scanner.Folder, MutableFolder>*MutableFolder option = Map.empty,None
 
     let FormatFolder (f : Folder) = 
-        let formatter = sprintf "%s %d"
-        formatter f.Folder.Name f.TotalFileSize
+        let offset = 8L
+        let sz, u =
+            match f.TotalFileSize with
+            | sz when sz < offset*1024L                     -> float sz                               , "B"
+            | sz when sz < offset*1024L*1024L               -> float sz / 1024.                       , "KiB"
+            | sz when sz < offset*1024L*1024L*1024L         -> float sz / (1024.*1024.)               , "MiB"
+            | sz when sz < offset*1024L*1024L*1024L*1024L   -> float sz / (1024.*1024.*1024.)         , "GiB"
+            | sz                                            -> float sz / (1024.*1024.*1024.*1024.)   , "TiB"
+        let formatter = sprintf "%s %.2f %s"
+        formatter f.Folder.Name sz u
 
-    let rec CreateVisualTree (stroke : BrushDescriptor) (fill : BrushDescriptor) (textFormat : TextFormatDescriptor) (xscale : float32) (yscale : float32) (ycutoff : float32) (x : float32) (y : float32) (f : Folder)=
+    let rec CreateVisualTree (stroke : BrushDescriptor) (fill : BrushDescriptor) (foreground : BrushDescriptor) (textFormat : TextFormatDescriptor) (xscale : float32) (yscale : float32) (ycutoff : float32) (x : float32) (y : float32) (f : Folder)=
         let xpos    = xscale * x
         let ypos    = yscale * y
         let width   = xscale
@@ -80,17 +88,21 @@ module FolderTree =
         if ycutoff > height then Empty
         else
             let children = 
-                f.Children 
-                |> List.mapi (fun i cf -> CreateVisualTree stroke fill textFormat xscale yscale ycutoff (x + 1.F) (y + (float32 i)) cf)
+                f.Children
+                |> ListEx.foldMap   (fun (rsz : int64) cf -> 
+                                        let vt = CreateVisualTree stroke fill foreground textFormat xscale yscale ycutoff (x + 1.F) (y + float32 rsz) cf
+                                        (rsz + cf.TotalFileSize),vt
+                                    ) 0L
                 |> List.filter (fun c -> Visual.HasVisuals c)
 
-            let astroke         : AnimatedBrush     = Animated.Brush_Solid stroke
-            let afill           : AnimatedBrush     = Animated.Brush_Solid fill
-            let arect           : AnimatedRectangleF= Animated.Constant <| SharpDX.RectangleF(xpos, ypos, width, height)
-            let astrokeWidth    : AnimatedFloat     = Animated.Constant <| 1.0F
+            let astroke         = Animated.Brush_Solid stroke
+            let afill           = Animated.Brush_Solid fill
+            let aforeground     = Animated.Brush_Solid foreground
+            let arect           = Animated.Constant <| SharpDX.RectangleF(xpos, ypos, width, height)
+            let astrokeWidth    = Animated.Constant <| 1.0F
 
             let rect    = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
-            let text    = VisualTree.Text (FormatFolder f, textFormat, arect, astroke)
+            let text    = VisualTree.Text (FormatFolder f, textFormat, arect, aforeground)
             let folder  = Group [rect;text]
 
             match children with
@@ -103,13 +115,14 @@ module FolderTree =
     let FoldVisualTree (s : VisualTree) (f : Folder) = 
         let xscale  = 1.F / (float32 <| max 1 f.Depth)
         let yscale  = 1.F / (float32 <| max 1L f.TotalFileSize)
-        let ycutoff = 0.1F
+        let ycutoff = 0.01F
 
         let stroke      = SolidColor <| ColorDescriptor.Color Color.Black
         let fill        = SolidColor <| ColorDescriptor.Color Color.WhiteSmoke
-        let textFormat  = TextFormatDescriptor.New "Consolas" 24.0F
+        let foreground  = SolidColor <| ColorDescriptor.Color Color.Black
+        let textFormat  = TextFormatDescriptor.New "Verdana" 24.0F
 
-        let vt = f |> CreateVisualTree stroke fill textFormat xscale yscale ycutoff 0.F 0.F
+        let vt = f |> CreateVisualTree stroke fill foreground textFormat xscale yscale ycutoff 0.F 0.F
 
         s,vt
 

@@ -134,3 +134,12 @@ module ListEx =
     
     let rec any (t : 'T->bool) (l : 'T list) = (List.tryFind t l).IsSome
             
+    let foldMap (f : 'U -> 'T -> 'U*'V) (s : 'U) (l : 'T list) : 'V list = 
+        let state = ref s
+        [ 
+            for v in l do
+                let ns,nv = f !state v
+                state := ns
+                yield nv
+        ]
+            
