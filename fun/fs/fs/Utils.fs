@@ -121,3 +121,8 @@ module Utils =
     let inline ( <??> ) o d = DefaultTo o d
 
     let inline ( <?+?> ) l r = CombineDisposable l r
+
+module ListEx =
+    
+    let rec any (t : 'T->bool) (l : 'T list) = (List.tryFind t l).IsSome
+            

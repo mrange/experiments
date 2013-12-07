@@ -2,6 +2,7 @@
 
 open System.Collections.Generic
 
+open SharpDX
 open SharpDX.Direct2D1
 
 module FolderTree = 
@@ -69,24 +70,40 @@ module FolderTree =
         let xpos    = xscale * x
         let ypos    = yscale * y
         let width   = xscale
-        let height  = yscale * (float32 f.TotalFileCount)
+        let height  = yscale * (float32 f.TotalFileSize)
 
         if ycutoff > height then Empty
         else
-            let children = f.Children |> List.mapi (fun i cf -> CreateVisualTree stroke fill xscale yscale ycutoff (x + 1.F) (y + (float32 i)) cf)
+            let children = 
+                f.Children 
+                |> List.mapi (fun i cf -> CreateVisualTree stroke fill xscale yscale ycutoff (x + 1.F) (y + (float32 i)) cf)
+                |> List.filter (fun c -> Visual.HasVisuals c)
 
             let astroke         : AnimatedBrush     = Animated.Brush_Solid stroke
             let afill           : AnimatedBrush     = Animated.Brush_Solid fill
             let arect           : AnimatedRectangleF= Animated.Constant <| SharpDX.RectangleF(xpos, ypos, width, height)
-            let astrokeWidth    : AnimatedFloat     = Animated.Constant <| 2.0F
+            let astrokeWidth    : AnimatedFloat     = Animated.Constant <| 1.0F
 
-            Rectangle (astroke,afill,arect,astrokeWidth)
+            let rect = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
+
+            match children with
+            | []    -> rect
+            | [x]   -> Fork (x, rect)
+            | _     -> Fork (Group children, rect)
+
+            
 
     let FoldVisualTree (s : VisualTree) (f : Folder) = 
         let xscale  = 1.F / (float32 <| max 1 f.Depth)
         let yscale  = 1.F / (float32 <| max 1L f.TotalFileSize)
         let ycutoff = 0.1F
-        s,s
+
+        let stroke  = SolidColor <| ColorDescriptor.Color Color.Black
+        let fill    = SolidColor <| ColorDescriptor.Color Color.WhiteSmoke
+
+        let vt = f |> CreateVisualTree stroke fill xscale yscale ycutoff 0.F 0.F
+
+        s,vt
 
     let BuildPipe (os : IObservableSource<Scanner.Folder>) = 
         let o = os 

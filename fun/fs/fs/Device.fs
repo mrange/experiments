@@ -13,6 +13,12 @@ type ColorDescriptor =
         Green   : float32
         Blue    : float32
     }
+    static member ARGB  a r g b     =   {Alpha = a; Red = r; Green = g; Blue = b}
+    static member RGB   r g b       =   ColorDescriptor.ARGB 1.F r g b
+    static member Color (c : Color) =   let toFloat (b : byte) = (float32 b) / 255.0F
+                                        ColorDescriptor.ARGB (toFloat c.A) (toFloat c.R) (toFloat c.G) (toFloat c.B)
+    member x.ToColor4               =   Color4(x.Red, x.Green, x.Blue, x.Alpha)
+    member x.ToColor3               =   Color3(x.Red, x.Green, x.Blue)
 
 type BrushDescriptor    =
     |   Transparent
@@ -84,8 +90,7 @@ type Device(form : Windows.RenderForm) =
                                 )
 
     let solid (c : ColorDescriptor)   = 
-        let cc = new Color4(c.Red, c.Green, c.Blue, c.Alpha)
-        new Direct2D1.SolidColorBrush(d2dRenderTarget, cc)                                    
+        new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4)                                    
 
     let mutable brushCache : Map<BrushDescriptor, Brush> = Map.empty
 

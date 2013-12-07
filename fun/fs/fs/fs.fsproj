@@ -73,6 +73,7 @@
     <Compile Include="Observable.fs" />
     <Compile Include="Scanner.fs" />
     <Compile Include="Device.fs" />
+    <Compile Include="Animated.fs" />
     <Compile Include="VisualTree.fs" />
     <Compile Include="FolderTree.fs" />
     <Compile Include="Window.fs" />
