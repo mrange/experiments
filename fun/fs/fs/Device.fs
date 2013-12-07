@@ -141,6 +141,10 @@ type Device(form : Windows.RenderForm) =
 
     interface IDisposable with
         member x.Dispose() =
+            let tfc = textFormatCache
+            textFormatCache <- Map.empty
+            for kv in tfc do
+                TryDispose kv.Value 
             let bc = brushCache
             brushCache <- Map.empty
             for kv in bc do

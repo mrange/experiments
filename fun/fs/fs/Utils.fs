@@ -131,9 +131,24 @@ module Utils =
                 TryDispose cts
                 TryDispose mb 
                 )
+
+    let UnionOfRectangle (l : RectangleF) (r : RectangleF) =
+        if l.IsEmpty then r
+        elif r.IsEmpty then l
+        else 
+            let left    = min l.Left r.Left
+            let top     = min l.Top r.Top
+            let right   = max l.Right r.Right
+            let bottom  = max l.Bottom r.Bottom
+            RectangleF (left, top, right - left, bottom - top)
+
+    let Rect x y w h = RectangleF(x,y,w,h)
+
     let inline ( <??> ) o d = DefaultTo o d
 
     let inline ( <?+?> ) l r = CombineDisposable l r
+
+    let inline ( <+> ) l r = UnionOfRectangle l r
 
 module ListEx =
     

@@ -90,13 +90,14 @@ module FolderTree =
         (x          : float32               ) 
         (y          : float32               ) 
         (f          : Folder                ) 
+        : VisualTree
         =
         let xpos    = xscale * x
         let ypos    = yscale * y
         let width   = xscale
         let height  = yscale * (float32 f.TotalFileSize)
 
-        if ycutoff > height then Empty
+        if ycutoff > height then VisualTree.Empty
         else
             let children = 
                 f.Children
@@ -114,12 +115,12 @@ module FolderTree =
 
             let rect    = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
             let text    = VisualTree.Text (FormatFolder f, textFormat, arect, aforeground)
-            let folder  = Group [rect;text]
+            let folder  = VisualTree.Group [rect;text]
 
             match children with
             | []    -> folder
-            | [x]   -> Fork (x, folder)
-            | _     -> Fork (Group children, folder)
+            | [x]   -> VisualTree.Fork (x, folder)
+            | _     -> VisualTree.Fork (VisualTree.Group children, folder)
 
             
 
@@ -143,7 +144,7 @@ module FolderTree =
                 |> Observable.map (fun (_,root) -> root)
                 |> ObservableEx.deref
                 |> Observable.map (fun root -> MakeFolder root)
-                |> ObservableEx.foldMap FoldVisualTree Empty
+                |> ObservableEx.foldMap FoldVisualTree VisualTree.Empty
         os,o
 
     
