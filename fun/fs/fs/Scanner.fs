@@ -24,7 +24,7 @@ module Scanner =
 
     let Start (rootFolder : string) : IObservableSource<Folder> = 
         
-        let root = Path.GetFullPath rootFolder
+        let root = (Path.GetFullPath rootFolder).Trim(' ', '\\')
 
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
@@ -34,6 +34,8 @@ module Scanner =
         let onStart (source : IObservableSource<Folder>) =    
             let processor (input : MailboxProcessor<Message>)  = 
                 async {
+                    Thread.CurrentThread.Priority<-ThreadPriority.Lowest
+
                     let completed = ref false
                     while not !completed && not ct.IsCancellationRequested do
                         let! msg = input.TryReceive (0)

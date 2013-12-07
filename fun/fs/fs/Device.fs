@@ -4,7 +4,7 @@ open System
 open System.Diagnostics
 
 open SharpDX
-open SharpDX.Direct2D1
+open SharpDX
 
 type ColorDescriptor = 
     {
@@ -23,6 +23,13 @@ type ColorDescriptor =
 type BrushDescriptor    =
     |   Transparent
     |   SolidColor  of ColorDescriptor
+
+type TextFormatDescriptor   =
+    {
+        FontFamily  : string
+        FontSize    : float32
+    }
+    static member New ff fs = {FontFamily = ff; FontSize = fs}
 
 type Device(form : Windows.RenderForm) = 
 
@@ -70,6 +77,7 @@ type Device(form : Windows.RenderForm) =
     let width               = float32 form.ClientSize.Width
     let height              = float32 form.ClientSize.Height
 
+    let dwFactory           = new DirectWrite.Factory (DirectWrite.FactoryType.Isolated)
     let d2dFactory          = new Direct2D1.Factory(Direct2D1.FactoryType.SingleThreaded)
     let device, swapChain   = GetDeviceAndSwapChain form
     let factory             = swapChain.GetParent<DXGI.Factory>()
@@ -89,23 +97,35 @@ type Device(form : Windows.RenderForm) =
                                     )
                                 )
 
+    let mutable brushCache : Map<BrushDescriptor, Direct2D1.Brush> = Map.empty
+
+    let mutable textFormatCache : Map<TextFormatDescriptor, DirectWrite.TextFormat> = Map.empty
+
     let solid (c : ColorDescriptor)   = 
         new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4)                                    
 
-    let mutable brushCache : Map<BrushDescriptor, Brush> = Map.empty
-
-    member x.GetBrush (bd : BrushDescriptor) : Brush =
+    member x.GetBrush (bd : BrushDescriptor) : Direct2D1.Brush =
         let find = brushCache.TryFind bd
         match find with
         | Some b    -> b
         | _         ->
-            let b : Brush= 
+            let b : Direct2D1.Brush= 
                 match bd with
                 | Transparent       -> null
                 | SolidColor c      -> upcast solid c
             brushCache <- brushCache |> Map.add bd b
             b
         
+    member x.GetTextFormat (tfd : TextFormatDescriptor) : DirectWrite.TextFormat = 
+        let find = textFormatCache.TryFind tfd
+        match find with
+        | Some tf   -> tf
+        | _         ->
+            let tf = new DirectWrite.TextFormat(dwFactory, tfd.FontFamily, tfd.FontSize)
+            textFormatCache <- textFormatCache |> Map.add tfd tf
+            tf
+        
+
 
     member x.Width              = width
     member x.Height             = height
@@ -132,6 +152,7 @@ type Device(form : Windows.RenderForm) =
             TryDispose swapChain
             TryDispose device
             TryDispose d2dFactory
+            TryDispose dwFactory
             
 
 

@@ -1,13 +1,13 @@
 ﻿namespace FolderSize
 
 open SharpDX
-open SharpDX.Direct2D1
+open SharpDX
 
 type VisualTree =
     |   Empty           
     |   Rectangle       of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat
     |   Line            of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush*StrokeWidth:AnimatedFloat
-    |   Text            of Text:string*TextFormat:DirectWrite.TextFormat*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
+    |   Text            of Text:string*TextFormat:TextFormatDescriptor*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
     |   Transform       of Transform:AnimatedMatrix*Child:VisualTree
     |   Group           of Children:VisualTree list
     |   Fork            of Left:VisualTree*Right:VisualTree
@@ -26,12 +26,12 @@ module Visual =
         | Fork (l,r)        -> (HasVisuals l) && (HasVisuals r)
         | State (_,c)       -> HasVisuals c
 
-    let rec RenderTreeImpl (time : float32) (rt : RenderTarget) (bc : BrushDescriptor*float32->Brush) (ft : Matrix3x2) (sc : float32)  (vt : VisualTree) = 
+    let rec RenderTreeImpl (time : float32) (rt : Direct2D1.RenderTarget) (tfc : TextFormatDescriptor->DirectWrite.TextFormat) (bc : BrushDescriptor*float32->Direct2D1.Brush) (transform : Matrix3x2) (pixelScale : float32)  (vt : VisualTree) = 
         match vt with 
         |   Empty   -> ()
         |   Rectangle (s,f,r,sw) ->
                 let rect        = r time
-                let strokeWidth = sc * sw time
+                let strokeWidth = pixelScale * sw time
                 let fill        = f time
                 let stroke      = s time
 
@@ -44,7 +44,7 @@ module Visual =
                 let point0      = p0 time
                 let point1      = p1 time
                 let stroke      = b time
-                let strokeWidth = sc * sw time
+                let strokeWidth = pixelScale * sw time
 
                 let bstroke     = bc stroke
 
@@ -52,31 +52,35 @@ module Visual =
         |   Text (t,tf,lr,fg) ->
                 let layoutRect  = lr time
                 let foreground  = fg time
+                let atf         = TextFormatDescriptor.New tf.FontFamily (pixelScale * tf.FontSize)
+                let textFormat  = tfc atf
 
                 let bforeground = bc foreground
 
-                if bforeground <> null then rt.DrawText(t, tf, layoutRect, bforeground)
+                if bforeground <> null then rt.DrawText(t, textFormat, layoutRect, bforeground)
         |   Transform (t,c) ->
-                let transform = t time
+                let newTransform    = t time
 
-                let fullTransform = ft <*> transform
+                let fullTransform   = transform <*> newTransform
 
-                // Compute stroke width scale
-                let scaled = (Matrix3x2.TransformPoint (fullTransform, Vector2(1.F, 1.F))).Length()
+                // Compute pixel scale (approximation)
+                let getLocalLength x y  = (Matrix3x2.TransformPoint (fullTransform, Vector2(x,y))).Length()
+
+                let iscale          = getLocalLength 1.F 1.F
 
                 rt.Transform <- fullTransform
                                 
-                RenderTreeImpl time rt bc fullTransform (1.F / scaled) c
+                RenderTreeImpl time rt tfc bc fullTransform (1.F / iscale) c
 
-                rt.Transform <- ft
+                rt.Transform <- transform
         |   Group (cs) ->
                 for branch in cs do
-                    RenderTreeImpl time rt bc ft sc branch 
+                    RenderTreeImpl time rt tfc bc transform pixelScale branch 
         |   Fork (l,r) ->
-                RenderTreeImpl time rt bc ft sc l 
-                RenderTreeImpl time rt bc ft sc r
+                RenderTreeImpl time rt tfc bc transform pixelScale l 
+                RenderTreeImpl time rt tfc bc transform pixelScale r
         |   State (_,c) ->
-                RenderTreeImpl time rt bc ft sc c
+                RenderTreeImpl time rt tfc bc transform pixelScale c
 
-    let RenderTree (time : float32) (rt : RenderTarget) (bc : BrushDescriptor*float32->Brush) (vt : VisualTree) = 
-        RenderTreeImpl time rt bc Matrix3x2.Identity 1.0F vt
+    let RenderTree (time : float32) (rt : Direct2D1.RenderTarget) (tfc : TextFormatDescriptor->DirectWrite.TextFormat) (bc : BrushDescriptor*float32->Direct2D1.Brush) (vt : VisualTree) = 
+        RenderTreeImpl time rt tfc bc Matrix3x2.Identity 1.0F vt

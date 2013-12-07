@@ -1,7 +1,7 @@
 ﻿namespace FolderSize
 
 open SharpDX
-open SharpDX.Direct2D1
+open SharpDX
 
 type AnimationEase      = float32->float32->float32->float32->float32->float32
 

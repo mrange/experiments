@@ -71,13 +71,17 @@ module Utils =
         interface IDisposable with
             member this.Dispose () = TryRun dispose
 
-    let ActionProcessorWithTimeOut (timeOut:int64) (ontimeout : unit->unit)=
+    let ActionProcessorWithTimeOut (tp : ThreadPriority option) (timeOut:int64) (ontimeout : unit->unit)=
         if timeOut < 1L then failwith "Timeout must be greater than 0"
 
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
         let processor (input : MailboxProcessor<unit->unit>) = 
             async {
+                match tp with
+                | Some tp   -> Thread.CurrentThread.Priority <- tp
+                | _         -> ()
+
                 let nextTimeOut = ref <| GlobalTime.ElapsedMilliseconds + timeOut
                 while not ct.IsCancellationRequested do
                     let diff = !nextTimeOut - GlobalTime.ElapsedMilliseconds
@@ -100,11 +104,15 @@ module Utils =
                 TryDispose mb 
                 )
 
-    let ActionProcessor () = 
+    let ActionProcessor (tp : ThreadPriority option) = 
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
         let processor (input : MailboxProcessor<unit->unit>) = 
             async {
+                match tp with
+                | Some tp   -> Thread.CurrentThread.Priority <- tp
+                | _         -> ()
+
                 while not ct.IsCancellationRequested do
                     let! a = input.Receive ()
                     if not ct.IsCancellationRequested then 

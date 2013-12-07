@@ -1,9 +1,10 @@
 ﻿namespace FolderSize
 
 open System.Collections.Generic
+open System.Threading
+
 
 open SharpDX
-open SharpDX.Direct2D1
 
 module FolderTree = 
 
@@ -66,7 +67,11 @@ module FolderTree =
 
     let EmptyFoldFolder : Map<Scanner.Folder, MutableFolder>*MutableFolder option = Map.empty,None
 
-    let rec CreateVisualTree (stroke : BrushDescriptor) (fill : BrushDescriptor) (xscale : float32) (yscale : float32) (ycutoff : float32) (x : float32) (y : float32) (f : Folder)=
+    let FormatFolder (f : Folder) = 
+        let formatter = sprintf "%s %d"
+        formatter f.Folder.Name f.TotalFileSize
+
+    let rec CreateVisualTree (stroke : BrushDescriptor) (fill : BrushDescriptor) (textFormat : TextFormatDescriptor) (xscale : float32) (yscale : float32) (ycutoff : float32) (x : float32) (y : float32) (f : Folder)=
         let xpos    = xscale * x
         let ypos    = yscale * y
         let width   = xscale
@@ -76,7 +81,7 @@ module FolderTree =
         else
             let children = 
                 f.Children 
-                |> List.mapi (fun i cf -> CreateVisualTree stroke fill xscale yscale ycutoff (x + 1.F) (y + (float32 i)) cf)
+                |> List.mapi (fun i cf -> CreateVisualTree stroke fill textFormat xscale yscale ycutoff (x + 1.F) (y + (float32 i)) cf)
                 |> List.filter (fun c -> Visual.HasVisuals c)
 
             let astroke         : AnimatedBrush     = Animated.Brush_Solid stroke
@@ -84,12 +89,14 @@ module FolderTree =
             let arect           : AnimatedRectangleF= Animated.Constant <| SharpDX.RectangleF(xpos, ypos, width, height)
             let astrokeWidth    : AnimatedFloat     = Animated.Constant <| 1.0F
 
-            let rect = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
+            let rect    = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
+            let text    = VisualTree.Text (FormatFolder f, textFormat, arect, astroke)
+            let folder  = Group [rect;text]
 
             match children with
-            | []    -> rect
-            | [x]   -> Fork (x, rect)
-            | _     -> Fork (Group children, rect)
+            | []    -> folder
+            | [x]   -> Fork (x, folder)
+            | _     -> Fork (Group children, folder)
 
             
 
@@ -98,16 +105,17 @@ module FolderTree =
         let yscale  = 1.F / (float32 <| max 1L f.TotalFileSize)
         let ycutoff = 0.1F
 
-        let stroke  = SolidColor <| ColorDescriptor.Color Color.Black
-        let fill    = SolidColor <| ColorDescriptor.Color Color.WhiteSmoke
+        let stroke      = SolidColor <| ColorDescriptor.Color Color.Black
+        let fill        = SolidColor <| ColorDescriptor.Color Color.WhiteSmoke
+        let textFormat  = TextFormatDescriptor.New "Consolas" 24.0F
 
-        let vt = f |> CreateVisualTree stroke fill xscale yscale ycutoff 0.F 0.F
+        let vt = f |> CreateVisualTree stroke fill textFormat xscale yscale ycutoff 0.F 0.F
 
         s,vt
 
     let BuildPipe (os : IObservableSource<Scanner.Folder>) = 
         let o = os 
-                |> ObservableEx.asyncFold 100 FoldFolder EmptyFoldFolder
+                |> ObservableEx.asyncFold (Some ThreadPriority.Lowest) 100L FoldFolder EmptyFoldFolder
                 |> Observable.map (fun (_,root) -> root)
                 |> ObservableEx.deref
                 |> Observable.map (fun root -> MakeFolder root)

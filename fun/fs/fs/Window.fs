@@ -50,11 +50,12 @@ module Window =
 
                 let time = float32 GlobalTime.Elapsed.TotalSeconds
 
+                let tfc        = d.GetTextFormat
                 let bc (bd, o) = let b = d.GetBrush bd
                                  if b <> null then b.Opacity <- o
                                  b
 
                 let transform = Animated.Constant <| Matrix3x2.Scaling d.Height
 
-                Visual.RenderTree time d2dRenderTarget bc <| Transform (transform,!vt)
+                Visual.RenderTree time d2dRenderTarget tfc bc <| Transform (transform,!vt)
                 )

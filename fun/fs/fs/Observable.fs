@@ -83,12 +83,12 @@ module ObservableEx =
 
                 o.Subscribe obs
 
-    let asyncFold (timeout : int) (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) = 
+    let asyncFold (tp : ThreadPriority option) (timeout : int64) (f : 'U -> 'T -> 'U) (s : 'U) (o : IObservable<'T>) = 
         Observable<_>.New <| 
             fun observer -> 
                 let state = ref s
 
-                let actionProcessor = ActionProcessorWithTimeOut (int64 timeout) (fun () -> observer.OnNext !state)
+                let actionProcessor = ActionProcessorWithTimeOut tp timeout (fun () -> observer.OnNext !state)
 
                 let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> state := f !state v)
                                             (fun () -> actionProcessor.Post <| fun () -> observer.OnNext !state; observer.OnCompleted ())
@@ -96,10 +96,10 @@ module ObservableEx =
 
                 actionProcessor <?+?> o.Subscribe obs
 
-    let async (o : IObservable<'T>) = 
+    let async (tp : ThreadPriority option) (o : IObservable<'T>) = 
         Observable<_>.New <| 
             fun observer -> 
-                let actionProcessor = ActionProcessor ()
+                let actionProcessor = ActionProcessor tp
 
                 let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> observer.OnNext v)
                                             (fun () -> actionProcessor.Post <| fun () -> observer.OnCompleted ())
@@ -107,8 +107,8 @@ module ObservableEx =
 
                 actionProcessor <?+?> o.Subscribe obs
 
-    let asyncTerminator onNext onComplete onError (o : IObservable<'T>) = 
-        let actionProcessor = ActionProcessor ()
+    let asyncTerminator (tp : ThreadPriority option) onNext onComplete onError (o : IObservable<'T>) = 
+        let actionProcessor = ActionProcessor tp
 
         let obs = Observer<_>.New   (fun v  -> actionProcessor.Post <| fun () -> onNext v)
                                     (fun () -> actionProcessor.Post <| fun () -> onComplete ())
