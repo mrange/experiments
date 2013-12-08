@@ -144,6 +144,10 @@ module Utils =
 
     let Rect x y w h = RectangleF(x,y,w,h)
 
+    let Append (y,z) x = y,z,x
+
+    let inline ( <++> ) x y = Append x y
+
     let inline ( <??> ) o d = DefaultTo o d
 
     let inline ( <?+?> ) l r = CombineDisposable l r

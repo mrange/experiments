@@ -2,20 +2,30 @@
 
 open SharpDX
 
-type MouseButton = 
+type MouseButtonStates = 
     | Left
     | Middle
     | Right
 
+type MouseStates = 
+    | Outside   of Set<MouseButtonStates>
+    | Inside    of Set<MouseButtonStates>
+
+type MouseState = 
+    {
+        ButtonState : Set<MouseButtonStates>
+        Coordinate  : Vector2
+    }
+
 type UserInterfaceState =
     {
         DefaultTextFormat   : TextFormatDescriptor
-        DefaultForeground   : BrushDescriptor
+        DefaultForeground   : AnimatedBrush
 
         CurrentTime         : float32
-        MouseMovement       : Vector2
-        MouseCoordinate     : Vector2
-        MouseState          : Set<MouseButton>
+
+        PreviousMouse       : MouseState
+        CurrentMouse        : MouseState
     }
 
 type UserInterfaceResult<'T> =  
@@ -26,58 +36,106 @@ type UserInterfaceResult<'T> =
     }
     static member New v s lt = {Value = v; State = s; Logical = lt}
 
-type UserInterface<'T> = UserInterfaceState->LogicalTree->UserInterfaceResult<'T>
+type UserInterface<'T> = 
+    {
+        Render  :   UserInterfaceState->LogicalTree->UserInterfaceResult<'T>
+    }
+    static member New r = {Render = r}
+
+[<AutoOpen>]
+module UserInterfaceUtils = 
+
+    let GetMouseState (bounds : RectangleF) (ms : MouseState) = 
+        if bounds.Contains ms.Coordinate then
+            Inside ms.ButtonState
+        else 
+            Outside ms.ButtonState
+
+//    let (|Outside|Inside|OutsidePressed|InsidePressed|)  (mbs : MouseButtonStates) (ms : MouseState)  = 
+//        let inside  = bounds.Contains(ms.Coordinate)
+//        let pressed = ms.ButtonState.Contains(mbs)
+//        match inside,pressed with
+//        | false , false -> Outside
+//        | false , true  -> OutsidePressed
+//        | true  , false -> Inside
+//        | true  , true  -> InsidePressed
+
 
 module UserInterface = 
     let Return v : UserInterface<'T> = 
-        fun s lt -> UserInterfaceResult<_>.New v s LogicalTree.Empty
+        UserInterface<_>.New <| 
+            fun uis lt -> UserInterfaceResult<_>.New v uis LogicalTree.Empty
             
-    let Zero : UserInterface<'T> = 
-        fun s lt -> UserInterfaceResult<_>.New DefaultOf<'T> s LogicalTree.Empty
+    let Zero<'T> : UserInterface<'T> = 
+        UserInterface<_>.New <| 
+            fun uis lt -> UserInterfaceResult<'T>.New DefaultOf<'T> uis LogicalTree.Empty
 
     let ReturnFrom v : UserInterface<'T> = v
     let Yield                                           = Return
     let YieldFrom                                       = ReturnFrom
 
     let Delay (uig : unit -> UserInterface<'T>) : UserInterface<'T> = 
-        fun s lt -> uig () s lt
+        UserInterface<_>.New <| 
+            fun uis lt -> (uig ()).Render uis lt
 
     let Run (ui : UserInterface<'T>)            : UserInterface<'T> = 
-        fun s lt -> ui s lt
+        UserInterface<_>.New <| fun uis lt -> ui.Render uis lt
 
     let Bind (l : UserInterface<'U>) (r : 'U->UserInterface<'T>) : UserInterface<'T> = 
-        fun s lt ->
+        UserInterface<_>.New <| 
+            fun uis lt ->
 
-            let llt,rlt =
-                match lt with
-                | Fork (llt, rlt)   -> llt,rlt
-                | _                 -> Empty,Empty
+                let llt,rlt =
+                    match lt with
+                    | Fork (llt, rlt)   -> llt,rlt
+                    | _                 -> Empty,Empty
 
-            let lr = l s llt
+                let lr = l.Render uis llt
 
-            let rr = (r lr.Value) lr.State rlt
+                let rr = (r lr.Value).Render lr.State rlt
 
-            UserInterfaceResult<_>.New rr.Value rr.State (LogicalTree.Fork (lr.Logical, rr.Logical))
+                UserInterfaceResult<_>.New rr.Value rr.State (LogicalTree.Fork (lr.Logical, rr.Logical))
 
     let Combine (l : UserInterface<'U>) (r : UserInterface<'T>) : UserInterface<'T> = 
-        fun s lt ->
+        UserInterface<_>.New <| 
+            fun uis lt ->
 
-            let llt,rlt =
-                match lt with
-                | Fork (llt, rlt)   -> llt,rlt
-                | _                 -> Empty,Empty
+                let llt,rlt =
+                    match lt with
+                    | Fork (llt, rlt)   -> llt,rlt
+                    | _                 -> Empty,Empty
 
-            let lr = l s llt
+                let lr = l.Render uis llt
 
-            let rr = r lr.State rlt
+                let rr = r.Render lr.State rlt
 
-            UserInterfaceResult<_>.New rr.Value rr.State (LogicalTree.Fork (lr.Logical, rr.Logical))
+                UserInterfaceResult<_>.New rr.Value rr.State (LogicalTree.Fork (lr.Logical, rr.Logical))
 
     let GetBounds (l : UserInterface<'U>) : UserInterface<RectangleF> = 
-        fun s lt -> 
-            let result = Logical.GetBounds s.CurrentTime lt
-            UserInterfaceResult<_>.New result s lt 
+        UserInterface<_>.New <| 
+            fun uis lt -> 
+                let result = Logical.GetBounds uis.CurrentTime lt
+                UserInterfaceResult<_>.New result uis lt 
 
+    let Leaf
+        (bounds         : AnimatedRectangleF                                                    )
+        (initialState   : 'TState                                                               )
+        (p              : UserInterfaceState->'TState->'T*UserInterfaceState*AnimatedRectangleF*'TState*VisualTree  )
+        : UserInterface<'T> =
+        UserInterface<_>.New <| 
+            fun uis lt -> 
+                let state =
+                    match lt with
+                    | LogicalTree.Leaf (_, ostate, _) ->
+                        match ostate with
+                        | :? 'TState as s   -> s
+                        | _                 -> initialState
+                    | _                     -> initialState
+                
+                let nv,ns,nb,nls,nvt = p uis state
+                UserInterfaceResult<_>.New nv ns <| LogicalTree.Leaf (nb, nls, nvt)
+                
+         
     type LabelState = string
             
     let LabelEx 
@@ -86,39 +144,79 @@ module UserInterface =
         (bounds         : AnimatedRectangleF    ) 
         (label          : string                ) 
         : UserInterface<unit> =
-        fun s lt -> 
-            let state       = label
-            UserInterfaceResult<_>.New () s <| LogicalTree.Leaf (bounds, state, VisualTree.Text (state, tfd, bounds, foreground))
+        let vt = VisualTree.Text (label, tfd, bounds, foreground)
+        let lt uis = (),uis,bounds,label,vt
+        Leaf bounds "" <| fun uis lts -> lt uis
+
 
     let Label 
         (bounds         : AnimatedRectangleF    ) 
         (label          : string                ) 
         : UserInterface<unit> =
-        fun s lt -> 
-            let state       = label
-            UserInterfaceResult<_>.New () s <| LogicalTree.Leaf (bounds, state, VisualTree.Text (state, s.DefaultTextFormat, bounds, Animated.Brush_Solid s.DefaultForeground))
+        let vt tfd foreground = VisualTree.Text (label, tfd, bounds, foreground)
+        let lt uis = (),uis,bounds,label,(vt uis.DefaultTextFormat uis.DefaultForeground)
+        Leaf bounds "" <| fun uis lts -> lt uis 
 
-    type ButtonState = int
-        
+    type ButtonStates = 
+        |   Normal
+        |   HighLighted
+        |   Pressed
+
+    type ButtonState = 
+        {
+            State   : ButtonStates
+            Clicked : int
+        }
+        static member New s c = {State = s; Clicked = c}
+        static member Empty = ButtonState.New Normal 0
+
     let ButtonEx
         (tfd            : TextFormatDescriptor  ) 
         (stroke         : BrushDescriptor       )
         (mouseOver      : BrushDescriptor       )
+        (mousePressed   : BrushDescriptor       )
         (foreground     : BrushDescriptor       )
         (background     : BrushDescriptor       )
         (bounds         : AnimatedRectangleF    ) 
         (label          : string                ) 
         : UserInterface<int> =
-        fun s lt -> 
-            let state       = 0
-            let vt = 
-                VisualTree.Group
-                    [
-                        VisualTree.Rectangle (Animated.Brush_Solid stroke, Animated.Brush_Solid background, bounds, Animated.Constant 3.F)
-                        VisualTree.Text (label, tfd, bounds, Animated.Brush_Solid foreground)
-                    ]
-            UserInterfaceResult<_>.New 0 s <| LogicalTree.Leaf (bounds, state, vt)
+        let normal = 
+            Normal              ,
+            VisualTree.Group
+                [
+                    VisualTree.Rectangle (Animated.Brush_Solid stroke, Animated.Brush_Solid background, bounds, Animated.Constant 3.F)
+                    VisualTree.Text (label, tfd, bounds, Animated.Brush_Solid foreground)
+                ]
+        let highLighted = 
+            HighLighted        ,
+            VisualTree.Group
+                [
+                    VisualTree.Rectangle (Animated.Brush_Solid stroke, Animated.Brush_Solid mouseOver, bounds, Animated.Constant 3.F)
+                    VisualTree.Text (label, tfd, bounds, Animated.Brush_Solid foreground)
+                ]
+        let pressed = 
+            Pressed         ,
+            VisualTree.Group
+                [
+                    VisualTree.Rectangle (Animated.Brush_Solid stroke, Animated.Brush_Solid mousePressed, bounds, Animated.Constant 3.F)
+                    VisualTree.Text (label, tfd, bounds, Animated.Brush_Solid foreground)
+                ]
+        Leaf bounds ButtonState.Empty <| 
+            fun uis lts -> 
+                
+                let b = bounds uis.CurrentTime
+                let bts,vt,nlts = 
+                    match lts.State, GetMouseState b uis.PreviousMouse, GetMouseState b uis.CurrentMouse with
+                    | Pressed   , Inside  pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
+                    | Pressed   , Outside pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
+                    | Pressed   , _             , Inside  cbs   when cbs.Contains(Left)                             -> pressed      <++> lts 
+                    | Pressed   , _             , Outside cbs   when cbs.Contains(Left)                             -> highLighted  <++> lts 
+                    | _         , _             , Inside  cbs   when cbs.Contains(Left)                             -> pressed      <++> ButtonState.New Pressed lts.Clicked
+                    | _         , _             , Inside  _                                                         -> highLighted  <++> ButtonState.New HighLighted lts.Clicked
+                    | Normal    , _             , _                                                                 -> normal       <++> lts
+                    | _l        , _             , _                                                                 -> normal       <++> ButtonState.New Normal lts.Clicked
 
+                nlts.Clicked,uis,bounds,nlts,vt
             
         
 [<AutoOpen>]
