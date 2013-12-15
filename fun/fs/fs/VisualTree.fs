@@ -27,7 +27,7 @@ module Visual =
         | State (_,c)       -> HasVisuals c
 
     let rec RenderTreeImpl 
-        (time       : float32                                       ) 
+        (state      : ApplicationState                              ) 
         (rt         : Direct2D1.RenderTarget                        ) 
         (tfc        : TextFormatDescriptor->DirectWrite.TextFormat  ) 
         (bc         : BrushDescriptor*float32->Direct2D1.Brush      ) 
@@ -38,10 +38,10 @@ module Visual =
         match vt with 
         |   Empty   -> ()
         |   Rectangle (s,f,r,sw) ->
-                let rect        = r time
-                let strokeWidth = pixelScale * sw time
-                let fill        = f time
-                let stroke      = s time
+                let rect        = r state
+                let strokeWidth = pixelScale * sw state
+                let fill        = f state
+                let stroke      = s state
 
                 let bfill       = bc fill
                 let bstroke     = bc stroke
@@ -49,17 +49,17 @@ module Visual =
                 if bfill <> null then rt.FillRectangle (rect, bfill)
                 if bstroke <> null && strokeWidth > 0.F then rt.DrawRectangle (rect, bstroke, strokeWidth)
         |   Line (p0,p1,b,sw) ->
-                let point0      = p0 time
-                let point1      = p1 time
-                let stroke      = b time
-                let strokeWidth = pixelScale * sw time
+                let point0      = p0 state
+                let point1      = p1 state
+                let stroke      = b state
+                let strokeWidth = pixelScale * sw state
 
                 let bstroke     = bc stroke
 
                 if bstroke <> null && strokeWidth >= 0.F then rt.DrawLine (point0, point1, bstroke, strokeWidth)
         |   Text (t,tf,lr,fg) ->
-                let layoutRect  = lr time
-                let foreground  = fg time
+                let layoutRect  = lr state
+                let foreground  = fg state
                 let atf         = TextFormatDescriptor.New tf.FontFamily (pixelScale * tf.FontSize)
                 let textFormat  = tfc atf
 
@@ -67,7 +67,7 @@ module Visual =
 
                 if bforeground <> null then rt.DrawText(t, textFormat, layoutRect, bforeground)
         |   Transform (t,c) ->
-                let newTransform    = t time
+                let newTransform    = t state
 
                 let fullTransform   = transform <*> newTransform
 
@@ -78,23 +78,23 @@ module Visual =
 
                 rt.Transform <- fullTransform
                                 
-                RenderTreeImpl time rt tfc bc fullTransform (1.F / iscale) c
+                RenderTreeImpl state rt tfc bc fullTransform (1.F / iscale) c
 
                 rt.Transform <- transform
         |   Group (cs) ->
                 for branch in cs do
-                    RenderTreeImpl time rt tfc bc transform pixelScale branch 
+                    RenderTreeImpl state rt tfc bc transform pixelScale branch 
         |   Fork (l,r) ->
-                RenderTreeImpl time rt tfc bc transform pixelScale l 
-                RenderTreeImpl time rt tfc bc transform pixelScale r
+                RenderTreeImpl state rt tfc bc transform pixelScale l 
+                RenderTreeImpl state rt tfc bc transform pixelScale r
         |   State (_,c) ->
-                RenderTreeImpl time rt tfc bc transform pixelScale c
+                RenderTreeImpl state rt tfc bc transform pixelScale c
 
     let RenderTree 
-        (time       : float32                                       ) 
+        (state      : ApplicationState                              ) 
         (rt         : Direct2D1.RenderTarget                        ) 
         (tfc        : TextFormatDescriptor->DirectWrite.TextFormat  ) 
         (bc         : BrushDescriptor*float32->Direct2D1.Brush      ) 
         (vt         : VisualTree                                    ) 
         = 
-        RenderTreeImpl time rt tfc bc Matrix3x2.Identity 1.0F vt
+        RenderTreeImpl state rt tfc bc Matrix3x2.Identity 1.0F vt

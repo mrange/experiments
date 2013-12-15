@@ -3,59 +3,59 @@
 open SharpDX
 open SharpDX
 
-type AnimationEase      = float32->float32->float32->float32->float32->float32
+type AnimationEase      = Time->Time->float32->float32->ApplicationState->float32
 
-type AnimatedFloat      = float32->float32
-type AnimatedVector2    = float32->Vector2
-type AnimatedRectangleF = float32->RectangleF
-type AnimatedBrush      = float32->BrushDescriptor*float32
-type AnimatedMatrix     = float32->Matrix3x2
+type AnimatedFloat      = ApplicationState->float32
+type AnimatedVector2    = ApplicationState->Vector2
+type AnimatedRectangleF = ApplicationState->RectangleF
+type AnimatedBrush      = ApplicationState->BrushDescriptor*float32
+type AnimatedMatrix     = ApplicationState->Matrix3x2
 
 
 module Animated = 
 
-    let Constant (v : 'T) : float32->'T = 
+    let Constant (v : 'T) : ApplicationState->'T = 
         fun time -> v
 
-    let Ease_Linear (f : float32) (t : float32) (b : float32) (e : float32) (time : float32) = 
-        if time < b then f
-        elif time > e then t
+    let Ease_Linear (b : Time) (e : Time) (f : float32) (t : float32) (state : ApplicationState) = 
+        if state.CurrentTime < b then f
+        elif state.CurrentTime > e then t
         else    
-            let m = (time - b) / (e - b)
-            m*(time - f) + f   
+            let m = (state.CurrentTime - b) / (e - b)
+            m*(state.CurrentTime - f) + f   
 
-    let Float (ease : AnimationEase) f t b e : AnimatedFloat = 
-        ease f t b e
+    let Float (ease : AnimationEase) b e f t : AnimatedFloat = 
+        ease b e f t
                     
-    let Vector2 (ease : AnimationEase) (f : Vector2) (t : Vector2) b e : AnimatedVector2 =
-        let x = ease f.X t.X b e
-        let y = ease f.Y t.Y b e
+    let Vector2 (ease : AnimationEase) b e (f : Vector2) (t : Vector2) : AnimatedVector2 =
+        let x = ease b e f.X t.X 
+        let y = ease b e f.Y t.Y 
         fun time -> Vector2 (x time, y time)
 
-    let RectangleF (ease : AnimationEase) (f : RectangleF) (t : RectangleF) b e : AnimatedRectangleF =
-        let x = ease f.X t.X b e
-        let y = ease f.Y t.Y b e
-        let w = ease f.Width t.Width b e
-        let h = ease f.Width t.Width b e
+    let RectangleF (ease : AnimationEase) b e (f : RectangleF) (t : RectangleF) : AnimatedRectangleF =
+        let x = ease b e f.X t.X 
+        let y = ease b e f.Y t.Y 
+        let w = ease b e f.Width t.Width 
+        let h = ease b e f.Width t.Width 
         fun time -> RectangleF (x time,y time,w time,h time)
 
-    let Brush_Opacity (ease : AnimationEase) (v : BrushDescriptor) (f : float32) (t : float32) b e : AnimatedBrush = 
-        let o = ease f t b e
+    let Brush_Opacity (ease : AnimationEase) (v : BrushDescriptor) b e (f : float32) (t : float32) : AnimatedBrush = 
+        let o = ease b e f t 
         fun time -> v, o time
 
     let Brush_Solid (v : BrushDescriptor) : AnimatedBrush = 
         fun time -> v, 1.F
 
-    let Matrix_Rotation (ease : AnimationEase) (f : float32) (t : float32) b e : AnimatedMatrix = 
-        let d = ease f t b e
+    let Matrix_Rotation (ease : AnimationEase) b e (f : float32) (t : float32) : AnimatedMatrix = 
+        let d = ease b e f t 
         fun time -> Matrix3x2.Rotation <| d time
 
-    let Matrix_Translation (ease : AnimationEase) (f : Vector2) (t : Vector2) b e : AnimatedMatrix = 
-        let d = Vector2 ease f t b e
+    let Matrix_Translation (ease : AnimationEase) b e (f : Vector2) (t : Vector2) : AnimatedMatrix = 
+        let d = Vector2 ease b e f t 
         fun time -> Matrix3x2.Translation <| d time
 
-    let Matrix_Scale (ease : AnimationEase) (f : Vector2) (t : Vector2) b e : AnimatedMatrix = 
-        let d = Vector2 ease f t b e
+    let Matrix_Scale (ease : AnimationEase) b e (f : Vector2) (t : Vector2) : AnimatedMatrix = 
+        let d = Vector2 ease b e f t 
         fun time -> Matrix3x2.Scaling(d time)
 
 [<AutoOpen>]

@@ -15,10 +15,17 @@ module Utils =
     let LogError        (e : string)= printfn "Error       : %s" e
     let LogException    (e : exn)   = printfn "Exception   : %s" e.Message
 
-    let GlobalTime =    let sw = new Stopwatch ()
+    let GlobalClock =   let sw = new Stopwatch ()
                         sw.Start ()
                         sw
 
+    let CurrentTime () : Time = 
+        (float32 GlobalClock.ElapsedMilliseconds) / 1000.F
+
+
+    let CurrentState () : ApplicationState = 
+        ApplicationState.New (CurrentTime ()) (MouseState.New Set.empty (Vector2 ()))
+    
     let Deg2Rad = float32 Math.PI/180.F
     let Rad2Deg = 1.F / Deg2Rad
 
@@ -87,18 +94,18 @@ module Utils =
                 | Some tp   -> Thread.CurrentThread.Priority <- tp
                 | _         -> ()
 
-                let nextTimeOut = ref <| GlobalTime.ElapsedMilliseconds + timeOut
+                let nextTimeOut = ref <| GlobalClock.ElapsedMilliseconds + timeOut
                 while not ct.IsCancellationRequested do
-                    let diff = !nextTimeOut - GlobalTime.ElapsedMilliseconds
+                    let diff = !nextTimeOut - GlobalClock.ElapsedMilliseconds
                     if diff < 1L then
                         ontimeout ()
-                        nextTimeOut := GlobalTime.ElapsedMilliseconds + (diff % timeOut) + timeOut
+                        nextTimeOut := GlobalClock.ElapsedMilliseconds + (diff % timeOut) + timeOut
                     let! a = input.TryReceive (int diff)
                     if not ct.IsCancellationRequested then 
                         match a with
                         | Some aa ->    aa()
                         | _       ->    ontimeout()
-                                        nextTimeOut := GlobalTime.ElapsedMilliseconds + (diff % timeOut) + timeOut
+                                        nextTimeOut := GlobalClock.ElapsedMilliseconds + (diff % timeOut) + timeOut
             }
         let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
         new ActionProcessor (
@@ -167,3 +174,5 @@ module ListEx =
                 yield nv
         ]
             
+
+

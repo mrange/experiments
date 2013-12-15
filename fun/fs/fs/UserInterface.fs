@@ -2,30 +2,13 @@
 
 open SharpDX
 
-type MouseButtonStates = 
-    | Left
-    | Middle
-    | Right
-
-type MouseStates = 
-    | Outside   of Set<MouseButtonStates>
-    | Inside    of Set<MouseButtonStates>
-
-type MouseState = 
-    {
-        ButtonState : Set<MouseButtonStates>
-        Coordinate  : Vector2
-    }
-
 type UserInterfaceState =
     {
         DefaultTextFormat   : TextFormatDescriptor
         DefaultForeground   : AnimatedBrush
 
-        CurrentTime         : float32
-
-        PreviousMouse       : MouseState
-        CurrentMouse        : MouseState
+        CurrentState        : ApplicationState
+        PreviousState       : ApplicationState
     }
 
 type UserInterfaceResult<'T> =  
@@ -114,7 +97,7 @@ module UserInterface =
     let GetBounds (l : UserInterface<'U>) : UserInterface<RectangleF> = 
         UserInterface<_>.New <| 
             fun uis lt -> 
-                let result = Logical.GetBounds uis.CurrentTime lt
+                let result = Logical.GetBounds uis.CurrentState lt
                 UserInterfaceResult<_>.New result uis lt 
 
     let Leaf
@@ -204,9 +187,12 @@ module UserInterface =
         Leaf bounds ButtonState.Empty <| 
             fun uis lts -> 
                 
-                let b = bounds uis.CurrentTime
+                let current     = uis.CurrentState
+                let previous    = uis.PreviousState
+
+                let b = bounds uis.CurrentState
                 let bts,vt,nlts = 
-                    match lts.State, GetMouseState b uis.PreviousMouse, GetMouseState b uis.CurrentMouse with
+                    match lts.State, GetMouseState b previous.CurrentMouse, GetMouseState b uis.PreviousState.CurrentMouse with
                     | Pressed   , Inside  pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
                     | Pressed   , Outside pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
                     | Pressed   , _             , Inside  cbs   when cbs.Contains(Left)                             -> pressed      <++> lts 

@@ -69,6 +69,7 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Types.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Observable.fs" />
     <Compile Include="Scanner.fs" />

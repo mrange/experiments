@@ -48,8 +48,6 @@ module Window =
                 
                 d2dRenderTarget.Clear(AsNullable <| Color.White.ToColor4())
 
-                let time = float32 GlobalTime.Elapsed.TotalSeconds
-
                 let tfc        = d.GetTextFormat
                 let bc (bd, o) = let b = d.GetBrush bd
                                  if b <> null then b.Opacity <- o
@@ -57,5 +55,7 @@ module Window =
 
                 let transform = Animated.Constant <| Matrix3x2.Scaling d.Height
 
-                Visual.RenderTree time d2dRenderTarget tfc bc <| Transform (transform,!vt)
+                let appState = CurrentState ()
+
+                Visual.RenderTree appState d2dRenderTarget tfc bc <| Transform (transform,!vt)
                 )
