@@ -14,8 +14,7 @@ type AnimatedMatrix     = ApplicationState->Matrix3x2
 
 module Animated = 
 
-    let Constant (v : 'T) : ApplicationState->'T = 
-        fun time -> v
+    let Constant (v : 'T) : ApplicationState->'T = fun s -> v
 
     let Ease_Linear (b : Time) (e : Time) (f : float32) (t : float32) (state : ApplicationState) = 
         if state.CurrentTime < b then f

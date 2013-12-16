@@ -73,6 +73,12 @@ module Utils =
         | Some v    -> v
         | _         -> d
 
+    let CastTo<'T> (o : obj) (d : 'T) = 
+        match o with
+        | :? 'T as i    -> i
+        | _             -> d
+        
+
     let CombineDisposable (l : #IDisposable) (r : #IDisposable) = 
         OnExit <| fun () -> 
                     TryDispose l
@@ -156,6 +162,7 @@ module Utils =
     let inline ( <++> ) x y = Append x y
 
     let inline ( <??> ) o d = DefaultTo o d
+    let inline ( <???> ) o d = CastTo o d
 
     let inline ( <?+?> ) l r = CombineDisposable l r
 

@@ -2,14 +2,61 @@
 
 open SharpDX
 
+type HierarchicalMap<'TKey, 'TValue when 'TKey: comparison>(parent : HierarchicalMap<'TKey, 'TValue> option, local : Map<'TKey, 'TValue>) = 
+
+    static member empty = HierarchicalMap<'TKey, 'TValue>(None, Map.empty)
+
+    member x.Add(k,v)   =   HierarchicalMap<'TKey, 'TValue>(parent, local.Add(k,v))
+    member x.TryFind(k) =   let f = local.TryFind k
+                            match f,parent with
+                            | Some _,_          -> f
+                            | _     ,Some parent-> parent.TryFind(k)
+                            | _                 -> None
+    member x.Find(k,dv) =   let f = x.TryFind(k)
+                            match f with
+                            | Some f            -> f
+                            | _                 -> dv
+
+module HierarchicalMap = 
+
+    let empty<'TKey, 'TValue when 'TKey: comparison> = HierarchicalMap<'TKey, 'TValue>(None, Map.empty)
+
+    let add k v (m : HierarchicalMap<'TKey, 'TValue>)   = m.Add(k,v)
+    let tryFind k (m : HierarchicalMap<'TKey, 'TValue>) = m.TryFind(k)
+    let find k dv (m : HierarchicalMap<'TKey, 'TValue>) = m.Find(k,dv)
+
 type UserInterfaceState =
     {
-        DefaultTextFormat   : TextFormatDescriptor
-        DefaultForeground   : AnimatedBrush
+        Context             : HierarchicalMap<string, obj>
 
-        CurrentState        : ApplicationState
-        PreviousState       : ApplicationState
+        CurrentAppState     : ApplicationState
+        PreviousAppState    : ApplicationState
     }
+    member x.Lookup k dv =
+        let f = x.Context.TryFind(k)
+        match f with
+        | Some f    -> f <???> dv
+        | _         -> dv
+
+module UserInterfaceContext =
+
+    let EmptyBrush      = Transparent
+    let EmptyTextFormat = TextFormatDescriptor.New "Consolas" 12.F
+
+    let GetBrush        name (state : UserInterfaceState)   = state.Lookup name EmptyBrush
+    let GetTextFormat   name (state : UserInterfaceState)   = state.Lookup name EmptyTextFormat
+
+    let Default_TextFormat  = GetTextFormat "DefaultBackground"
+
+    let Default_Background  = GetBrush      "DefaultBackground"
+    let Default_Foreground  = GetBrush      "DefaultForeground"
+
+    let Button_StrokeBrush  = GetBrush      "Button_StrokeBrush"
+    let Button_MouseOver    = GetBrush      "Button_MouseOver"
+    let Button_MousePressed = GetBrush      "Button_MousePressed"
+    let Button_Foreground   = GetBrush      "Button_Foreground"
+    let Button_Background   = GetBrush      "Button_Background"
+
 
 type UserInterfaceResult<'T> =  
     {
@@ -45,6 +92,9 @@ module UserInterfaceUtils =
 
 
 module UserInterface = 
+
+    open UserInterfaceContext
+
     let Return v : UserInterface<'T> = 
         UserInterface<_>.New <| 
             fun uis lt -> UserInterfaceResult<_>.New v uis LogicalTree.Empty
@@ -97,7 +147,7 @@ module UserInterface =
     let GetBounds (l : UserInterface<'U>) : UserInterface<RectangleF> = 
         UserInterface<_>.New <| 
             fun uis lt -> 
-                let result = Logical.GetBounds uis.CurrentState lt
+                let result = Logical.GetBounds uis.CurrentAppState lt
                 UserInterfaceResult<_>.New result uis lt 
 
     let Leaf
@@ -137,7 +187,7 @@ module UserInterface =
         (label          : string                ) 
         : UserInterface<unit> =
         let vt tfd foreground = VisualTree.Text (label, tfd, bounds, foreground)
-        let lt uis = (),uis,bounds,label,(vt uis.DefaultTextFormat uis.DefaultForeground)
+        let lt uis = (),uis,bounds,label,(vt (uis |> Default_TextFormat) (uis |> Default_Foreground |> Animated.Brush_Solid))
         Leaf bounds "" <| fun uis lts -> lt uis 
 
     type ButtonStates = 
@@ -187,12 +237,12 @@ module UserInterface =
         Leaf bounds ButtonState.Empty <| 
             fun uis lts -> 
                 
-                let current     = uis.CurrentState
-                let previous    = uis.PreviousState
+                let current     = uis.CurrentAppState
+                let previous    = uis.PreviousAppState
 
-                let b = bounds uis.CurrentState
+                let b = bounds uis.CurrentAppState
                 let bts,vt,nlts = 
-                    match lts.State, GetMouseState b previous.CurrentMouse, GetMouseState b uis.PreviousState.CurrentMouse with
+                    match lts.State, GetMouseState b previous.CurrentMouse, GetMouseState b uis.PreviousAppState.CurrentMouse with
                     | Pressed   , Inside  pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
                     | Pressed   , Outside pbs   , Inside  cbs   when pbs.Contains(Left) && not (cbs.Contains(Left)) -> highLighted  <++> ButtonState.New HighLighted (lts.Clicked + 1)
                     | Pressed   , _             , Inside  cbs   when cbs.Contains(Left)                             -> pressed      <++> lts 
@@ -204,6 +254,23 @@ module UserInterface =
 
                 nlts.Clicked,uis,bounds,nlts,vt
             
+    let Button
+        (bounds         : AnimatedRectangleF    ) 
+        (label          : string                )  
+        =
+        UserInterface<_>.New <| 
+            fun uis lt -> 
+                let button = 
+                    ButtonEx 
+                        (uis |> Default_TextFormat      )
+                        (uis |> Button_StrokeBrush      )
+                        (uis |> Button_MouseOver        )
+                        (uis |> Button_MousePressed     )
+                        (uis |> Button_Foreground       )
+                        (uis |> Button_Background       )
+                        bounds
+                        label
+                button.Render uis lt
         
 [<AutoOpen>]
 module UserInterfaceBuilder =
