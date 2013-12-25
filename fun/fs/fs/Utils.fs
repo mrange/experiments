@@ -11,6 +11,9 @@ open System.Windows.Forms
 [<AutoOpen>]
 module Utils =
     
+    let inline Zero<'T when 'T : struct> = Unchecked.defaultof<'T>
+    let inline Natural (v : 'T when 'T : comparison and 'T : struct) =  if v < Zero then Zero else v
+
     let Log             (i : string)= printfn "Information : %s" i
     let LogWarning      (w : string)= printfn "Warning     : %s" w
     let LogError        (e : string)= printfn "Error       : %s" e

@@ -14,16 +14,41 @@ module Logical =
         | D180
         | D270
 
+    type MeasuredSize = 
+        | Unbound
+        | Bound     of float32 
+
+        static member Zero = Bound 0.F
+
+        static member ( + ) (l : MeasuredSize, r : float32) = 
+            match l with
+            | Unbound   -> Unbound
+            | Bound b   -> Bound (Natural <| b + r)
+        static member ( - ) (l : MeasuredSize, r : float32) = l + (-r)
+
+        member x.Max (o : MeasuredSize) = 
+            match x,o with
+            | Bound xx  , Bound yy  -> Bound <| max xx yy
+            | _         , _         -> Unbound
+
+        member x.Natural with get () =  match x with
+                                        | Bound b       -> Bound <| Natural b
+                                        | _             -> x
+
     type Position = 
-        |   AutoPos
-        |   MinPos
-        |   MaxPos
-        |   FixedPos    of float32
+        | AutoPos
+        | MinPos
+        | MaxPos
+        | FixedPos  of float32
+            
 
     type Size = 
-        |   AutoSize
-        |   FillSize
-        |   FixedSize   of float32
+        | MinSize
+        | MaxSize
+        | FixedSize of float32
+        member x.Natural with get () =  match x with
+                                        | FixedSize fs  -> FixedSize <| Natural fs
+                                        | _             -> x
 
 
     type Thickness =
@@ -33,8 +58,10 @@ module Logical =
             Right   : float32
             Bottom  : float32
         }
-        static member New l t r b = {Left = l; Top = t; Right = r; Bottom = b}
-        static member Empty = Thickness.New 0.F 0.F 0.F 0.F
+        static member New l t r b   = {Left = Natural l; Top = Natural t; Right = Natural r; Bottom = Natural b}
+        static member Zero          = Thickness.New 0.F 0.F 0.F 0.F
+
+        member x.IsZero with get () = x = Thickness.Zero
 
         static member ( + ) (l : Thickness, r : Thickness) = 
                             Thickness.New 
@@ -43,6 +70,66 @@ module Logical =
                                 (l.Right     + r.Right  )
                                 (l.Bottom    + r.Bottom )
 
+        static member ( ~- ) (t : Thickness) = 
+                            Thickness.New 
+                                -t.Left      
+                                -t.Top       
+                                -t.Right     
+                                -t.Bottom    
+
+    type Measurement = 
+        {
+            Width   : MeasuredSize
+            Height  : MeasuredSize
+        }
+        static member New (w : MeasuredSize) (h : MeasuredSize) = {Width = w.Natural; Height = h.Natural}
+        static member Unbound = Measurement.New Unbound Unbound
+        static member Zero = Measurement.New MeasuredSize.Zero MeasuredSize.Zero
+
+        static member ( + ) (l : Measurement, r : Thickness) = 
+                            Measurement.New
+                                (l.Width    + (r.Left + r.Right ))
+                                (l.Height   + (r.Top  + r.Bottom))
+
+        static member ( - ) (l : Measurement, r : Thickness) = 
+                            Measurement.New
+                                (l.Width    - (r.Left + r.Right ))
+                                (l.Height   - (r.Top  + r.Bottom))
+
+        member x.Max (o : Measurement) = 
+            Measurement.New 
+                (x.Width.Max    o.Width )
+                (x.Height.Max   o.Height)
+
+    type Placement =
+        {
+            X       : float32
+            Y       : float32
+            Width   : float32
+            Height  : float32
+        }
+        static member New x y w h = {X = x; Y = y; Width = Natural w; Height = Natural h}
+        static member Zero = Placement.New 0.F 0.F 0.F 0.F
+
+        member x.IsZero with get ()     = x = Placement.Zero
+        member x.IsEmpty with get ()    = x.Width <= 0.F && x.Height <= 0.F
+
+
+
+        static member ( + ) (l : Placement, r : Thickness) = 
+                            Placement.New
+                                (l.X - r.Left                               )
+                                (l.Y - r.Top                                )
+                                (Natural <| l.Width     + r.Left+ r.Right   )
+                                (Natural <| l.Height    + r.Top + r.Bottom  )
+
+        static member ( - ) (l : Placement, r : Thickness) = 
+                            Placement.New
+                                (l.X + r.Left                               )
+                                (l.Y + r.Top                                )
+                                (Natural <| l.Width     - r.Left- r.Right   )
+                                (Natural <| l.Height    - r.Top - r.Bottom  )
+
     type Rect = 
         {
             X       : Position
@@ -50,8 +137,8 @@ module Logical =
             Width   : Size
             Height  : Size
         }
-        static member New x y w h = {X = x; Y = y; Width = w; Height = h}
-        static member Empty = Rect.New MinPos MinPos AutoSize AutoSize
+        static member New x y (w : Size) (h : Size) = {X = x; Y = y; Width = w.Natural; Height = h.Natural}
+        static member MinMin = Rect.New MinPos MinPos MinSize MinSize
 
     type LayoutTransform = 
         {
@@ -59,7 +146,8 @@ module Logical =
             Scaling  : float32
         }
 
-    [<AbstractClass>]    
+
+    [<AbstractClass>]
     type Property(id : string, ``type`` : Type)= 
 
         member x.Id             = id
@@ -74,11 +162,6 @@ module Logical =
         static member Value v = fun () -> v
         static member Create id valueChanged valueCreator = Property<'T>(id,valueCreator,valueChanged)
 
-        static member InvalidateMeasurement   (le : Element) (ov : 'T) (nv : 'T) =  le.InvalidateMeasurement   ()
-        static member InvalidatePlacement     (le : Element) (ov : 'T) (nv : 'T) =  le.InvalidatePlacement     ()
-        static member InvalidateVisual        (le : Element) (ov : 'T) (nv : 'T) =  le.InvalidateVisual        ()
-
-
     and Property<'T>(id : string, valueCreator : unit -> 'T, valueChanged : Element -> 'T -> 'T -> unit)= 
         inherit Property(id, typeof<'T>)    
 
@@ -89,52 +172,101 @@ module Logical =
                     let nv = newValue.CastTo Unchecked.defaultof<'T>
                     valueChanged le ov nv
 
-        static member ( * ) (p : Property<'T>, (v : 'T)) = PropertyValue(p, v)
+        member x.Value (v : 'T) = PropertyValue<'T>(x, v)
 
-    and PropertyValue(p : Property, v : obj)= 
+    and [<AbstractClass>] PropertyValue(p : Property)= 
         
+        abstract OnGetValue : unit -> obj
+
         member x.Property   = p
-        member x.Value      = v
+        member x.Value      = x.OnGetValue ()
+
+    and PropertyValue<'T>(p : Property, v : 'T)= 
+        inherit PropertyValue(p)
+        
+        override x.OnGetValue ()    = v :> obj
+
+        member x.TypedValue         = v
 
     and Element() = 
-
+        
         let mutable parent : Container option = None
+
+        static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
+        static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
+        static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
+        static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
+
+        static let __Value  (v : 'T)    = Property.Value v
 
         let properties = Dictionary<Property, obj>()
 
+        static member Measurement       = Property.Create "Measurement"     __NoAction              (__Value (None : Measurement option))
+        static member Placement         = Property.Create "Placement"       __NoAction              (__Value (None : Placement option))
+                                                                                                     
+        static member Bounds            = Property.Create "Bounds"          __InvalidateMeasurement (__Value Rect.MinMin    )
+        static member IsVisible         = Property.Create "IsVisible"       __InvalidateMeasurement (__Value true           )
+                                                                            
+        static member Margin            = Property.Create "Margin"          __InvalidateMeasurement (__Value Thickness.Zero )
+                                                                            
+        static member FontFamily        = Property.Create "FontFamily"      __InvalidateMeasurement (__Value "Verdana"      )
+        static member FontSize          = Property.Create "FontSize"        __InvalidateMeasurement (__Value 12.F           )
+                                                                            
+                                                                            
+        static member BackgroundBrush   = Property.Create "BackgroundBrush" __InvalidateMeasurement (__Value <| BrushDescriptor.Transparent)
+
         member x.Parent 
-            with get ()   = parent
-            and set p = parent <- p
+            with get ()         = parent
+            and private set p   = parent <- p
 
-        member x.GetPropertyValue   (lp :Property<'T>)           : 'T = 
+        member x.Get    (lp :Property<'T>)           : 'T = 
                 Unchecked.defaultof<'T>
-        member x.SetPropertyValue   (lp :Property<'T>) (v : 'T)  : unit = 
+        member x.Set    (lp :Property<'T>) (v : 'T)  : unit = 
                 ()
-        member x.ClearPropertyValue (lp :Property<'T>)           : unit = 
+        member x.Clear  (lp :Property<'T>)           : unit = 
                 ()
 
+        member x.NoAction               () = ()            
         member x.InvalidateMeasurement  () = ()            
         member x.InvalidatePlacement    () = ()            
         member x.InvalidateVisual       () = ()            
 
-        member x.RenderElement  () = NoVisual
-        member x.RenderOverlay  () = NoVisual
+        abstract OnGetBox                           : unit -> Thickness
+        default x.OnGetBox ()                       = x.Get Element.Margin
 
-        member x.MeasureElement (sz : Size2F)       = let t = (x --> Element.Margin) + (x --> Element.Border) + (x --> Element.Padding)
-                                                      Size2F()
-        member x.PlaceElement   (r  : RectangleF)   = r
+        member x.Box                                = x.OnGetBox ()
 
-        static member ( --> ) (e : Element, p : Property<'T>) = e.GetPropertyValue p
+        abstract OnMeasureContent                   : Measurement -> Measurement
+        default x.OnMeasureContent m                = m
+        member x.MeasureElement (m : Measurement)   = let box = x.Box
+                                                      let innerMeasure = x.OnMeasureContent<| m - box
+                                                      innerMeasure + box
 
-        static member Bounds            = Property.Create "Bounds"          Property.InvalidateMeasurement  (Property.Value Rect.Empty      )
-        static member Margin            = Property.Create "Margin"          Property.InvalidateMeasurement  (Property.Value Thickness.Empty )
-        static member Border            = Property.Create "Border"          Property.InvalidateMeasurement  (Property.Value Thickness.Empty )
-        static member Padding           = Property.Create "Padding"         Property.InvalidateMeasurement  (Property.Value Thickness.Empty )
-        static member FontFamily        = Property.Create "FontFamily"      Property.InvalidateMeasurement  (Property.Value "Verdana"       )
-        static member FontSize          = Property.Create "FontSize"        Property.InvalidateMeasurement  (Property.Value 12.F            )
+        abstract OnPlaceContent                     : Placement -> unit
+        default x.OnPlaceContent p                  = ()
+        member x.PlaceElement   (p : Placement)     = let box = x.Box
+                                                      x.OnPlaceContent  <| p - box
 
-        static member BorderBrush       = Property.Create "BorderBrush"     Property.InvalidateMeasurement  (Property.Value <| BrushDescriptor.Transparent)
-        static member BackgroundBrush   = Property.Create "BackgroundBrush" Property.InvalidateMeasurement  (Property.Value <| BrushDescriptor.Transparent)
+        abstract OnRenderContent                    : Placement -> Placement -> VisualTree
+        default x.OnRenderContent   (o : Placement)
+                                    (i : Placement)
+                                                    = VisualTree.NoVisual
+        member x.RenderContent  ()                  = let box = x.Box
+                                                      let p = x.Get Element.Placement
+                                                      match p with
+                                                      | Some pp -> x.OnRenderOverlay pp <| pp - box
+                                                      | _       -> NoVisual
+
+        abstract OnRenderOverlay                    : Placement -> Placement -> VisualTree
+        default x.OnRenderOverlay   (o : Placement)
+                                    (i : Placement)
+                                                    = VisualTree.NoVisual
+        member x.RenderOverlay  ()                  = let box = x.Box
+                                                      let p = x.Get Element.Placement
+                                                      match p with
+                                                      | Some pp -> x.OnRenderOverlay pp <| pp - box
+                                                      | _       -> NoVisual
+                                                        
 
     and Container() = 
         inherit Element()
@@ -142,6 +274,15 @@ module Logical =
         let children    = SortedDictionary<int, Element>()
 
         let mutable cachedChildren = None
+
+        static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
+        static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
+        static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
+        static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
+
+        static let __Value  (v : 'T)    = Property.Value v
+
+        static member Padding           = Property.Create "Padding"         __InvalidateMeasurement (__Value Thickness.Zero )
 
         member x.Children with get () = match cachedChildren with
                                         | Some c    ->  c
@@ -158,10 +299,26 @@ module Logical =
                                     cachedChildren <- None
                                     x  
 
+        override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
+
+        override x.OnMeasureContent m   = let children = x.Children
+                                          let sz : Measurement option = None
+                                          for c in children do
+                                            // TODO:
+
+
+    let NoAction                (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
+    let InvalidateMeasurement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
+    let InvalidatePlacement     (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
+    let InvalidateVisual        (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
+
+    let Value   (v : 'T)    = Property.Value v
+
+
     type Text() =
         inherit Element()
 
-        static member Text          = Property.Create "Text"        Property.InvalidateMeasurement  (Property.Value ""              )
+        static member Text          = Property.Create "Text"        InvalidateMeasurement  (Property.Value ""              )
 
     type Div() = 
         inherit Container ()
@@ -173,7 +330,8 @@ module Logical =
 
         let body = 
             Div [
-                    Element.FontFamily * ""
+                    Element.Bounds.Value        Rect.MinMin
+                    Element.FontFamily.Value    ""
                 ]
                 [
                     Text []
