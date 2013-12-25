@@ -1,5 +1,7 @@
 ﻿namespace FolderSize
 
+#if false
+
 open SharpDX
 
 type HierarchicalMap<'TKey, 'TValue when 'TKey: comparison>(parent : HierarchicalMap<'TKey, 'TValue> option, local : Map<'TKey, 'TValue>) = 
@@ -171,7 +173,7 @@ module UserInterface =
          
     type LabelState = string
             
-    let LabelEx 
+    let LabelBehavior 
         (tfd            : TextFormatDescriptor  ) 
         (foreground     : AnimatedBrush         )
         (bounds         : AnimatedRectangleF    ) 
@@ -186,9 +188,15 @@ module UserInterface =
         (bounds         : AnimatedRectangleF    ) 
         (label          : string                ) 
         : UserInterface<unit> =
-        let vt tfd foreground = VisualTree.Text (label, tfd, bounds, foreground)
-        let lt uis = (),uis,bounds,label,(vt (uis |> Default_TextFormat) (uis |> Default_Foreground |> Animated.Brush_Solid))
-        Leaf bounds "" <| fun uis lts -> lt uis 
+        UserInterface<_>.New <| 
+            fun uis lt -> 
+                let labelBehavior = 
+                    LabelBehavior 
+                        (uis |> Default_TextFormat                          )
+                        (uis |> Default_Foreground |> Animated.Brush_Solid  )
+                        bounds
+                        label
+                labelBehavior.Render uis lt
 
     type ButtonStates = 
         |   Normal
@@ -203,7 +211,7 @@ module UserInterface =
         static member New s c = {State = s; Clicked = c}
         static member Empty = ButtonState.New Normal 0
 
-    let ButtonEx
+    let ButtonBehavior
         (tfd            : TextFormatDescriptor  ) 
         (stroke         : BrushDescriptor       )
         (mouseOver      : BrushDescriptor       )
@@ -260,8 +268,8 @@ module UserInterface =
         =
         UserInterface<_>.New <| 
             fun uis lt -> 
-                let button = 
-                    ButtonEx 
+                let buttonBehavior = 
+                    ButtonBehavior 
                         (uis |> Default_TextFormat      )
                         (uis |> Button_StrokeBrush      )
                         (uis |> Button_MouseOver        )
@@ -270,7 +278,7 @@ module UserInterface =
                         (uis |> Button_Background       )
                         bounds
                         label
-                button.Render uis lt
+                buttonBehavior.Render uis lt
         
 [<AutoOpen>]
 module UserInterfaceBuilder =
@@ -296,3 +304,4 @@ module UserInterfaceBuilder =
             
     
 
+#endif

@@ -97,7 +97,7 @@ module FolderTree =
         let width   = xscale
         let height  = yscale * (float32 f.TotalFileSize)
 
-        if ycutoff > height then VisualTree.Empty
+        if ycutoff > height then VisualTree.NoVisual
         else
             let children = 
                 f.Children
@@ -144,7 +144,7 @@ module FolderTree =
                 |> Observable.map (fun (_,root) -> root)
                 |> ObservableEx.deref
                 |> Observable.map (fun root -> MakeFolder root)
-                |> ObservableEx.foldMap FoldVisualTree VisualTree.Empty
+                |> ObservableEx.foldMap FoldVisualTree VisualTree.NoVisual
         os,o
 
     

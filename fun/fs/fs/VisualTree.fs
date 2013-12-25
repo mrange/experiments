@@ -4,7 +4,7 @@ open SharpDX
 open SharpDX
 
 type VisualTree =
-    |   Empty           
+    |   NoVisual
     |   Rectangle       of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat
     |   Line            of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush*StrokeWidth:AnimatedFloat
     |   Text            of Text:string*TextFormat:TextFormatDescriptor*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
@@ -17,7 +17,7 @@ module Visual =
 
     let rec HasVisuals (vt : VisualTree) =
         match vt with
-        | Empty             -> false
+        | NoVisual          -> false
         | Rectangle _       -> true
         | Line _            -> true
         | Text _            -> true
@@ -36,7 +36,7 @@ module Visual =
         (vt         : VisualTree                                    ) 
         = 
         match vt with 
-        |   Empty   -> ()
+        |   NoVisual   -> ()
         |   Rectangle (s,f,r,sw) ->
                 let rect        = r state
                 let strokeWidth = pixelScale * sw state

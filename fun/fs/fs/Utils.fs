@@ -3,6 +3,7 @@
 open SharpDX
 
 open System
+open System.Collections.Generic
 open System.Diagnostics
 open System.Threading
 open System.Windows.Forms
@@ -50,9 +51,7 @@ module Utils =
 
     let Normalize (v : Vector2) = v.Normalize()
                                   v
-
     type Disposable(action : unit->unit) = 
-    
         interface IDisposable with
             member x.Dispose() = TryRun action
 
@@ -155,8 +154,6 @@ module Utils =
             let bottom  = max l.Bottom r.Bottom
             RectangleF (left, top, right - left, bottom - top)
 
-    let Rect x y w h = RectangleF(x,y,w,h)
-
     let Append (y,z) x = y,z,x
 
     let inline ( <++> ) x y = Append x y
@@ -167,6 +164,24 @@ module Utils =
     let inline ( <?+?> ) l r = CombineDisposable l r
 
     let inline ( <+> ) l r = UnionOfRectangle l r
+
+    type Object with
+        member x.CastTo (defaultValue : 'T) =
+                    match x with
+                    | :? 'T as xx   -> xx
+                    | _             -> defaultValue
+
+    type Dictionary<'TKey, 'TValue> with
+        member x.Lookup (k : 'TKey) (dv : 'TValue) =  
+                    let v = ref Unchecked.defaultof<'TValue>
+                    if x.TryGetValue(k, v) then !v
+                    else dv
+
+        member x.Find (k : 'TKey) : 'TValue option =  
+                    let v = ref Unchecked.defaultof<'TValue>
+                    if x.TryGetValue(k, v) then Some !v
+                    else None
+                                                
 
 module ListEx =
     

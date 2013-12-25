@@ -34,7 +34,7 @@ module Window =
 
         use onExitRemoveHandler = OnExit <| fun () -> form.Resize.RemoveHandler resizer
 
-        let vt = ref VisualTree.Empty
+        let vt = ref VisualTree.NoVisual
 
         use terminator = input |> ObservableEx.terminator_Next (fun v -> vt := v)
 
