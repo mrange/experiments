@@ -8,6 +8,8 @@ open System.Windows.Forms
 
 module ObservableEx = 
     
+    [<NoEquality>]
+    [<NoComparison>]
     type Observer<'T> =
         {
             OnNext      : 'T -> unit
@@ -32,6 +34,8 @@ module ObservableEx =
                 OnError     = onError
             } :> IObserver<'T>
 
+    [<NoEquality>]
+    [<NoComparison>]
     type Observable<'T> =
         {
             OnSubscribe : IObserver<'T> -> IDisposable
@@ -62,7 +66,7 @@ module ObservableEx =
             fun observer -> 
                 let obs = Observer<_>.New   (fun v  -> match v with 
                                                        | Some vv -> observer.OnNext vv 
-                                                       | _ -> ()
+                                                       | None    -> ()
                                             )
                                             (fun () -> observer.OnCompleted ())
                                             (fun exn-> observer.OnError exn)
@@ -155,11 +159,11 @@ type ObservableSource<'TPayload, 'T>(onStart : IObservableSource<'T> -> 'TPayloa
 
     let oncompleted =   match onCompleted with
                         | Some v    -> v
-                        | _         -> fun _ -> ()
+                        | None      -> fun _ -> ()
 
     let onerror =   match onError with
                     | Some v    -> v
-                    | _         -> fun e -> Debug.Fail <| sprintf "ObservableSource caught exception: %A" e
+                    | None      -> fun e -> Debug.Fail <| sprintf "ObservableSource caught exception: %A" e
 
     let isrunning () = !key = Running
 

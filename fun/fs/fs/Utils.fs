@@ -52,6 +52,7 @@ module Utils =
 
     let Normalize (v : Vector2) = v.Normalize()
                                   v
+
     type Disposable(action : unit->unit) = 
         interface IDisposable with
             member x.Dispose() = TryRun action
@@ -108,7 +109,7 @@ module Utils =
             async {
                 match threadPriority with
                 | Some tp   -> Thread.CurrentThread.Priority <- tp
-                | _         -> ()
+                | None      -> ()
 
                 let nextTimeOut = ref <| GlobalClock.ElapsedMilliseconds + timeOut
                 while not ct.IsCancellationRequested do
@@ -120,7 +121,7 @@ module Utils =
                     if not ct.IsCancellationRequested then 
                         match a with
                         | Some aa ->    aa()
-                        | _       ->    ontimeout()
+                        | None    ->    ontimeout()
                                         nextTimeOut := GlobalClock.ElapsedMilliseconds + (diff % timeOut) + timeOut
             }
         let mb = MailboxProcessor<unit->unit>.Start (processor,ct)
@@ -139,7 +140,7 @@ module Utils =
             async {
                 match threadPriority with
                 | Some tp   -> Thread.CurrentThread.Priority <- tp
-                | _         -> ()
+                | None      -> ()
 
                 while not ct.IsCancellationRequested do
                     let! a = input.Receive ()
@@ -156,7 +157,7 @@ module Utils =
                 )
 
     // TODO: Scrap these and replace with extension methods?
-    // Extension methods seems easier to maintain since function application has high precence leads to less paranthese
+    // Extension methods seems easier to maintain since function application has high precence leads to less parantese
 
     let inline ( <??> ) optional defaultValue = DefaultTo optional defaultValue
     let inline ( <???> ) o defaultValue = CastTo o defaultValue
@@ -204,7 +205,7 @@ module Utils =
                     else None
                                                 
 
-module ListEx =
+module List =
     
     let rec any (test : 'T->bool) (l : 'T list) = (List.tryFind test l).IsSome
             
@@ -213,6 +214,19 @@ module ListEx =
         [ 
             for v in l do
                 let nextState,nextValue = foldAndMap !state v
+                state := nextState
+                yield nextValue
+        ]
+            
+module Array =
+    
+    let rec any (test : 'T->bool) (l : 'T array) = (Array.tryFind test l).IsSome
+            
+    let foldMap (foldAndMap : 'U -> 'T -> 'U*'V) (state : 'U) (l : 'T array) : 'V list = 
+        let state = ref state
+        [ 
+            for i in 0..l.Length - 1 do
+                let nextState,nextValue = foldAndMap !state l.[i]
                 state := nextState
                 yield nextValue
         ]

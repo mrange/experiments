@@ -59,7 +59,7 @@ module Animated =
 
 [<AutoOpen>]
 module AnimatedUtils = 
-    let ( <**> ) (l : AnimatedMatrix) (r : AnimatedMatrix) : AnimatedMatrix = 
+    let ( .*. ) (l : AnimatedMatrix) (r : AnimatedMatrix) : AnimatedMatrix = 
         fun time -> let left    = l time
                     let right   = r time
                     Matrix3x2.Multiply (left, right)

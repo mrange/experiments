@@ -199,9 +199,9 @@ module UserInterface =
                 labelBehavior.Render uis lt
 
     type ButtonStates = 
-        |   Normal
-        |   HighLighted
-        |   Pressed
+        | Normal
+        | HighLighted
+        | Pressed
 
     type ButtonState = 
         {

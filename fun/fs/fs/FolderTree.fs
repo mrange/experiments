@@ -8,6 +8,8 @@ open SharpDX
 
 module FolderTree = 
 
+    [<NoEquality>]
+    [<NoComparison>]
     type MutableFolder = 
         {
             Folder                  : Scanner.Folder
@@ -31,15 +33,17 @@ module FolderTree =
             let parent = x.Parent
             match parent with
             | Some p    -> p.UpdateRecursively vf
-            | _         -> ()
+            | None      -> ()
 
         static member New sf p = 
             let vf = { Folder = sf; Parent = p; Children = List<MutableFolder>(); Depth = 1; TotalFileSize = sf.FileSize; TotalFileCount = sf.FileCount }
             match p with
             | Some pp   -> pp.AddFolder vf
-            | _         -> ()
+            | None      -> ()
             vf
 
+    [<NoEquality>]
+    [<NoComparison>]
     type Folder = 
         {
             Folder                  : Scanner.Folder
@@ -60,7 +64,7 @@ module FolderTree =
         let pvf = 
             match sf.Parent with
             | Some p    -> map.TryFind p
-            | _         -> None
+            | None      -> None
         let vf = MutableFolder.New sf pvf
         let map' = map |> Map.add sf vf
         map', Some (root <??> vf)
@@ -101,11 +105,12 @@ module FolderTree =
         else
             let children = 
                 f.Children
-                |> ListEx.foldMap   (fun (rsz : int64) cf -> 
+                |> List.foldMap     (fun (rsz : int64) cf -> 
                                         let vt = CreateVisualTree stroke fill foreground textFormat xscale yscale ycutoff (x + 1.F) (y + float32 rsz) cf
                                         (rsz + cf.TotalFileSize),vt
                                     ) 0L
                 |> List.filter (fun c -> Visual.HasVisuals c)
+                |> List.toArray
 
             let astroke         = Animated.Brush_Solid stroke
             let afill           = Animated.Brush_Solid fill
@@ -115,11 +120,11 @@ module FolderTree =
 
             let rect    = VisualTree.Rectangle (astroke,afill,arect,astrokeWidth)
             let text    = VisualTree.Text (FormatFolder f, textFormat, arect, aforeground)
-            let folder  = VisualTree.Group [rect;text]
+            let folder  = VisualTree.Group [|rect;text|]
 
             match children with
-            | []    -> folder
-            | [x]   -> VisualTree.Fork (x, folder)
+            | [||]  -> folder
+            | [|x|] -> VisualTree.Fork (x, folder)
             | _     -> VisualTree.Fork (VisualTree.Group children, folder)
 
             

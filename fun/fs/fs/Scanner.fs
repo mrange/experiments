@@ -6,6 +6,8 @@ open System.IO
 
 module Scanner = 
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type Folder = 
         {
             Parent              : Folder option
@@ -15,6 +17,8 @@ module Scanner =
         }
         static member New p nm fc fz = {Parent = p; Name = nm; FileCount = fc; FileSize = fz}
     
+    [<NoEquality>]
+    [<NoComparison>]
     type Message =
         {
             Path    : string
@@ -66,7 +70,7 @@ module Scanner =
 
                             with
                             | e ->  source.Error e
-                        | _             -> completed := true
+                        | None  -> completed := true
 
                     source.Completed ()
                 }

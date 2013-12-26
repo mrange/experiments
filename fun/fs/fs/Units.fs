@@ -2,6 +2,8 @@
 
 module Units = 
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type PositionUnit = 
         | AutoPos
         | MinPos
@@ -9,6 +11,8 @@ module Units =
         | FixedPos  of float32
             
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type SizeUnit = 
         | MinSize
         | MaxSize
@@ -17,6 +21,8 @@ module Units =
                                         | FixedSize fs  -> FixedSize <| Natural fs
                                         | _             -> x
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type Bounds = 
         {
             X       : PositionUnit
@@ -24,10 +30,13 @@ module Units =
             Width   : SizeUnit
             Height  : SizeUnit
         }
-        static member New x y (w : SizeUnit) (h : SizeUnit) = {X = x; Y = y; Width = w.Natural; Height = h.Natural}
+        static member New x y (width : SizeUnit) (height : SizeUnit) = {X = x; Y = y; Width = width.Natural; Height = height.Natural}
         static member Min = Bounds.New MinPos MinPos MinSize MinSize
 
     type ThickessUnit = float32
+
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type Thickness =
         {
             Left    : ThickessUnit
@@ -35,8 +44,8 @@ module Units =
             Right   : ThickessUnit
             Bottom  : ThickessUnit
         }
-        static member New l t r b   = {Left = Natural l; Top = Natural t; Right = Natural r; Bottom = Natural b}
-        static member Zero          = Thickness.New 0.F 0.F 0.F 0.F
+        static member New left top right bottom     = {Left = Natural left; Top = Natural top; Right = Natural right; Bottom = Natural bottom}
+        static member Zero                          = Thickness.New 0.F 0.F 0.F 0.F
 
         member x.IsZero with get () = x = Thickness.Zero
 
@@ -54,30 +63,40 @@ module Units =
                                 -t.Right     
                                 -t.Bottom    
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type MeasurementUnit = 
-        |   FixedMeasurement    of float32
+        | FixedMeasurement  of float32
+        | Fill
         static member Zero = FixedMeasurement 0.F
 
         static member ( + ) (l : MeasurementUnit, r : float32) = 
             match l with
-            | FixedMeasurement  v -> FixedMeasurement (Natural <| v + r)
+            | FixedMeasurement  v   -> FixedMeasurement (Natural <| v + r)
+            | Fill                  -> Fill
         static member ( - ) (l : MeasurementUnit, r : float32) = l + (-r)
 
         member x.Union (o : MeasurementUnit) = 
             match x,o with
-            | FixedMeasurement xx   , FixedMeasurement yy   -> FixedMeasurement <| max xx yy
+            | Fill              , _                     -> Fill
+            | _                 , Fill                  -> Fill
+            | FixedMeasurement l, FixedMeasurement r    -> FixedMeasurement <| max l r
 
         member x.Natural with get () =  match x with
-                                        | FixedMeasurement b    -> FixedMeasurement <| Natural b
+                                        | FixedMeasurement b-> FixedMeasurement <| Natural b
+                                        | Fill              -> Fill
 
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type Measurement = 
         {
             Width   : MeasurementUnit
             Height  : MeasurementUnit
         }
-        static member New (w : MeasurementUnit) (h : MeasurementUnit) = {Width = w.Natural; Height = h.Natural}
+        static member New (width : MeasurementUnit) (height : MeasurementUnit) = {Width = width.Natural; Height = height.Natural}
         static member Zero = Measurement.New MeasurementUnit.Zero MeasurementUnit.Zero
+        static member Fill = Measurement.New Fill Fill
 
         static member ( + ) (l : Measurement, r : Thickness) = 
                             Measurement.New
@@ -95,6 +114,8 @@ module Units =
                 (x.Height.Union o.Height)
 
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type AvailableUnit = 
         | Unbound
         | Bound     of float32 
@@ -114,35 +135,48 @@ module Units =
 
         member x.Natural with get () =  match x with
                                         | Bound b       -> Bound <| Natural b
-                                        | _             -> x
+                                        | Unbound       -> x
 
-        member x.IsMeasurementValid (m : MeasurementUnit) = 
-                match x,m with
+        member x.IsMeasurementValid (measurement : MeasurementUnit) = 
+                match x,measurement with
                 | Unbound   , _                 -> true
+                | Bound _   , Fill              -> true
                 | Bound b   , FixedMeasurement v-> b >= v
 
+        member x.ClipMeasurement (measurement : MeasurementUnit) = 
+                match x,measurement with
+                | Unbound   , _                             -> measurement
+                | Bound _   , Fill                          -> measurement
+                | Bound b   , FixedMeasurement v when b < v -> FixedMeasurement b
+                | Bound b   , FixedMeasurement v            -> measurement
 
-    type AvailableArea = 
+
+    [<StructuralEquality>]
+    [<StructuralComparison>]
+    type Available = 
         {
             Width   : AvailableUnit
             Height  : AvailableUnit
         }
-        static member New (w : AvailableUnit) (h : AvailableUnit) = {Width = w.Natural; Height = h.Natural}
-        static member Unbound = AvailableArea.New AvailableUnit.Unbound AvailableUnit.Unbound
-        static member Zero = AvailableArea.New AvailableUnit.Zero AvailableUnit.Zero
+        static member New (width : AvailableUnit) (height : AvailableUnit) = {Width = width.Natural; Height = height.Natural}
+        static member Unbound = Available.New AvailableUnit.Unbound AvailableUnit.Unbound
+        static member Zero = Available.New AvailableUnit.Zero AvailableUnit.Zero
 
-        static member ( + ) (l : AvailableArea, r : Thickness) = 
-                            AvailableArea.New
+        static member ( + ) (l : Available, r : Thickness) = 
+                            Available.New
                                 (l.Width    + (r.Left + r.Right ))
                                 (l.Height   + (r.Top  + r.Bottom))
 
-        static member ( - ) (l : AvailableArea, r : Thickness) = l + (-r)     
+        static member ( - ) (l : Available, r : Thickness) = l + (-r)     
 
-        member x.IsMeasurementValid (m : Measurement) = x.Width.IsMeasurementValid m.Width && x.Height.IsMeasurementValid m.Height
+        member x.IsMeasurementValid (m : Measurement)   = x.Width.IsMeasurementValid m.Width && x.Height.IsMeasurementValid m.Height
+        member x.ClipMeasurement (m : Measurement)      = Measurement.New (x.Width.ClipMeasurement m.Width) (x.Height.ClipMeasurement m.Height)
 
 
     type PlacementUnit = float32
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type Placement =
         {
             X       : PlacementUnit
@@ -150,7 +184,7 @@ module Units =
             Width   : PlacementUnit
             Height  : PlacementUnit
         }
-        static member New x y w h = {X = x; Y = y; Width = Natural w; Height = Natural h}
+        static member New x y width height = {X = x; Y = y; Width = Natural width; Height = Natural height}
         static member Zero = Placement.New 0.F 0.F 0.F 0.F
 
         member x.IsZero with get ()     = x = Placement.Zero

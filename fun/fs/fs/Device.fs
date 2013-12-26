@@ -6,6 +6,8 @@ open System.Diagnostics
 open SharpDX
 open SharpDX
 
+[<StructuralEquality>]
+[<StructuralComparison>]
 type ColorDescriptor = 
     {
         Alpha   : float32
@@ -20,10 +22,14 @@ type ColorDescriptor =
     member x.ToColor4               =   Color4(x.Red, x.Green, x.Blue, x.Alpha)
     member x.ToColor3               =   Color3(x.Red, x.Green, x.Blue)
 
+[<StructuralEquality>]
+[<StructuralComparison>]
 type BrushDescriptor    =
-    |   Transparent
-    |   SolidColor  of ColorDescriptor
+    | Transparent
+    | SolidColor    of ColorDescriptor
 
+[<StructuralEquality>]
+[<StructuralComparison>]
 type TextFormatDescriptor   =
     {
         FontFamily  : string
@@ -108,7 +114,7 @@ type Device(form : Windows.RenderForm) =
         let find = brushCache.TryFind bd
         match find with
         | Some b    -> b
-        | _         ->
+        | None      ->
             let b : Direct2D1.Brush= 
                 match bd with
                 | Transparent       -> null
@@ -120,7 +126,7 @@ type Device(form : Windows.RenderForm) =
         let find = textFormatCache.TryFind tfd
         match find with
         | Some tf   -> tf
-        | _         ->
+        | None      ->
             let tf = new DirectWrite.TextFormat(dwFactory, tfd.FontFamily, tfd.FontSize)
             textFormatCache <- textFormatCache |> Map.add tfd tf
             tf

@@ -13,18 +13,24 @@ open Units
 module Logical = 
 
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type LayoutRotation = 
         | D0
         | D90
         | D180
         | D270
 
+    [<StructuralEquality>]
+    [<StructuralComparison>]
     type LayoutTransform = 
         {
             Rotation : LayoutRotation
             Scaling  : float32
         }
 
+    [<NoEquality>]
+    [<NoComparison>]
     type PropertyDefaultValue<'T> =
         | Value         of 'T
         | ValueCreator  of (Element -> 'T)
@@ -141,7 +147,7 @@ module Logical =
                 let v = x.TryGet lp
                 match v with
                 | Some v    -> v
-                | _         -> 
+                | None      -> 
                     ignore <| properties.Remove lp  // Shouldn't be necessary but if the TryGet assert fails this is required to clear local value
                     let dv,shared = lp.DefaultValue x
                     if not shared then 
@@ -150,7 +156,7 @@ module Logical =
         member x.Set    (lp :Property<'T>) (v : 'T)  : unit = 
                 x.ValidateProperty lp
                 let pv = x.Get lp
-                if pv = v then ()
+                if pv.Equals v then ()
                 else
                     properties.[lp] <- v
                     lp.ValueChanged x pv v
@@ -177,7 +183,7 @@ module Logical =
                            x.Clear Element.Visual
                            match x.Parent with
                            | Some p -> p.InvalidateMeasurement ()          
-                           | _      -> ()
+                           | None   -> ()
         member x.InvalidatePlacement    () =             
             let p = x.Get Element.Placement
             match p with 
@@ -186,7 +192,7 @@ module Logical =
                            x.Clear Element.Visual
                            match x.Parent with
                            | Some p -> p.InvalidatePlacement ()          
-                           | _      -> ()
+                           | None   -> ()
         member x.InvalidateVisual       () = 
             let v = x.Get Element.Visual
             match v with 
@@ -194,47 +200,93 @@ module Logical =
             | Some _    -> x.Clear Element.Visual
                            match x.Parent with
                            | Some p -> p.InvalidateVisual ()          
-                           | _      -> ()
+                           | None   -> ()
 
         abstract OnGetBox                           : unit -> Thickness
         default x.OnGetBox ()                       = x.Get Element.Margin
 
         member x.Box                                = x.OnGetBox ()
 
-        abstract OnMeasureContent                   : AvailableArea -> Measurement
+        abstract OnMeasureContent                   : Available -> Measurement
         default x.OnMeasureContent m                = Measurement.Zero
-        member x.MeasureElement (aa : AvailableArea)= let box = x.Box
-                                                      let cachedMeasure = x.Get Element.Measurement
-                                                      match cachedMeasure with
-                                                      | Some m  -> if aa.IsMeasurementValid m then Some m else None
-                                                      | _       -> None
-                                                      let innerMeasure = x.OnMeasureContent<| aa - box
-                                                      innerMeasure + box
+
+        member x.MeasureElement (a  : Available)    = 
+                    let cachedMeasure = x.Get Element.Measurement
+                    match cachedMeasure with
+                    | Some m when a.IsMeasurementValid m  -> m
+                    | _                                   -> 
+                        let box = x.Box
+                        let innerMeasure = x.OnMeasureContent<| a - box
+                        let finalMeasure = a.ClipMeasurement <| innerMeasure + box
+                        x.Set Element.Measurement <| Some finalMeasure
+                        x.Set Element.Placement None
+                        x.Set Element.Visual None
+                        finalMeasure
 
         abstract OnPlaceContent                     : Placement -> unit
         default x.OnPlaceContent p                  = ()
-        member x.PlaceElement   (p : Placement)     = let box = x.Box
-                                                      x.OnPlaceContent  <| p - box
+
+        member x.PlaceElement   (p : Placement)     = 
+                    let cachedPlacement = x.Get Element.Placement
+                    match cachedPlacement with
+                    | Some cp when cp = p -> ()
+                    | _                   -> 
+                        let box = x.Box
+                        x.OnPlaceContent <| p - box
+                        x.Set Element.Placement <| Some p
+                        x.Set Element.Visual None
+                                                        
 
         abstract OnRenderContent                    : Placement -> Placement -> VisualTree
         default x.OnRenderContent   (o : Placement)
                                     (i : Placement)
                                                     = VisualTree.NoVisual
-        member x.RenderContent  ()                  = let box = x.Box
-                                                      let p = x.Get Element.Placement
-                                                      match p with
-                                                      | Some pp -> x.OnRenderOverlay pp <| pp - box
-                                                      | _       -> NoVisual
+        member x.RenderContent  ()                  = 
+                    let box = x.Box
+                    let p = x.Get Element.Placement
+                    match p with
+                    | Some pp -> x.OnRenderOverlay pp <| pp - box
+                    | None    -> NoVisual
 
         abstract OnRenderOverlay                    : Placement -> Placement -> VisualTree
         default x.OnRenderOverlay   (o : Placement)
                                     (i : Placement)
                                                     = VisualTree.NoVisual
-        member x.RenderOverlay  ()                  = let box = x.Box
-                                                      let p = x.Get Element.Placement
-                                                      match p with
-                                                      | Some pp -> x.OnRenderOverlay pp <| pp - box
-                                                      | _       -> NoVisual
+        member x.RenderOverlay  ()                  = 
+                    let box = x.Box
+                    let p = x.Get Element.Placement
+                    match p with
+                    | Some pp -> x.OnRenderOverlay pp <| pp - box
+                    | None    -> NoVisual
+
+        member x.Render ()                          = 
+                    let cachedVisual = x.Get Element.Visual
+                    match cachedVisual with
+                    | Some v    -> v
+                    | None      -> 
+                        let visualContent = x.RenderContent ()
+                        let children = x.Children
+                        let visualChildren = Array.create (children.Length + 2) VisualTree.NoVisual
+                        for i in 0..children.Length-1 do
+                            visualChildren.[i + 1] <- children.[i].Render ()
+                        let visualOverlay = x.RenderOverlay ()
+
+                        visualChildren.[0] <- visualContent
+                        visualChildren.[visualChildren.Length - 1] <- visualOverlay
+
+                        let visual = 
+                            match visualContent, children.Length, visualOverlay with
+                            | VisualTree.NoVisual , 0     , VisualTree.NoVisual   -> VisualTree.NoVisual
+                            | _                   , 0     , VisualTree.NoVisual   -> visualContent
+                            | VisualTree.NoVisual , 0     , _                     -> visualOverlay
+                            | VisualTree.NoVisual , 1     , VisualTree.NoVisual   -> visualChildren.[1] // The first visual child is located @ 1
+                            | _                   , _     , _                     -> VisualTree.Group visualChildren
+
+                        x.Set Element.Visual <| Some visual
+                        visual
+                                                      
+
+
                                                         
     let NoAction                (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
     let InvalidateMeasurement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
@@ -279,7 +331,7 @@ module Logical =
 
         override x.OnChildren ()    =   match cachedChildren with
                                         | Some c    ->  c
-                                        | _         ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
+                                        | None      ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
                                                         cachedChildren <- Some c
                                                         c
 
