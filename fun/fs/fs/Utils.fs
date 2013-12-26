@@ -12,12 +12,12 @@ open System.Windows.Forms
 module Utils =
     
     let inline Zero<'T when 'T : struct> = Unchecked.defaultof<'T>
-    let inline Natural (v : 'T when 'T : comparison and 'T : struct) =  if v < Zero then Zero else v
+    let inline Natural (comparable : 'T when 'T : comparison and 'T : struct) =  if comparable < Zero then Zero else comparable
 
-    let Log             (i : string)= printfn "Information : %s" i
-    let LogWarning      (w : string)= printfn "Warning     : %s" w
-    let LogError        (e : string)= printfn "Error       : %s" e
-    let LogException    (e : exn)   = printfn "Exception   : %s" e.Message
+    let Log             (message  : string)= printfn "Information : %s" message
+    let LogWarning      (message  : string)= printfn "Warning     : %s" message
+    let LogError        (message  : string)= printfn "Error       : %s" message
+    let LogException    (exn      : exn)   = printfn "Exception   : %s" exn.Message
 
     let GlobalClock =   let sw = new Stopwatch ()
                         sw.Start ()
@@ -37,19 +37,17 @@ module Utils =
 
     let NewVector2 x y = Vector2(x,y)
 
-    let inline ( <*> ) (l : Matrix3x2) (r : Matrix3x2) = Matrix3x2.Multiply(l,r)
-
-    let TryDispose (d : IDisposable) = 
+    let TryDispose (disposabe : IDisposable) = 
         try
-            if d <> null then d.Dispose ()
+            if disposabe <> null then disposabe.Dispose ()
         with
-        | e -> printfn "Caught exception: %A" e
+        | exn -> printfn "Caught exception: %A" exn
 
-    let TryRun (a : unit -> unit) = 
+    let TryRun (action : unit -> unit) = 
         try
-            a()
+            action()
         with
-        | e -> printfn "Caught exception: %A" e
+        | exn -> printfn "Caught exception: %A" exn
 
 
     let Normalize (v : Vector2) = v.Normalize()
@@ -58,36 +56,36 @@ module Utils =
         interface IDisposable with
             member x.Dispose() = TryRun action
 
-    let OnExit a : IDisposable = upcast new Disposable(a)
+    let OnExit action : IDisposable = upcast new Disposable(action)
 
-    let AsNullable v = Nullable<_>(v)
+    let AsNullable value = Nullable<_>(value)
 
-    let CompareAndExchange<'T when 'T : not struct> (f : 'T -> 'T) (v : 'T ref) = 
-        while let v' = !v in not (Object.ReferenceEquals (Interlocked.CompareExchange (v, f v', v'), v')) do
+    let CompareAndExchange<'T when 'T : not struct> (f : 'T -> 'T) (valueReference : 'T ref) = 
+        while let value = !valueReference in not (Object.ReferenceEquals (Interlocked.CompareExchange (valueReference, f value, value), value)) do
             ()
 
-    let DispatchAction (c : Control) (a : unit->unit) = 
-        let ac = Action a
-        ignore <| c.BeginInvoke(ac)
+    let DispatchAction (control : Control) (action : unit->unit) = 
+        let a = Action action
+        ignore <| control.BeginInvoke(a)
 
-    let DefaultTo (o : 'T option) (d : 'T) = 
-        match o with
+    let DefaultTo (optional : 'T option) (defaultValue : 'T) = 
+        match optional with
         | Some v    -> v
-        | _         -> d
+        | _         -> defaultValue
 
-    let CastTo<'T> (o : obj) (d : 'T) = 
+    let CastTo<'T> (o : obj) (defaultValue : 'T) = 
         match o with
-        | :? 'T as i    -> i
-        | _             -> d
+        | :? 'T as v    -> v
+        | _             -> defaultValue
         
     let As<'T> (o : obj) = 
         match o with
-        | :? 'T as i    -> Some i
+        | :? 'T as v    -> Some v
         | _             -> None
         
     let Is<'T> (o : obj) = 
         match o with
-        | :? 'T as i    -> true
+        | :? 'T         -> true
         | _             -> false
         
 
@@ -101,14 +99,14 @@ module Utils =
         interface IDisposable with
             member this.Dispose () = TryRun dispose
 
-    let ActionProcessorWithTimeOut (tp : ThreadPriority option) (timeOut:int64) (ontimeout : unit->unit)=
+    let ActionProcessorWithTimeOut (threadPriority : ThreadPriority option) (timeOut:int64) (ontimeout : unit->unit)=
         if timeOut < 1L then failwith "Timeout must be greater than 0"
 
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
         let processor (input : MailboxProcessor<unit->unit>) = 
             async {
-                match tp with
+                match threadPriority with
                 | Some tp   -> Thread.CurrentThread.Priority <- tp
                 | _         -> ()
 
@@ -134,12 +132,12 @@ module Utils =
                 TryDispose mb 
                 )
 
-    let ActionProcessor (tp : ThreadPriority option) = 
+    let ActionProcessor (threadPriority : ThreadPriority option) = 
         let cts = new CancellationTokenSource ()
         let ct = cts.Token
         let processor (input : MailboxProcessor<unit->unit>) = 
             async {
-                match tp with
+                match threadPriority with
                 | Some tp   -> Thread.CurrentThread.Priority <- tp
                 | _         -> ()
 
@@ -157,8 +155,12 @@ module Utils =
                 TryDispose mb 
                 )
 
-    let inline ( <??> ) o d = DefaultTo o d
-    let inline ( <???> ) o d = CastTo o d
+    // TODO: Scrap these and replace with extension methods?
+    // Extension methods seems easier to maintain since function application has high precence leads to less paranthese
+    let inline ( *<>* ) (l : Matrix3x2) (r : Matrix3x2) = Matrix3x2.Multiply(l,r)
+
+    let inline ( <??> ) optional defaultValue = DefaultTo optional defaultValue
+    let inline ( <???> ) o defaultValue = CastTo o defaultValue
 
     let inline ( <+++> ) l r = CombineDisposable l r
 
@@ -172,14 +174,14 @@ module Utils =
             }
 
     type RectangleF with
-        member l.Union (r : RectangleF) =
-            if l.IsEmpty then r
-            elif r.IsEmpty then l
+        member x.Union (other : RectangleF) =
+            if x.IsEmpty then other
+            elif other.IsEmpty then x
             else 
-                let left    = min l.Left r.Left
-                let top     = min l.Top r.Top
-                let right   = max l.Right r.Right
-                let bottom  = max l.Bottom r.Bottom
+                let left    = min x.Left    other.Left
+                let top     = min x.Top     other.Top
+                let right   = max x.Right   other.Right
+                let bottom  = max x.Bottom  other.Bottom
                 RectangleF (left, top, right - left, bottom - top)
 
     type Object with
@@ -188,28 +190,28 @@ module Utils =
         member x.Is<'T> () = Is<'T> x
 
     type IDictionary<'TKey, 'TValue> with
-        member x.Lookup (k : 'TKey) (dv : 'TValue) =  
+        member x.Lookup (key : 'TKey) (defaultValue : 'TValue) =  
                     let v = ref Unchecked.defaultof<'TValue>
-                    if x.TryGetValue(k, v) then !v
-                    else dv
+                    if x.TryGetValue(key, v) then !v
+                    else defaultValue
 
-        member x.Find (k : 'TKey) : 'TValue option =  
+        member x.Find (key : 'TKey) : 'TValue option =  
                     let v = ref Unchecked.defaultof<'TValue>
-                    if x.TryGetValue(k, v) then Some !v
+                    if x.TryGetValue(key, v) then Some !v
                     else None
                                                 
 
 module ListEx =
     
-    let rec any (t : 'T->bool) (l : 'T list) = (List.tryFind t l).IsSome
+    let rec any (test : 'T->bool) (l : 'T list) = (List.tryFind test l).IsSome
             
-    let foldMap (f : 'U -> 'T -> 'U*'V) (s : 'U) (l : 'T list) : 'V list = 
-        let state = ref s
+    let foldMap (foldAndMap : 'U -> 'T -> 'U*'V) (state : 'U) (l : 'T list) : 'V list = 
+        let state = ref state
         [ 
             for v in l do
-                let ns,nv = f !state v
-                state := ns
-                yield nv
+                let nextState,nextValue = foldAndMap !state v
+                state := nextState
+                yield nextValue
         ]
             
 

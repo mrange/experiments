@@ -61,7 +61,6 @@ module Units =
         static member ( + ) (l : MeasurementUnit, r : float32) = 
             match l with
             | FixedMeasurement  v -> FixedMeasurement (Natural <| v + r)
-            | _                   -> l
         static member ( - ) (l : MeasurementUnit, r : float32) = l + (-r)
 
         member x.Union (o : MeasurementUnit) = 
@@ -113,10 +112,9 @@ module Units =
             | Bound xx  , Bound yy  -> Bound <| max xx yy
             | _         , _         -> Unbound
 
-        member x.Natural with get () =  
-                match x with
-                | Bound b       -> Bound <| Natural b
-                | _             -> x
+        member x.Natural with get () =  match x with
+                                        | Bound b       -> Bound <| Natural b
+                                        | _             -> x
 
         member x.IsMeasurementValid (m : MeasurementUnit) = 
                 match x,m with

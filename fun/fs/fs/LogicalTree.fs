@@ -29,7 +29,7 @@ module Logical =
         | Value         of 'T
         | ValueCreator  of (Element -> 'T)
     and PropertyValueChanged<'T> = Element -> 'T -> 'T -> unit
-    and [<AbstractClass>] Property(id : string, ``type`` : Type, declaringType : Type) as x = 
+    and [<AbstractClass>] Property(id : string, ``type`` : Type, declaringType : Type) = 
 
         static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
 
