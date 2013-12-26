@@ -157,12 +157,15 @@ module Utils =
 
     // TODO: Scrap these and replace with extension methods?
     // Extension methods seems easier to maintain since function application has high precence leads to less paranthese
-    let inline ( *<>* ) (l : Matrix3x2) (r : Matrix3x2) = Matrix3x2.Multiply(l,r)
 
     let inline ( <??> ) optional defaultValue = DefaultTo optional defaultValue
     let inline ( <???> ) o defaultValue = CastTo o defaultValue
 
-    let inline ( <+++> ) l r = CombineDisposable l r
+    type IDisposable with 
+        member x.Combine (o : IDisposable) = CombineDisposable x o            
+
+    type Matrix3x2 with 
+        member x.Multiply (o : Matrix3x2) = Matrix3x2.Multiply(x,o) 
 
     type Type with 
         member x.Ancestors () = 

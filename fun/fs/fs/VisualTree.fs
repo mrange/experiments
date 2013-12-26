@@ -69,7 +69,7 @@ module Visual =
         |   Transform (t,c) ->
                 let newTransform    = t state
 
-                let fullTransform   = transform *<>* newTransform
+                let fullTransform   = transform.Multiply newTransform
 
                 // Compute pixel scale (approximation)
                 let getLocalLength x y  = (Matrix3x2.TransformPoint (fullTransform, Vector2(x,y))).Length()
