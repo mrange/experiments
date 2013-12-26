@@ -1,12 +1,17 @@
 ﻿namespace FolderSize
 
 open System
+open System.Collections.Concurrent
 open System.Collections.Generic
+open System.Diagnostics
 open System.Runtime.InteropServices
 
 open SharpDX
 
+open Units
+
 module Logical = 
+
 
     type LayoutRotation = 
         | D0
@@ -14,163 +19,39 @@ module Logical =
         | D180
         | D270
 
-    type MeasuredSize = 
-        | Unbound
-        | Bound     of float32 
-
-        static member Zero = Bound 0.F
-
-        static member ( + ) (l : MeasuredSize, r : float32) = 
-            match l with
-            | Unbound   -> Unbound
-            | Bound b   -> Bound (Natural <| b + r)
-        static member ( - ) (l : MeasuredSize, r : float32) = l + (-r)
-
-        member x.Max (o : MeasuredSize) = 
-            match x,o with
-            | Bound xx  , Bound yy  -> Bound <| max xx yy
-            | _         , _         -> Unbound
-
-        member x.Natural with get () =  match x with
-                                        | Bound b       -> Bound <| Natural b
-                                        | _             -> x
-
-    type Position = 
-        | AutoPos
-        | MinPos
-        | MaxPos
-        | FixedPos  of float32
-            
-
-    type Size = 
-        | MinSize
-        | MaxSize
-        | FixedSize of float32
-        member x.Natural with get () =  match x with
-                                        | FixedSize fs  -> FixedSize <| Natural fs
-                                        | _             -> x
-
-
-    type Thickness =
-        {
-            Left    : float32
-            Top     : float32
-            Right   : float32
-            Bottom  : float32
-        }
-        static member New l t r b   = {Left = Natural l; Top = Natural t; Right = Natural r; Bottom = Natural b}
-        static member Zero          = Thickness.New 0.F 0.F 0.F 0.F
-
-        member x.IsZero with get () = x = Thickness.Zero
-
-        static member ( + ) (l : Thickness, r : Thickness) = 
-                            Thickness.New 
-                                (l.Left      + r.Left   )
-                                (l.Top       + r.Top    )
-                                (l.Right     + r.Right  )
-                                (l.Bottom    + r.Bottom )
-
-        static member ( ~- ) (t : Thickness) = 
-                            Thickness.New 
-                                -t.Left      
-                                -t.Top       
-                                -t.Right     
-                                -t.Bottom    
-
-    type Measurement = 
-        {
-            Width   : MeasuredSize
-            Height  : MeasuredSize
-        }
-        static member New (w : MeasuredSize) (h : MeasuredSize) = {Width = w.Natural; Height = h.Natural}
-        static member Unbound = Measurement.New Unbound Unbound
-        static member Zero = Measurement.New MeasuredSize.Zero MeasuredSize.Zero
-
-        static member ( + ) (l : Measurement, r : Thickness) = 
-                            Measurement.New
-                                (l.Width    + (r.Left + r.Right ))
-                                (l.Height   + (r.Top  + r.Bottom))
-
-        static member ( - ) (l : Measurement, r : Thickness) = 
-                            Measurement.New
-                                (l.Width    - (r.Left + r.Right ))
-                                (l.Height   - (r.Top  + r.Bottom))
-
-        member x.Max (o : Measurement) = 
-            Measurement.New 
-                (x.Width.Max    o.Width )
-                (x.Height.Max   o.Height)
-
-    type Placement =
-        {
-            X       : float32
-            Y       : float32
-            Width   : float32
-            Height  : float32
-        }
-        static member New x y w h = {X = x; Y = y; Width = Natural w; Height = Natural h}
-        static member Zero = Placement.New 0.F 0.F 0.F 0.F
-
-        member x.IsZero with get ()     = x = Placement.Zero
-        member x.IsEmpty with get ()    = x.Width <= 0.F && x.Height <= 0.F
-
-
-
-        static member ( + ) (l : Placement, r : Thickness) = 
-                            Placement.New
-                                (l.X - r.Left                               )
-                                (l.Y - r.Top                                )
-                                (Natural <| l.Width     + r.Left+ r.Right   )
-                                (Natural <| l.Height    + r.Top + r.Bottom  )
-
-        static member ( - ) (l : Placement, r : Thickness) = 
-                            Placement.New
-                                (l.X + r.Left                               )
-                                (l.Y + r.Top                                )
-                                (Natural <| l.Width     - r.Left- r.Right   )
-                                (Natural <| l.Height    - r.Top - r.Bottom  )
-
-    type Rect = 
-        {
-            X       : Position
-            Y       : Position
-            Width   : Size
-            Height  : Size
-        }
-        static member New x y (w : Size) (h : Size) = {X = x; Y = y; Width = w.Natural; Height = h.Natural}
-        static member MinMin = Rect.New MinPos MinPos MinSize MinSize
-
     type LayoutTransform = 
         {
             Rotation : LayoutRotation
             Scaling  : float32
         }
 
+    type PropertyDefaultValue<'T> =
+        | Value         of 'T
+        | ValueCreator  of (Element -> 'T)
+    and PropertyValueChanged<'T> = Element -> 'T -> 'T -> unit
+    and [<AbstractClass>] Property(id : string, ``type`` : Type, declaringType : Type) as x = 
 
-    [<AbstractClass>]
-    type Property(id : string, ``type`` : Type)= 
+        static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
 
         member x.Id             = id
         member x.Type           = ``type``
-
-        abstract OnCreateValue  : unit -> obj
-        abstract OnValueChanged : Element -> obj -> obj -> unit
-
-        member x.CreateValue                            = x.OnCreateValue ()
-        member x.ValueChanged le oldValue newValue      = x.OnValueChanged le oldValue newValue
+        member x.DeclaringType  = declaringType
+        member x.IsEmpty                                = x.Equals (Property.Empty)
 
         static member Value v = fun () -> v
-        static member Create id valueChanged valueCreator = Property<'T>(id,valueCreator,valueChanged)
+        static member Create declaringType id valueChanged valueCreator = Property<'T>(id,declaringType,valueCreator,valueChanged)
+        static member Empty = Property.Create typeof<Property> "<EMPTY>" __NoAction <| Value (obj())
 
-    and Property<'T>(id : string, valueCreator : unit -> 'T, valueChanged : Element -> 'T -> 'T -> unit)= 
-        inherit Property(id, typeof<'T>)    
 
-        override x.OnCreateValue ()                     = 
-                    upcast valueCreator () 
-        override x.OnValueChanged le oldValue newValue  = 
-                    let ov = oldValue.CastTo Unchecked.defaultof<'T>
-                    let nv = newValue.CastTo Unchecked.defaultof<'T>
-                    valueChanged le ov nv
+    and Property<'T>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+        inherit Property(id, typeof<'T>, declaringType)    
+
+        member x.DefaultValue (e : Element)             = 
+                    match value with
+                    | Value         v -> v      , true
+                    | ValueCreator  v -> v e    , false
+        member x.ValueChanged le oldValue newValue      = 
+                    valueChanged le oldValue newValue
 
         member x.Value (v : 'T) = PropertyValue<'T>(x, v)
 
@@ -190,56 +71,144 @@ module Logical =
 
     and Element() = 
         
-        let mutable parent : Container option = None
+        let mutable parent : Element option = None
 
         static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
         static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
         static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
         static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
-        static let __Value  (v : 'T)    = Property.Value v
-
+        static let children : Element array = [||]
         let properties = Dictionary<Property, obj>()
 
-        static member Measurement       = Property.Create "Measurement"     __NoAction              (__Value (None : Measurement option))
-        static member Placement         = Property.Create "Placement"       __NoAction              (__Value (None : Placement option))
-                                                                                                     
-        static member Bounds            = Property.Create "Bounds"          __InvalidateMeasurement (__Value Rect.MinMin    )
-        static member IsVisible         = Property.Create "IsVisible"       __InvalidateMeasurement (__Value true           )
-                                                                            
-        static member Margin            = Property.Create "Margin"          __InvalidateMeasurement (__Value Thickness.Zero )
-                                                                            
-        static member FontFamily        = Property.Create "FontFamily"      __InvalidateMeasurement (__Value "Verdana"      )
-        static member FontSize          = Property.Create "FontSize"        __InvalidateMeasurement (__Value 12.F           )
-                                                                            
-                                                                            
-        static member BackgroundBrush   = Property.Create "BackgroundBrush" __InvalidateMeasurement (__Value <| BrushDescriptor.Transparent)
+        static let Create id valueChanged value = Property.Create typeof<Element> id valueChanged value 
+
+        static member Measurement       = Create "Measurement"     __NoAction              <| Value (None : Measurement option)
+        static member Placement         = Create "Placement"       __NoAction              <| Value (None : Placement option)
+        static member Visual            = Create "Visual"          __NoAction              <| Value (None : VisualTree option)
+                                                                                           
+        static member Bounds            = Create "Bounds"          __InvalidateMeasurement <| Value Bounds.Min     
+        static member IsVisible         = Create "IsVisible"       __InvalidateMeasurement <| Value true           
+                                                                                           
+        static member Margin            = Create "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
+                                                                                           
+        static member FontFamily        = Create "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
+        static member FontSize          = Create "FontSize"        __InvalidateMeasurement <| Value 12.F           
+                                                                                           
+                                                                                           
+        static member BackgroundBrush   = Create "BackgroundBrush" __InvalidateMeasurement <| Value BrushDescriptor.Transparent
+
+        abstract OnChildren     : unit -> Element array
+        default x.OnChildren () = children
+        member x.Children       = x.OnChildren ()
 
         member x.Parent 
             with get ()         = parent
-            and private set p   = parent <- p
+
+        member internal x.SetParent p =
+                            match parent with
+                            | None      -> ()
+                            | Some pp   -> failwith "Element is already a member of a logical tree"
+                            parent <- Some p
+                            match parent with
+                            | None      -> ()
+                            | Some pp   -> pp.InvalidateMeasurement ()
+
+        member internal x.ClearParent () =
+                            match parent with
+                            | None      -> ()
+                            | Some pp   -> pp.InvalidateMeasurement ()
+                            parent <- None
+
+        member private x.ValidateProperty (lp :Property<'T>) =
+            let t = x.GetType ()
+            if not <| lp.DeclaringType.IsAssignableFrom t then
+                failwithf "Property %s.%s is not a member %s" lp.DeclaringType.Name lp.Id t.Name
+
+        member private x.TryGet (lp :Property<'T>)  : 'T option = 
+                let v = properties.Find lp
+                match v with
+                | None      -> None
+                | Some v    -> 
+                    let tv = v.As<'T> ()
+                    match tv with
+                    | None      -> Debug.Assert false; None
+                    | Some tv   -> Some tv
+
 
         member x.Get    (lp :Property<'T>)           : 'T = 
-                Unchecked.defaultof<'T>
+                x.ValidateProperty lp
+                let v = x.TryGet lp
+                match v with
+                | Some v    -> v
+                | _         -> 
+                    ignore <| properties.Remove lp  // Shouldn't be necessary but if the TryGet assert fails this is required to clear local value
+                    let dv,shared = lp.DefaultValue x
+                    if not shared then 
+                        properties.Add(lp,dv)
+                    dv  // No ValueChanged on initializing the default value
         member x.Set    (lp :Property<'T>) (v : 'T)  : unit = 
-                ()
+                x.ValidateProperty lp
+                let pv = x.Get lp
+                if pv = v then ()
+                else
+                    properties.[lp] <- v
+                    lp.ValueChanged x pv v
         member x.Clear  (lp :Property<'T>)           : unit = 
-                ()
+                x.ValidateProperty lp
+                let v = x.TryGet lp
+                ignore <| properties.Remove lp  // Shouldn't be necessary but if the TryGet assert fails this is required to clear local value
+                match v with
+                | None      -> ()
+                | Some v   ->
+                    // Property value found, reset to default value and raise ValueChanged
+                    let dv,shared = lp.DefaultValue x
+                    if not shared then
+                        properties.Add(lp,dv)
+                    lp.ValueChanged x v dv
 
         member x.NoAction               () = ()            
-        member x.InvalidateMeasurement  () = ()            
-        member x.InvalidatePlacement    () = ()            
-        member x.InvalidateVisual       () = ()            
+        member x.InvalidateMeasurement  () = 
+            let m = x.Get Element.Measurement
+            match m with 
+            | None      -> ()
+            | Some _    -> x.Clear Element.Measurement
+                           x.Clear Element.Placement
+                           x.Clear Element.Visual
+                           match x.Parent with
+                           | Some p -> p.InvalidateMeasurement ()          
+                           | _      -> ()
+        member x.InvalidatePlacement    () =             
+            let p = x.Get Element.Placement
+            match p with 
+            | None      -> ()
+            | Some _    -> x.Clear Element.Placement
+                           x.Clear Element.Visual
+                           match x.Parent with
+                           | Some p -> p.InvalidatePlacement ()          
+                           | _      -> ()
+        member x.InvalidateVisual       () = 
+            let v = x.Get Element.Visual
+            match v with 
+            | None      -> ()
+            | Some _    -> x.Clear Element.Visual
+                           match x.Parent with
+                           | Some p -> p.InvalidateVisual ()          
+                           | _      -> ()
 
         abstract OnGetBox                           : unit -> Thickness
         default x.OnGetBox ()                       = x.Get Element.Margin
 
         member x.Box                                = x.OnGetBox ()
 
-        abstract OnMeasureContent                   : Measurement -> Measurement
-        default x.OnMeasureContent m                = m
-        member x.MeasureElement (m : Measurement)   = let box = x.Box
-                                                      let innerMeasure = x.OnMeasureContent<| m - box
+        abstract OnMeasureContent                   : AvailableArea -> Measurement
+        default x.OnMeasureContent m                = Measurement.Zero
+        member x.MeasureElement (aa : AvailableArea)= let box = x.Box
+                                                      let cachedMeasure = x.Get Element.Measurement
+                                                      match cachedMeasure with
+                                                      | Some m  -> if aa.IsMeasurementValid m then Some m else None
+                                                      | _       -> None
+                                                      let innerMeasure = x.OnMeasureContent<| aa - box
                                                       innerMeasure + box
 
         abstract OnPlaceContent                     : Placement -> unit
@@ -267,36 +236,66 @@ module Logical =
                                                       | Some pp -> x.OnRenderOverlay pp <| pp - box
                                                       | _       -> NoVisual
                                                         
+    let NoAction                (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
+    let InvalidateMeasurement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
+    let InvalidatePlacement     (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
+    let InvalidateVisual        (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
-    and Container() = 
+    type Container() = 
         inherit Element()
+    
+        static let Create id valueChanged value = Property.Create typeof<Container> id valueChanged value 
+
+        static member Padding           = Create "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
+
+        override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
+
+    type Decorator() =
+        inherit Container()
+
+        let mutable child : Element option = None
+
+        member x.Child 
+            with get () =   child
+            and set (c : Element option)   =   
+                    match child with
+                    | None          -> ()
+                    | Some child    -> child.ClearParent () // Invalidates old parent
+
+                    match c with
+                    | None          -> ()
+                    | Some child    -> child.SetParent x    // Invalidates parent
+
+                    child <- c
+
+    type Layout() = 
+        inherit Container()
     
         let children    = SortedDictionary<int, Element>()
 
         let mutable cachedChildren = None
 
-        static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
-        static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
-        static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
-        static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
+        static let Create id valueChanged value = Property.Create typeof<Container> id valueChanged value 
 
-        static let __Value  (v : 'T)    = Property.Value v
-
-        static member Padding           = Property.Create "Padding"         __InvalidateMeasurement (__Value Thickness.Zero )
-
-        member x.Children with get () = match cachedChildren with
+        override x.OnChildren ()    =   match cachedChildren with
                                         | Some c    ->  c
-                                        | _         ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toList
+                                        | _         ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
                                                         cachedChildren <- Some c
                                                         c
 
 
         member x.InsertChild i le = ignore <| (children.[i] = le)
+                                    le.SetParent x  // Invalidates parent
                                     cachedChildren <- None
                                     x
 
-        member x.RemoveChild i =    ignore <| children.Remove i
-                                    cachedChildren <- None
+        member x.RemoveChild i =    let c = children.Find i
+                                    match c with
+                                    | None      -> ()
+                                    | Some le    -> 
+                                        ignore <| children.Remove i
+                                        le.ClearParent ()   // Invalidates old parent
+                                        cachedChildren <- None
                                     x  
 
         override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
@@ -304,21 +303,19 @@ module Logical =
         override x.OnMeasureContent m   = let children = x.Children
                                           let sz : Measurement option = None
                                           for c in children do
-                                            // TODO:
+                                            ()
+                                          Measurement.Zero
 
-
-    let NoAction                (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
-    let InvalidateMeasurement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
-    let InvalidatePlacement     (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
-    let InvalidateVisual        (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
-
-    let Value   (v : 'T)    = Property.Value v
+    type Document() =
+        inherit Decorator()
 
 
     type Text() =
         inherit Element()
 
-        static member Text          = Property.Create "Text"        InvalidateMeasurement  (Property.Value ""              )
+        static let Create id valueChanged value = Property.Create typeof<Text> id valueChanged value 
+
+        static member Text          = Create "Text"        InvalidateMeasurement  (Value ""              )
 
     type Div() = 
         inherit Container ()
@@ -330,7 +327,7 @@ module Logical =
 
         let body = 
             Div [
-                    Element.Bounds.Value        Rect.MinMin
+                    Element.Bounds.Value        Bounds.Min
                     Element.FontFamily.Value    ""
                 ]
                 [

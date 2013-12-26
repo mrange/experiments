@@ -80,6 +80,16 @@ module Utils =
         | :? 'T as i    -> i
         | _             -> d
         
+    let As<'T> (o : obj) = 
+        match o with
+        | :? 'T as i    -> Some i
+        | _             -> None
+        
+    let Is<'T> (o : obj) = 
+        match o with
+        | :? 'T as i    -> true
+        | _             -> false
+        
 
     let CombineDisposable (l : #IDisposable) (r : #IDisposable) = 
         OnExit <| fun () -> 
@@ -147,34 +157,37 @@ module Utils =
                 TryDispose mb 
                 )
 
-    let UnionOfRectangle (l : RectangleF) (r : RectangleF) =
-        if l.IsEmpty then r
-        elif r.IsEmpty then l
-        else 
-            let left    = min l.Left r.Left
-            let top     = min l.Top r.Top
-            let right   = max l.Right r.Right
-            let bottom  = max l.Bottom r.Bottom
-            RectangleF (left, top, right - left, bottom - top)
-
-    let Append (y,z) x = y,z,x
-
-    let inline ( <++> ) x y = Append x y
-
     let inline ( <??> ) o d = DefaultTo o d
     let inline ( <???> ) o d = CastTo o d
 
-    let inline ( <?+?> ) l r = CombineDisposable l r
+    let inline ( <+++> ) l r = CombineDisposable l r
 
-    let inline ( <+> ) l r = UnionOfRectangle l r
+    type Type with 
+        member x.Ancestors () = 
+            let t = ref x
+            seq {
+                while !t <> null do
+                    yield !t
+                    t := (!t).BaseType
+            }
+
+    type RectangleF with
+        member l.Union (r : RectangleF) =
+            if l.IsEmpty then r
+            elif r.IsEmpty then l
+            else 
+                let left    = min l.Left r.Left
+                let top     = min l.Top r.Top
+                let right   = max l.Right r.Right
+                let bottom  = max l.Bottom r.Bottom
+                RectangleF (left, top, right - left, bottom - top)
 
     type Object with
-        member x.CastTo (defaultValue : 'T) =
-                    match x with
-                    | :? 'T as xx   -> xx
-                    | _             -> defaultValue
+        member x.CastTo (defaultValue : 'T) = x <???> defaultValue
+        member x.As<'T> () = As<'T> x
+        member x.Is<'T> () = Is<'T> x
 
-    type Dictionary<'TKey, 'TValue> with
+    type IDictionary<'TKey, 'TValue> with
         member x.Lookup (k : 'TKey) (dv : 'TValue) =  
                     let v = ref Unchecked.defaultof<'TValue>
                     if x.TryGetValue(k, v) then !v

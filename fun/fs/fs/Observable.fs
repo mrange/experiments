@@ -94,7 +94,7 @@ module ObservableEx =
                                             (fun () -> actionProcessor.Post <| fun () -> observer.OnNext !state; observer.OnCompleted ())
                                             (fun exn-> actionProcessor.Post <| fun () -> observer.OnError exn)
 
-                actionProcessor <?+?> o.Subscribe obs
+                actionProcessor <+++> o.Subscribe obs
 
     let async (tp : ThreadPriority option) (o : IObservable<'T>) = 
         Observable<_>.New <| 
@@ -105,7 +105,7 @@ module ObservableEx =
                                             (fun () -> actionProcessor.Post <| fun () -> observer.OnCompleted ())
                                             (fun exn-> actionProcessor.Post <| fun () -> observer.OnError exn)
 
-                actionProcessor <?+?> o.Subscribe obs
+                actionProcessor <+++> o.Subscribe obs
 
     let asyncTerminator (tp : ThreadPriority option) onNext onComplete onError (o : IObservable<'T>) = 
         let actionProcessor = ActionProcessor tp
@@ -114,7 +114,7 @@ module ObservableEx =
                                     (fun () -> actionProcessor.Post <| fun () -> onComplete ())
                                     (fun exn-> actionProcessor.Post <| fun () -> onError exn)
 
-        actionProcessor <?+?> o.Subscribe obs
+        actionProcessor <+++> o.Subscribe obs
 
     let dispatch (c : Control) (o : IObservable<'T>) : IObservable<'T> = 
         let dispatcher = DispatchAction c

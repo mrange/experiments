@@ -76,6 +76,7 @@
     <Compile Include="Device.fs" />
     <Compile Include="Animated.fs" />
     <Compile Include="VisualTree.fs" />
+    <Compile Include="Units.fs" />
     <Compile Include="LogicalTree.fs" />
     <Compile Include="UserInterface.fs" />
     <Compile Include="FolderTree.fs" />
