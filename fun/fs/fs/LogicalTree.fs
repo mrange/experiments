@@ -93,7 +93,7 @@ module Logical =
         static member Placement         = Create "Placement"       __NoAction              <| Value (None : Placement option)
         static member Visual            = Create "Visual"          __NoAction              <| Value (None : VisualTree option)
                                                                                            
-        static member Bounds            = Create "Bounds"          __InvalidateMeasurement <| Value Bounds.Min     
+        static member Bounds            = Create "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
         static member IsVisible         = Create "IsVisible"       __InvalidateMeasurement <| Value true           
                                                                                            
         static member Margin            = Create "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
@@ -102,7 +102,7 @@ module Logical =
         static member FontSize          = Create "FontSize"        __InvalidateMeasurement <| Value 12.F           
                                                                                            
                                                                                            
-        static member BackgroundBrush   = Create "BackgroundBrush" __InvalidateMeasurement <| Value BrushDescriptor.Transparent
+        static member BackgroundBrush   = Create "BackgroundBrush" __InvalidateVisual      <| Value BrushDescriptor.Transparent
 
         abstract OnChildren     : unit -> Element array
         default x.OnChildren () = children
@@ -208,7 +208,7 @@ module Logical =
         member x.Box                                = x.OnGetBox ()
 
         abstract OnMeasureContent                   : Available -> Measurement
-        default x.OnMeasureContent m                = Measurement.Zero
+        default x.OnMeasureContent m                = Measurement.Fill
 
         member x.MeasureElement (a  : Available)    = 
                     let cachedMeasure = x.Get Element.Measurement
@@ -216,8 +216,9 @@ module Logical =
                     | Some m when a.IsMeasurementValid m  -> m
                     | _                                   -> 
                         let box = x.Box
+                        let bounds = x.Get Element.Bounds
                         let innerMeasure = x.OnMeasureContent<| a - box
-                        let finalMeasure = a.ClipMeasurement <| innerMeasure + box
+                        let finalMeasure = bounds.AdjustMeasurement a (innerMeasure + box)
                         x.Set Element.Measurement <| Some finalMeasure
                         x.Set Element.Placement None
                         x.Set Element.Visual None
@@ -231,10 +232,16 @@ module Logical =
                     match cachedPlacement with
                     | Some cp when cp = p -> ()
                     | _                   -> 
-                        let box = x.Box
-                        x.OnPlaceContent <| p - box
-                        x.Set Element.Placement <| Some p
-                        x.Set Element.Visual None
+                        let cachedMeasure = x.Get Element.Measurement
+                        match cachedMeasure with
+                        | None            -> ()
+                        | Some cm         ->  
+                            let box = x.Box
+                            let bounds = x.Get Element.Bounds
+                            let finalPlacement = bounds.AdjustPlacement cm p
+                            x.OnPlaceContent <| finalPlacement - box
+                            x.Set Element.Placement <| Some finalPlacement
+                            x.Set Element.Visual None
                                                         
 
         abstract OnRenderContent                    : Placement -> Placement -> VisualTree
@@ -265,10 +272,14 @@ module Logical =
                     | Some v    -> v
                     | None      -> 
                         let visualContent = x.RenderContent ()
+
+                        // A bit of trickery to avoid allocation and shuffling of extra arrays
                         let children = x.Children
                         let visualChildren = Array.create (children.Length + 2) VisualTree.NoVisual
+
                         for i in 0..children.Length-1 do
                             visualChildren.[i + 1] <- children.[i].Render ()
+
                         let visualOverlay = x.RenderOverlay ()
 
                         visualChildren.[0] <- visualContent
@@ -379,7 +390,7 @@ module Logical =
 
         let body = 
             Div [
-                    Element.Bounds.Value        Bounds.Min
+                    Element.Bounds.Value        Bounds.MinMax
                     Element.FontFamily.Value    ""
                 ]
                 [
