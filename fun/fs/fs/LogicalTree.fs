@@ -75,7 +75,7 @@ module Logical =
 
         member x.TypedValue         = v
 
-    and Element() = 
+    and [<AbstractClass>] Element() = 
         
         let mutable parent : Element option = None
 
@@ -248,53 +248,49 @@ module Logical =
         default x.OnRenderContent   (o : Placement)
                                     (i : Placement)
                                                     = VisualTree.NoVisual
-        member x.RenderContent  ()                  = 
-                    let box = x.Box
-                    let p = x.Get Element.Placement
-                    match p with
-                    | Some pp -> x.OnRenderOverlay pp <| pp - box
-                    | None    -> NoVisual
-
         abstract OnRenderOverlay                    : Placement -> Placement -> VisualTree
         default x.OnRenderOverlay   (o : Placement)
                                     (i : Placement)
                                                     = VisualTree.NoVisual
-        member x.RenderOverlay  ()                  = 
-                    let box = x.Box
-                    let p = x.Get Element.Placement
-                    match p with
-                    | Some pp -> x.OnRenderOverlay pp <| pp - box
-                    | None    -> NoVisual
 
         member x.Render ()                          = 
                     let cachedVisual = x.Get Element.Visual
                     match cachedVisual with
                     | Some v    -> v
                     | None      -> 
-                        let visualContent = x.RenderContent ()
+                        let box = x.Box
+                        let p = x.Get Element.Placement
+                        match p with
+                        | None                      -> NoVisual
+                        | Some p when p.IsZero      -> NoVisual
+                        | Some p                    -> 
+                            
+                            let i = p - box
 
-                        // A bit of trickery to avoid allocation and shuffling of extra arrays
-                        let children = x.Children
-                        let visualChildren = Array.create (children.Length + 2) VisualTree.NoVisual
+                            let visualContent = x.OnRenderContent p i
 
-                        for i in 0..children.Length-1 do
-                            visualChildren.[i + 1] <- children.[i].Render ()
+                            // A bit of trickery to avoid allocation and shuffling of extra arrays
+                            let children = x.Children
+                            let visualChildren = Array.create (children.Length + 2) VisualTree.NoVisual
 
-                        let visualOverlay = x.RenderOverlay ()
+                            for i in 0..children.Length-1 do
+                                visualChildren.[i + 1] <- children.[i].Render ()
 
-                        visualChildren.[0] <- visualContent
-                        visualChildren.[visualChildren.Length - 1] <- visualOverlay
+                            let visualOverlay = x.OnRenderOverlay p i
 
-                        let visual = 
-                            match visualContent, children.Length, visualOverlay with
-                            | VisualTree.NoVisual , 0     , VisualTree.NoVisual   -> VisualTree.NoVisual
-                            | _                   , 0     , VisualTree.NoVisual   -> visualContent
-                            | VisualTree.NoVisual , 0     , _                     -> visualOverlay
-                            | VisualTree.NoVisual , 1     , VisualTree.NoVisual   -> visualChildren.[1] // The first visual child is located @ 1
-                            | _                   , _     , _                     -> VisualTree.Group visualChildren
+                            visualChildren.[0] <- visualContent
+                            visualChildren.[visualChildren.Length - 1] <- visualOverlay
 
-                        x.Set Element.Visual <| Some visual
-                        visual
+                            let visual = 
+                                match visualContent, children.Length, visualOverlay with
+                                | VisualTree.NoVisual , 0     , VisualTree.NoVisual   -> VisualTree.NoVisual
+                                | _                   , 0     , VisualTree.NoVisual   -> visualContent
+                                | VisualTree.NoVisual , 0     , _                     -> visualOverlay
+                                | VisualTree.NoVisual , 1     , VisualTree.NoVisual   -> visualChildren.[1] // The first visual child is located @ 1
+                                | _                   , _     , _                     -> VisualTree.Group visualChildren
+
+                            x.Set Element.Visual <| Some visual
+                            visual
                                                       
 
 
@@ -304,7 +300,7 @@ module Logical =
     let InvalidatePlacement     (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
     let InvalidateVisual        (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
-    type Container() = 
+    type [<AbstractClass>] Container() = 
         inherit Element()
     
         static let Create id valueChanged value = Property.Create typeof<Container> id valueChanged value 
@@ -313,10 +309,34 @@ module Logical =
 
         override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
 
-    type Decorator() =
+    type [<AbstractClass>] Decorator() =
         inherit Container()
 
         let mutable child : Element option = None
+
+        let mutable cachedChildren : Element array option = None
+
+        override x.OnChildren () = 
+                    match cachedChildren, child with
+                    | Some c    , _         -> c
+                    | None      , Some c    -> 
+                        let children = [|c|]
+                        cachedChildren <- Some children
+                        children
+                    | None      , None      ->
+                        let children = [||]
+                        cachedChildren <- Some children
+                        children
+                                    
+        override x.OnMeasureContent a   =   
+                    match child with
+                    | None      -> Measurement.Zero
+                    | Some c    -> c.MeasureElement a
+
+        override x.OnPlaceContent p     =   
+                    match child with
+                    | None      -> ()
+                    | Some c    -> c.PlaceElement p
 
         member x.Child 
             with get () =   child
@@ -331,7 +351,7 @@ module Logical =
 
                     child <- c
 
-    type Layout() = 
+    type [<AbstractClass>] Layout() = 
         inherit Container()
     
         let children    = SortedDictionary<int, Element>()
@@ -361,17 +381,24 @@ module Logical =
                                         cachedChildren <- None
                                     x  
 
-        override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
-
-        override x.OnMeasureContent m   = let children = x.Children
-                                          let sz : Measurement option = None
-                                          for c in children do
-                                            ()
-                                          Measurement.Zero
-
     type Document() =
         inherit Decorator()
 
+    type Div() = 
+        inherit Layout()
+
+        override x.OnMeasureContent a   = 
+                    let mutable a = a
+                    let children = x.Children
+                    for c in children do
+                        ignore <| c.MeasureElement a
+                    Measurement.Fill
+
+        override x.OnPlaceContent p     = 
+                    let children = x.Children
+                    for c in children do
+                        ignore <| c.MeasureElement a
+                    ()
 
     type Text() =
         inherit Element()
@@ -379,9 +406,6 @@ module Logical =
         static let Create id valueChanged value = Property.Create typeof<Text> id valueChanged value 
 
         static member Text          = Create "Text"        InvalidateMeasurement  (Value ""              )
-
-    type Div() = 
-        inherit Container ()
 
     module Elements = 
         let Text (ps : PropertyValue list) : Text  = Text()
