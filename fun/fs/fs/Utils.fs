@@ -225,8 +225,8 @@ module Array =
     let foldMap (foldAndMap : 'U -> 'T -> 'U*'V) (state : 'U) (l : 'T array) : 'V list = 
         let state = ref state
         [ 
-            for i in 0..l.Length - 1 do
-                let nextState,nextValue = foldAndMap !state l.[i]
+            for v in l do
+                let nextState,nextValue = foldAndMap !state v
                 state := nextState
                 yield nextValue
         ]

@@ -29,12 +29,16 @@ module Logical =
             Scaling  : float32
         }
 
+    type IElementContext = 
+        abstract member Test    : unit -> unit
+
     [<NoEquality>]
     [<NoComparison>]
     type PropertyDefaultValue<'T> =
         | Value         of 'T
         | ValueCreator  of (Element -> 'T)
     and PropertyValueChanged<'T> = Element -> 'T -> 'T -> unit
+    and ComputePropertyValue<'T> = Element -> 'T
     and [<AbstractClass>] Property(id : string, ``type`` : Type, declaringType : Type) = 
 
         static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
@@ -44,13 +48,28 @@ module Logical =
         member x.DeclaringType  = declaringType
         member x.IsEmpty                                = x.Equals (Property.Empty)
 
+        abstract OnIsComputed   : unit -> bool
+        member x.IsComputed     = x.OnIsComputed ()
+
+        abstract OnIsPersistent : unit -> bool
+        member x.IsPersistent   = x.OnIsPersistent ()
+
         static member Value v = fun () -> v
-        static member Create declaringType id valueChanged valueCreator = Property<'T>(id,declaringType,valueCreator,valueChanged)
-        static member Empty = Property.Create typeof<Property> "<EMPTY>" __NoAction <| Value (obj())
+
+        static member Persistent declaringType id valueChanged valueCreator = PersistentProperty<'T>(id,declaringType,valueCreator,valueChanged)
+        static member Computed   declaringType id computeValue = ComputedProperty<'T>(id,declaringType,computeValue)
+
+        static member Empty = Property.Computed typeof<Property> "<EMPTY>" <| fun le -> obj()
 
 
-    and Property<'T>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+    and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
         inherit Property(id, typeof<'T>, declaringType)    
+
+    and [<Sealed>] PersistentProperty<'T>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+        inherit Property<'T>(id, typeof<'T>)    
+
+        override x.OnIsComputed ()      = false
+        override x.OnIsPersistent ()    = true
 
         member x.DefaultValue (e : Element)             = 
                     match value with
@@ -61,7 +80,15 @@ module Logical =
 
         member x.Value (v : 'T) = PropertyValue<'T>(x, v)
 
-    and [<AbstractClass>] PropertyValue(p : Property)= 
+    and [<Sealed>] ComputedProperty<'T>(id : string, declaringType : Type, computeValue : ComputePropertyValue<'T>) = 
+        inherit Property<'T>(id, typeof<'T>)
+
+        override x.OnIsComputed ()      = true
+        override x.OnIsPersistent ()    = false
+
+        member x.ComputeValue (e : Element)             = computeValue e
+
+    and [<AbstractClass>] PropertyValue(p : Property) =  
         
         abstract OnGetValue : unit -> obj
 
@@ -77,7 +104,8 @@ module Logical =
 
     and [<AbstractClass>] Element() = 
         
-        let mutable parent : Element option = None
+        let mutable parent  : Element option        = None
+        let mutable context : IElementContext option= None
 
         static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
         static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
@@ -87,22 +115,21 @@ module Logical =
         static let children : Element array = [||]
         let properties = Dictionary<Property, obj>()
 
-        static let Create id valueChanged value = Property.Create typeof<Element> id valueChanged value 
+        static let Persistent id valueChanged value = Property.Persistent typeof<Element> id valueChanged value 
 
-        static member Measurement       = Create "Measurement"     __NoAction              <| Value (None : Measurement option)
-        static member Placement         = Create "Placement"       __NoAction              <| Value (None : Placement option)
-        static member Visual            = Create "Visual"          __NoAction              <| Value (None : VisualTree option)
+        static member Measurement       = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
+        static member Placement         = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
+        static member Visual            = Persistent "Visual"          __NoAction              <| Value (None : VisualTree option)
                                                                                            
-        static member Bounds            = Create "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
-        static member IsVisible         = Create "IsVisible"       __InvalidateMeasurement <| Value true           
-                                                                                           
-        static member Margin            = Create "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
-                                                                                           
-        static member FontFamily        = Create "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
-        static member FontSize          = Create "FontSize"        __InvalidateMeasurement <| Value 12.F           
-                                                                                           
-                                                                                           
-        static member BackgroundBrush   = Create "BackgroundBrush" __InvalidateVisual      <| Value BrushDescriptor.Transparent
+        static member Bounds            = Persistent "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
+        static member IsVisible         = Persistent "IsVisible"       __InvalidateMeasurement <| Value true           
+                                          
+        static member Margin            = Persistent "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
+                                          
+        static member FontFamily        = Persistent "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
+        static member FontSize          = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
+                                          
+        static member BackgroundBrush   = Persistent "BackgroundBrush" __InvalidateVisual      <| Value BrushDescriptor.Transparent
 
         abstract OnChildren     : unit -> Element array
         default x.OnChildren () = children
@@ -116,6 +143,7 @@ module Logical =
                             | None      -> ()
                             | Some pp   -> failwith "Element is already a member of a logical tree"
                             parent <- Some p
+                            context <- Some p.context
                             match parent with
                             | None      -> ()
                             | Some pp   -> pp.InvalidateMeasurement ()
@@ -125,6 +153,7 @@ module Logical =
                             | None      -> ()
                             | Some pp   -> pp.InvalidateMeasurement ()
                             parent <- None
+                            context <- None
 
         member private x.ValidateProperty (lp :Property<'T>) =
             let t = x.GetType ()
@@ -142,7 +171,11 @@ module Logical =
                     | Some tv   -> Some tv
 
 
-        member x.Get    (lp :Property<'T>)           : 'T = 
+        member x.Get    (lp : ComputedProperty<'T>)  : 'T = 
+                x.ValidateProperty lp
+                lp.ComputeValue x
+
+        member x.Get    (lp : PersistentProperty<'T>)  : 'T = 
                 x.ValidateProperty lp
                 let v = x.TryGet lp
                 match v with
@@ -153,14 +186,21 @@ module Logical =
                     if not shared then 
                         properties.Add(lp,dv)
                     dv  // No ValueChanged on initializing the default value
-        member x.Set    (lp :Property<'T>) (v : 'T)  : unit = 
+
+        member x.Get    (lp : Property<'T>)           : 'T = 
+                if lp.IsComputed then
+                    x.Get (lp :?> ComputedProperty<'T>)
+                else
+                    x.Get (lp :?> PersistentProperty<'T>)
+                    
+        member x.Set    (lp : PersistentProperty<'T>) (v : 'T)  : unit = 
                 x.ValidateProperty lp
                 let pv = x.Get lp
                 if pv.Equals v then ()
                 else
                     properties.[lp] <- v
                     lp.ValueChanged x pv v
-        member x.Clear  (lp :Property<'T>)           : unit = 
+        member x.Clear  (lp : PersistentProperty<'T>)           : unit = 
                 x.ValidateProperty lp
                 let v = x.TryGet lp
                 ignore <| properties.Remove lp  // Shouldn't be necessary but if the TryGet assert fails this is required to clear local value
@@ -253,6 +293,12 @@ module Logical =
                                     (i : Placement)
                                                     = VisualTree.NoVisual
 
+        abstract OnRenderChild                      : Placement -> Placement -> Element -> VisualTree
+        default x.OnRenderChild     (o : Placement)
+                                    (i : Placement)
+                                    (e : Element)
+                                                    = e.Render ()        
+
         member x.Render ()                          = 
                     let cachedVisual = x.Get Element.Visual
                     match cachedVisual with
@@ -263,20 +309,20 @@ module Logical =
                         match p with
                         | None                      -> NoVisual
                         | Some p when p.IsZero      -> NoVisual
-                        | Some p                    -> 
+                        | Some outer                -> 
                             
-                            let i = p - box
+                            let inner = outer - box
 
-                            let visualContent = x.OnRenderContent p i
+                            let visualContent = x.OnRenderContent outer inner
 
                             // A bit of trickery to avoid allocation and shuffling of extra arrays
                             let children = x.Children
                             let visualChildren = Array.create (children.Length + 2) VisualTree.NoVisual
 
                             for i in 0..children.Length-1 do
-                                visualChildren.[i + 1] <- children.[i].Render ()
+                                visualChildren.[i + 1] <- x.OnRenderChild outer inner children.[i]
 
-                            let visualOverlay = x.OnRenderOverlay p i
+                            let visualOverlay = x.OnRenderOverlay outer inner
 
                             visualChildren.[0] <- visualContent
                             visualChildren.[visualChildren.Length - 1] <- visualOverlay
@@ -293,6 +339,7 @@ module Logical =
                             visual
                                                       
 
+    
 
                                                         
     let NoAction                (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
@@ -303,9 +350,9 @@ module Logical =
     type [<AbstractClass>] Container() = 
         inherit Element()
     
-        static let Create id valueChanged value = Property.Create typeof<Container> id valueChanged value 
+        static let Persistent id valueChanged value = Property.Persistent typeof<Container> id valueChanged value 
 
-        static member Padding           = Create "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
+        static member Padding           = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
 
         override x.OnGetBox ()          = x.Get Element.Margin + x.Get Container.Padding
 
@@ -358,8 +405,6 @@ module Logical =
 
         let mutable cachedChildren = None
 
-        static let Create id valueChanged value = Property.Create typeof<Container> id valueChanged value 
-
         override x.OnChildren ()    =   match cachedChildren with
                                         | Some c    ->  c
                                         | None      ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
@@ -387,25 +432,47 @@ module Logical =
     type Div() = 
         inherit Layout()
 
-        override x.OnMeasureContent a   = 
-                    let mutable a = a
-                    let children = x.Children
-                    for c in children do
-                        ignore <| c.MeasureElement a
-                    Measurement.Fill
+        let AccumulateHeight (height : float32) (m : Measurement) = m
+        let SubtractHeight (a : Available) (height : float32) = a
 
-        override x.OnPlaceContent p     = 
-                    let children = x.Children
-                    for c in children do
-                        ignore <| c.MeasureElement a
-                    ()
+//        override x.OnMeasureContent a   = 
+//                    let mutable height = 0.F
+//
+//                    let children = x.Children
+//                    for c in children do
+//                        let measurement = c.MeasureElement <| SubtractHeight a height
+//                        height <- AccumulateHeight height measurement
+//
+//                    m
+//
+//        override x.OnPlaceContent p     = 
+//                    let children = x.Children
+//                    for c in children do
+//                        let cachedMeasurement = c.Get Element.Measurement
+//                        match cachedMeasurement with
+//                        | None      -> ()
+//                        | Some m    ->
+//                            c.PlaceElement <| AdjustPlacement m p
+//
+//                    ()
 
     type Text() =
         inherit Element()
 
-        static let Create id valueChanged value = Property.Create typeof<Text> id valueChanged value 
+        static let Persistent id valueChanged value = Property.Persistent typeof<Text> id valueChanged value 
 
-        static member Text          = Create "Text"        InvalidateMeasurement  (Value ""              )
+        static member Text          = Persistent     "Text"        InvalidateMeasurement  (Value ""              )
+
+        override x.OnRenderContent (o : Placement)
+                                   (i : Placement) =
+                        let text = x.Get Text.Text
+                        if text = "" then VisualTree.NoVisual
+                        else 
+                            let fontFamily = x.Get Element.FontFamily
+                            let fontSize = x.Get Element.FontSize
+                            let textFormatDescriptor = TextFormatDescriptor.New fontFamily fontSize
+                            VisualTree.NoVisual
+    
 
     module Elements = 
         let Text (ps : PropertyValue list) : Text  = Text()
