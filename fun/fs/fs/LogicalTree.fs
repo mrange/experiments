@@ -30,7 +30,7 @@ module Logical =
         }
 
     type IElementContext = 
-        abstract member Test    : unit -> unit
+        abstract member MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
 
     [<NoEquality>]
     [<NoComparison>]
@@ -47,6 +47,8 @@ module Logical =
         member x.Type           = ``type``
         member x.DeclaringType  = declaringType
         member x.IsEmpty                                = x.Equals (Property.Empty)
+
+        member x.IsMemberOf (t : Type) = declaringType.IsAssignableFrom t
 
         abstract OnIsComputed   : unit -> bool
         member x.IsComputed     = x.OnIsComputed ()
@@ -65,7 +67,7 @@ module Logical =
     and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
         inherit Property(id, typeof<'T>, declaringType)    
 
-    and [<Sealed>] PersistentProperty<'T>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+    and [<Sealed>] PersistentProperty<'T when 'T : equality>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
         inherit Property<'T>(id, typeof<'T>)    
 
         override x.OnIsComputed ()      = false
@@ -90,18 +92,24 @@ module Logical =
 
     and [<AbstractClass>] PropertyValue(p : Property) =  
         
-        abstract OnGetValue : unit -> obj
+        abstract OnAssignValueTo : Element -> bool
+
+        member x.AssignValueTo (e : Element) = 
+                    if p.IsMemberOf <| e.GetType () then
+                        x.OnAssignValueTo e 
+                    else false
 
         member x.Property   = p
-        member x.Value      = x.OnGetValue ()
 
-    and PropertyValue<'T>(p : Property, v : 'T)= 
+    and PropertyValue<'T when 'T : equality>(p : PersistentProperty<'T>, v : 'T)= 
         inherit PropertyValue(p)
         
-        override x.OnGetValue ()    = v :> obj
+        member x.Value      = v
 
-        member x.TypedValue         = v
-
+        override x.OnAssignValueTo (e : Element) = 
+                    e.Set p v
+                    true
+                    
     and [<AbstractClass>] Element() = 
         
         let mutable parent  : Element option        = None
@@ -112,24 +120,11 @@ module Logical =
         static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
         static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
+        static let Persistent id valueChanged value = Property.Persistent typeof<Element> id valueChanged value 
+        static let Computed   id computeValue       = Property.Computed   typeof<Element> id computeValue
+
         static let children : Element array = [||]
         let properties = Dictionary<Property, obj>()
-
-        static let Persistent id valueChanged value = Property.Persistent typeof<Element> id valueChanged value 
-
-        static member Measurement       = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
-        static member Placement         = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
-        static member Visual            = Persistent "Visual"          __NoAction              <| Value (None : VisualTree option)
-                                                                                           
-        static member Bounds            = Persistent "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
-        static member IsVisible         = Persistent "IsVisible"       __InvalidateMeasurement <| Value true           
-                                          
-        static member Margin            = Persistent "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
-                                          
-        static member FontFamily        = Persistent "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
-        static member FontSize          = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
-                                          
-        static member BackgroundBrush   = Persistent "BackgroundBrush" __InvalidateVisual      <| Value BrushDescriptor.Transparent
 
         abstract OnChildren     : unit -> Element array
         default x.OnChildren () = children
@@ -138,12 +133,14 @@ module Logical =
         member x.Parent 
             with get ()         = parent
 
+        member x.Context        = context
+
         member internal x.SetParent p =
                             match parent with
                             | None      -> ()
                             | Some pp   -> failwith "Element is already a member of a logical tree"
                             parent <- Some p
-                            context <- Some p.context
+                            context <- p.Context
                             match parent with
                             | None      -> ()
                             | Some pp   -> pp.InvalidateMeasurement ()
@@ -157,7 +154,7 @@ module Logical =
 
         member private x.ValidateProperty (lp :Property<'T>) =
             let t = x.GetType ()
-            if not <| lp.DeclaringType.IsAssignableFrom t then
+            if not <| lp.IsMemberOf t then
                 failwithf "Property %s.%s is not a member %s" lp.DeclaringType.Name lp.Id t.Name
 
         member private x.TryGet (lp :Property<'T>)  : 'T option = 
@@ -192,11 +189,11 @@ module Logical =
                     x.Get (lp :?> ComputedProperty<'T>)
                 else
                     x.Get (lp :?> PersistentProperty<'T>)
-                    
-        member x.Set    (lp : PersistentProperty<'T>) (v : 'T)  : unit = 
+
+        member x.Set<'T when 'T : equality> (lp : PersistentProperty<'T>) (v : 'T)  : unit = 
                 x.ValidateProperty lp
                 let pv = x.Get lp
-                if pv.Equals v then ()
+                if pv = v then ()
                 else
                     properties.[lp] <- v
                     lp.ValueChanged x pv v
@@ -212,6 +209,30 @@ module Logical =
                     if not shared then
                         properties.Add(lp,dv)
                     lp.ValueChanged x v dv
+
+        member x.AssignFromPropertyValues (pvs : PropertyValue list) =
+            for pv in pvs do
+                ignore <| pv.AssignValueTo x 
+
+        static member Measurement           = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
+        static member Placement             = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
+        static member Visual                = Persistent "Visual"          __NoAction              <| Value (None : VisualTree option)
+                                                                                               
+        static member Bounds                = Persistent "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
+        static member IsVisible             = Persistent "IsVisible"       __InvalidateMeasurement <| Value true           
+                                              
+        static member Margin                = Persistent "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
+                                              
+        static member FontFamily            = Persistent "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
+        static member FontSize              = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
+
+        static member Background            = Persistent "Background"       __InvalidateVisual      <| Value BrushDescriptor.Transparent
+        static member Foreground            = Persistent "Foreground"       __InvalidateVisual      <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Black)
+
+        static member TextFormatDescriptor  = Computed   "FontSize"        <| fun x -> 
+                                                                                let fontFamily  = x.Get Element.FontFamily
+                                                                                let fontSize    = x.Get Element.FontSize
+                                                                                TextFormatDescriptor.New fontFamily fontSize
 
         member x.NoAction               () = ()            
         member x.InvalidateMeasurement  () = 
@@ -428,12 +449,25 @@ module Logical =
 
     type Document() =
         inherit Decorator()
+        interface IElementContext with 
+            member x.MeasureText textFormatDescriptor size text = Size2F()  // TODO:
+                
 
-    type Div() = 
+    type StackOrientation = 
+        | FromLeft
+        | FromRight
+        | FromTop
+        | FromBottom
+
+    type Stack() = 
         inherit Layout()
 
         let AccumulateHeight (height : float32) (m : Measurement) = m
         let SubtractHeight (a : Available) (height : float32) = a
+
+        static let Persistent id valueChanged value = Property.Persistent typeof<Stack> id valueChanged value 
+
+        static member Orientation   = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
 
 //        override x.OnMeasureContent a   = 
 //                    let mutable height = 0.F
@@ -456,37 +490,66 @@ module Logical =
 //
 //                    ()
 
-    type Text() =
+    type Label() =
         inherit Element()
 
-        static let Persistent id valueChanged value = Property.Persistent typeof<Text> id valueChanged value 
+        static let Persistent id valueChanged value = Property.Persistent typeof<Label> id valueChanged value 
 
         static member Text          = Persistent     "Text"        InvalidateMeasurement  (Value ""              )
 
+        override x.OnMeasureContent a = 
+                    let context = x.Context
+                    match context with
+                    | None          -> Debug.Assert false; Measurement.Fill
+                    | Some context  -> 
+                        let text = x.Get Label.Text
+                        if text.Length = 0 then Measurement.Zero
+                        else
+                            let tfd = x.Get Element.TextFormatDescriptor
+                            let size = context.MeasureText tfd (a.ToSize2F ()) text
+                            Measurement.FromSize2 size
+
+
         override x.OnRenderContent (o : Placement)
                                    (i : Placement) =
-                        let text = x.Get Text.Text
+                        let text = x.Get Label.Text
                         if text = "" then VisualTree.NoVisual
                         else 
+                            let foreground = x.Get Element.Foreground
                             let fontFamily = x.Get Element.FontFamily
                             let fontSize = x.Get Element.FontSize
                             let textFormatDescriptor = TextFormatDescriptor.New fontFamily fontSize
-                            VisualTree.NoVisual
+                            let layoutRect = i.ToRectangleF () |> Animated.Constant
+                            VisualTree.Text (text, textFormatDescriptor, layoutRect, foreground |> Animated.Brush.Solid)
     
 
     module Elements = 
-        let Text (ps : PropertyValue list) : Text  = Text()
+        let CreateElement<'T when 'T :> Element and 'T : (new: unit -> 'T)> (pvs : PropertyValue list) = 
+            let element = new 'T()
+            element.AssignFromPropertyValues pvs
+            element
 
-        let Div (ps : PropertyValue list) (children : Element list)  = ()
+        let CreateContainer<'T when 'T :> Layout and 'T : (new: unit -> 'T)> (pvs : PropertyValue list) (children : Element list) = 
+            let layout = CreateElement<'T> pvs
+            let mutable i = 0
+            for child in children do
+                ignore <| layout.InsertChild i child
+                i <- i + 1
+            layout
+
+        let Label (pvs : PropertyValue list) : Label  = CreateElement<Label> pvs
+
+        let Stack (pvs : PropertyValue list) (children : Element list)  = CreateContainer<Stack> pvs children
 
         let body = 
-            Div [
-                    Element.Bounds.Value        Bounds.MinMax
-                    Element.FontFamily.Value    ""
+            Stack 
+                [
+                    Stack.Orientation FromTop
                 ]
                 [
-                    Text []
-                    Text []
-                    Text []
+                    Label []
+                    Label []
+                    Label []
                 ]
+
 

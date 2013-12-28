@@ -112,9 +112,9 @@ module FolderTree =
                 |> List.filter (fun c -> Visual.HasVisuals c)
                 |> List.toArray
 
-            let astroke         = Animated.Brush_Solid stroke
-            let afill           = Animated.Brush_Solid fill
-            let aforeground     = Animated.Brush_Solid foreground
+            let astroke         = Animated.Brush.Solid stroke
+            let afill           = Animated.Brush.Solid fill
+            let aforeground     = Animated.Brush.Solid foreground
             let arect           = Animated.Constant <| SharpDX.RectangleF(xpos, ypos, width, height)
             let astrokeWidth    = Animated.Constant <| 1.0F
 

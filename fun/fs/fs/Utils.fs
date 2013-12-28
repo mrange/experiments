@@ -11,8 +11,22 @@ open System.Windows.Forms
 [<AutoOpen>]
 module Utils =
     
+    let (|IsNaN|IsPositiveInfinity|IsNegativeInfinity|IsNegative|IsPositive|) (v : float32) = 
+        if      Single.IsNaN                v then IsNaN
+        elif    Single.IsPositiveInfinity   v then IsPositiveInfinity
+        elif    Single.IsNegativeInfinity   v then IsNegativeInfinity
+        elif    v < 0.F                       then IsNegative
+        else                                       IsPositive
+
     let inline Zero<'T when 'T : struct> = Unchecked.defaultof<'T>
-    let inline Natural (comparable : 'T when 'T : comparison and 'T : struct) =  if comparable < Zero then Zero else comparable
+//    let inline Natural (comparable : 'T when 'T : comparison and 'T : struct) =  if comparable < Zero then Zero else comparable
+
+    let Clamp (v : float32) =
+        match v with
+        | IsPositiveInfinity    -> v
+        | IsPositive            -> v
+        | _                     -> 0.F
+
 
     let Log             (message  : string)= printfn "Information : %s" message
     let LogWarning      (message  : string)= printfn "Warning     : %s" message

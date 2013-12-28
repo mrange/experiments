@@ -4,7 +4,6 @@ open System
 open System.Diagnostics
 
 open SharpDX
-open SharpDX
 
 [<StructuralEquality>]
 [<StructuralComparison>]

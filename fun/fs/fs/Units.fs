@@ -1,6 +1,11 @@
 ﻿namespace FolderSize
 
+open System
+
+open SharpDX
+
 module Units = 
+
     type ThickessUnit = float32
 
     [<StructuralEquality>]
@@ -12,7 +17,8 @@ module Units =
             Right   : ThickessUnit
             Bottom  : ThickessUnit
         }
-        static member New left top right bottom     = {Left = Natural left; Top = Natural top; Right = Natural right; Bottom = Natural bottom}
+
+        static member New left top right bottom     = {Left = Clamp left; Top = Clamp top; Right = Clamp right; Bottom = Clamp bottom}
         static member Zero                          = Thickness.New 0.F 0.F 0.F 0.F
 
         member x.IsZero with get () = x = Thickness.Zero
@@ -36,11 +42,12 @@ module Units =
     type MeasurementUnit = 
         | FixedMeasurement  of float32
         | Fill
+
         static member Zero = FixedMeasurement 0.F
 
         static member ( + ) (l : MeasurementUnit, r : float32) = 
             match l with
-            | FixedMeasurement  v   -> FixedMeasurement (Natural <| v + r)
+            | FixedMeasurement  v   -> MeasurementUnit.Clamp <| FixedMeasurement (v + r)
             | Fill                  -> Fill
         static member ( - ) (l : MeasurementUnit, r : float32) = l + (-r)
 
@@ -48,11 +55,22 @@ module Units =
             match x,o with
             | Fill              , _                     -> Fill
             | _                 , Fill                  -> Fill
-            | FixedMeasurement l, FixedMeasurement r    -> FixedMeasurement <| max l r
+            | FixedMeasurement l, FixedMeasurement r    -> MeasurementUnit.Clamp <| FixedMeasurement (max l r)
 
-        member x.Natural with get () =  match x with
-                                        | FixedMeasurement b-> FixedMeasurement <| Natural b
-                                        | Fill              -> Fill
+        static member FromFloat32 (v : float32) = 
+            match v with
+            | IsPositiveInfinity    -> Fill
+            | IsPositive            -> FixedMeasurement v
+            | _                     -> FixedMeasurement 0.F
+            
+        static member Clamp (x : MeasurementUnit) =  
+                match x with
+                | Fill              -> Fill
+                | FixedMeasurement m-> 
+                    match m with
+                    | IsPositiveInfinity    -> Fill
+                    | IsPositive            -> FixedMeasurement m
+                    | _                     -> FixedMeasurement 0.F
 
 
     [<StructuralEquality>]
@@ -62,9 +80,11 @@ module Units =
             Width   : MeasurementUnit
             Height  : MeasurementUnit
         }
-        static member New (width : MeasurementUnit) (height : MeasurementUnit) = {Width = width.Natural; Height = height.Natural}
+        static member New (width : MeasurementUnit) (height : MeasurementUnit) = {Width = MeasurementUnit.Clamp width; Height = MeasurementUnit.Clamp height}
         static member Zero = Measurement.New MeasurementUnit.Zero MeasurementUnit.Zero
         static member Fill = Measurement.New Fill Fill
+
+        static member FromSize2 (sz : Size2F) = Measurement.New (MeasurementUnit.FromFloat32 sz.Width) (MeasurementUnit.FromFloat32 sz.Height)
 
         static member ( + ) (l : Measurement, r : Thickness) = 
                             Measurement.New
@@ -93,17 +113,13 @@ module Units =
         static member ( + ) (l : AvailableUnit, r : float32) = 
             match l with
             | Unbound   -> Unbound
-            | Bound v   -> Bound (Natural <| v + r)
+            | Bound v   -> AvailableUnit.Clamp <| Bound (v + r)
         static member ( - ) (l : AvailableUnit, r : float32) = l + (-r)
 
         member x.Max (o : AvailableUnit) = 
             match x,o with
-            | Bound xx  , Bound yy  -> Bound <| max xx yy
+            | Bound xx  , Bound yy  -> AvailableUnit.Clamp <| Bound (max xx yy)
             | _         , _         -> Unbound
-
-        member x.Natural with get () =  match x with
-                                        | Bound b       -> Bound <| Natural b
-                                        | Unbound       -> x
 
         member x.IsMeasurementValid (measurement : MeasurementUnit) = 
                 match x,measurement with
@@ -111,6 +127,19 @@ module Units =
                 | Bound _   , Fill              -> true
                 | Bound b   , FixedMeasurement v-> b >= v
 
+        member x.ToFloat32 () = 
+                match x with 
+                | Unbound   -> Single.PositiveInfinity
+                | Bound b   -> b
+
+        static member Clamp (x : AvailableUnit) =  
+                match x with
+                | Unbound       -> Unbound
+                | Bound m       -> 
+                    match m with
+                    | IsPositiveInfinity    -> Unbound
+                    | IsPositive            -> Bound m
+                    | _                     -> Bound 0.F
 
     [<StructuralEquality>]
     [<StructuralComparison>]
@@ -119,7 +148,7 @@ module Units =
             Width   : AvailableUnit
             Height  : AvailableUnit
         }
-        static member New (width : AvailableUnit) (height : AvailableUnit) = {Width = width.Natural; Height = height.Natural}
+        static member New (width : AvailableUnit) (height : AvailableUnit) = {Width = AvailableUnit.Clamp width; Height = AvailableUnit.Clamp height}
         static member Unbound = Available.New AvailableUnit.Unbound AvailableUnit.Unbound
         static member Zero = Available.New AvailableUnit.Zero AvailableUnit.Zero
 
@@ -134,6 +163,7 @@ module Units =
 
         member x.IsMeasurementValid (m : Measurement)   = x.Width.IsMeasurementValid m.Width && x.Height.IsMeasurementValid m.Height
 
+        member x.ToSize2F () = Size2F(x.Width.ToFloat32 (), x.Height.ToFloat32 ())
 
     type PlacementUnit = float32
 
@@ -146,26 +176,27 @@ module Units =
             Width   : PlacementUnit
             Height  : PlacementUnit
         }
-        static member New x y width height = {X = x; Y = y; Width = Natural width; Height = Natural height}
+        static member New x y width height = {X = x; Y = y; Width = Clamp width; Height = Clamp height}
         static member Zero = Placement.New 0.F 0.F 0.F 0.F
 
         member x.IsZero with get ()     = x = Placement.Zero
 
 
+        member x.ToRectangleF () = RectangleF(x.X, x.Y, x.Width, x.Height)
 
         static member ( + ) (l : Placement, r : Thickness) = 
                             Placement.New
                                 (l.X - r.Left                               )
                                 (l.Y - r.Top                                )
-                                (Natural <| l.Width     + r.Left+ r.Right   )
-                                (Natural <| l.Height    + r.Top + r.Bottom  )
+                                (Clamp <| l.Width     + r.Left+ r.Right   )
+                                (Clamp <| l.Height    + r.Top + r.Bottom  )
 
         static member ( - ) (l : Placement, r : Thickness) = 
                             Placement.New
                                 (l.X + r.Left                               )
                                 (l.Y + r.Top                                )
-                                (Natural <| l.Width     - r.Left- r.Right   )
-                                (Natural <| l.Height    - r.Top - r.Bottom  )
+                                (Clamp <| l.Width     - r.Left- r.Right   )
+                                (Clamp <| l.Height    - r.Top - r.Bottom  )
 
 
     [<StructuralEquality>]
@@ -173,8 +204,7 @@ module Units =
     type PositionUnit = 
         | MinPos
         | MaxPos
-        member x.Natural with get () =  match x with
-                                        | _             -> x
+        static member Clamp (x : PositionUnit) = x 
 
     [<StructuralEquality>]
     [<StructuralComparison>]
@@ -182,9 +212,15 @@ module Units =
         | MinSize
         | MaxSize
         | FixedSize of float32
-        member x.Natural with get () =  match x with
-                                        | FixedSize fs  -> FixedSize <| Natural fs
-                                        | _             -> x
+        static member Clamp (x : SizeUnit) =  
+                match x with
+                | MinSize       -> MinSize
+                | MaxSize       -> MaxSize
+                | FixedSize m   -> 
+                    match m with
+                    | IsPositiveInfinity    -> MaxSize
+                    | IsPositive            -> FixedSize m
+                    | _                     -> FixedSize 0.F
 
     [<StructuralEquality>]
     [<StructuralComparison>]
@@ -195,7 +231,7 @@ module Units =
             Width   : SizeUnit
             Height  : SizeUnit
         }
-        static member New (x : PositionUnit) (y : PositionUnit) (width : SizeUnit) (height : SizeUnit) = {X = x.Natural; Y = y.Natural; Width = width.Natural; Height = height.Natural}
+        static member New (x : PositionUnit) (y : PositionUnit) (width : SizeUnit) (height : SizeUnit) = {X = PositionUnit.Clamp x; Y = PositionUnit.Clamp y; Width = SizeUnit.Clamp width; Height = SizeUnit.Clamp height}
         static member MinMin = Bounds.New MinPos MinPos MinSize MinSize
         static member MinMax = Bounds.New MinPos MinPos MaxSize MaxSize
         static member MaxMin = Bounds.New MaxPos MaxPos MinSize MinSize
