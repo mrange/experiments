@@ -20,6 +20,7 @@ module Units =
 
         static member New left top right bottom     = {Left = Clamp left; Top = Clamp top; Right = Clamp right; Bottom = Clamp bottom}
         static member Zero                          = Thickness.New 0.F 0.F 0.F 0.F
+        static member Uniform w                     = Thickness.New w w w w
 
         member x.IsZero with get () = x = Thickness.Zero
 

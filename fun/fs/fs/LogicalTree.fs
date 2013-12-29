@@ -34,6 +34,7 @@ module Logical =
         | FromTop
         | FromBottom
 
+
     module Foundation = 
         type IElementContext = 
             abstract member MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
@@ -462,47 +463,79 @@ module Logical =
         type StackElement() = 
             inherit LayoutElement()
 
-            let AccumulateHeight (height : float32) (m : Measurement) = m
-            let SubtractHeight (a : Available) (height : float32) = a
+            let AccumulateMeasurementUnit   (measurement : MeasurementUnit) (other : MeasurementUnit) = measurement
+            let SubtractAvailable           (available : AvailableUnit) (other : MeasurementUnit) = available
+                
+            let AccumulateMeasurement   (orientation : StackOrientation) (measurement : Measurement) (other : Measurement) = 
+                match orientation with
+                | FromLeft | FromRight  -> Measurement.New (AccumulateMeasurementUnit measurement.Width other.Width) measurement.Height
+                | FromTop  | FromBottom -> Measurement.New measurement.Width (AccumulateMeasurementUnit measurement.Height other.Height) 
+                
+            let SubtractAvailable       (orientation : StackOrientation) (available : Available) (other : Measurement) = 
+                match orientation with
+                | FromLeft | FromRight  -> Available.New (SubtractAvailable available.Width other.Width) available.Height
+                | FromTop  | FromBottom -> Available.New available.Width (SubtractAvailable available.Height other.Height) 
 
+            let AccumulatePlacement   (orientation : StackOrientation) (placement : Placement) (other : Measurement) = 
+                match orientation with
+                | FromLeft  -> placement,placement
+                | FromRight -> placement,placement
+                | FromTop   -> placement,placement
+                | FromBottom-> placement,placement
+                
             static let Persistent id valueChanged value = Property.Persistent typeof<StackElement> id valueChanged value 
 
             static member Orientation   = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
 
-    //        override x.OnMeasureContent a   = 
-    //                    let mutable height = 0.F
-    //
-    //                    let children = x.Children
-    //                    for c in children do
-    //                        let measurement = c.MeasureElement <| SubtractHeight a height
-    //                        height <- AccumulateHeight height measurement
-    //
-    //                    m
-    //
-    //        override x.OnPlaceContent p     = 
-    //                    let children = x.Children
-    //                    for c in children do
-    //                        let cachedMeasurement = c.Get Element.Measurement
-    //                        match cachedMeasurement with
-    //                        | None      -> ()
-    //                        | Some m    ->
-    //                            c.PlaceElement <| AdjustPlacement m p
-    //
-    //                    ()
+            override x.OnMeasureContent a   = 
+                        let orientation = x.Get StackElement.Orientation
 
-        type LabelElement() =
+                        let mutable measurement = Measurement.Zero
+                        let mutable remaining   = a
+
+                        let children = x.Children
+                        for c in children do
+                            let cm = c.MeasureElement a
+
+                            measurement <- AccumulateMeasurement orientation measurement cm
+                            remaining   <- SubtractAvailable orientation remaining cm
+    
+                        measurement
+    
+            override x.OnPlaceContent p     = 
+                        let orientation = x.Get StackElement.Orientation
+
+                        let mutable placement = p
+
+                        let children = x.Children
+                        for c in children do
+                            let cachedMeasurement = c.Get Element.Measurement
+                            match cachedMeasurement with
+                            | None      -> ()
+                            | Some m    ->
+                                let p,i = AccumulatePlacement orientation placement m
+                                c.PlaceElement i
+                                placement <- p
+    
+                        ()
+
+        [<AbstractClass>]
+        type TextElement() =
             inherit Element()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<LabelElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent typeof<TextElement> id valueChanged value 
 
             static member Text          = Persistent     "Text"        InvalidateMeasurement  (Value ""              )
+
+        type LabelElement() =
+            inherit TextElement()
 
             override x.OnMeasureContent a = 
                         let context = x.Context
                         match context with
                         | None          -> Debug.Assert false; Measurement.Fill
                         | Some context  -> 
-                            let text = x.Get LabelElement.Text
+                            let text = x.Get TextElement.Text
                             if text.Length = 0 then Measurement.Zero
                             else
                                 let tfd = x.Get Element.TextFormatDescriptor
@@ -512,7 +545,7 @@ module Logical =
 
             override x.OnRenderContent (o : Placement)
                                        (i : Placement) =
-                            let text = x.Get LabelElement.Text
+                            let text = x.Get TextElement.Text
                             if text = "" then VisualTree.NoVisual
                             else 
                                 let foreground = x.Get Element.Foreground
@@ -522,7 +555,59 @@ module Logical =
                                 let layoutRect = i.ToRectangleF () |> Animated.Constant
                                 VisualTree.Text (text, textFormatDescriptor, layoutRect, foreground |> Animated.Brush.Solid)
     
+        type ButtonState =
+            | Normal
+            | Highlighted
+            | Pressed
 
+        type ButtonElement() as x=
+            inherit DecoratorElement()
+
+            static let Persistent id valueChanged value = Property.Persistent typeof<ButtonElement> id valueChanged value 
+
+            do
+                x.Set Element.Foreground <| (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.White)
+                x.Set Element.Background <| (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Black)
+
+            static member ButtonState       = Persistent     "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
+
+            static member Highlight         = Persistent     "Highlight"        InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Purple      )
+            static member Pressed           = Persistent     "Pressed"          InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.LightBlue   )
+            static member Border            = Persistent     "Border"           InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.White       )
+            static member BorderThickness   = Persistent     "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
+
+            override x.OnGetBox ()          = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
+
+            override x.OnMeasureContent a = 
+                        let context = x.Context
+                        match context with
+                        | None          -> Debug.Assert false; Measurement.Fill
+                        | Some context  -> 
+                            match x.Child with
+                            | Some c    -> c.MeasureElement a
+                            | None      -> Measurement.Zero
+
+
+            override x.OnRenderContent (o : Placement)
+                                       (i : Placement) =
+                            let r = (o + x.Get Element.Margin).ToRectangleF ()
+
+                            let state = x.Get ButtonElement.ButtonState
+                            let borderThickness = x.Get ButtonElement.BorderThickness
+                            let border          = x.Get ButtonElement.Border
+
+                            let background = 
+                                match state with
+                                | Normal        -> x.Get ButtonElement.Background
+                                | Highlighted   -> x.Get ButtonElement.Highlight
+                                | Pressed       -> x.Get ButtonElement.Pressed
+                            VisualTree.Rectangle (
+                                border |> Animated.Brush.Solid      , 
+                                background |> Animated.Brush.Solid  , 
+                                r |> Animated.Constant              , 
+                                borderThickness |> Animated.Constant
+                                )
+    
     module Properties = 
 
         open Foundation
