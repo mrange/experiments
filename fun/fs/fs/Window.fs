@@ -7,6 +7,8 @@ open System.Collections.Generic
 
 open SharpDX
 
+open Visual
+
 module Window = 
 
     let Show (source : IObservableSource) (input : IObservable<VisualTree>) = 

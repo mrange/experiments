@@ -5,6 +5,7 @@ open System.Threading
 
 
 open SharpDX
+open Visual
 
 module FolderTree = 
 

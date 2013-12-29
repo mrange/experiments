@@ -9,6 +9,7 @@ open System.Runtime.InteropServices
 open SharpDX
 
 open Units
+open Visual
 
 module Logical = 
 
@@ -387,11 +388,25 @@ module Logical =
         type [<AbstractClass>] DecoratorElement() =
             inherit ContainerElement()
 
-            let mutable child : Element option = None
+            static let InvalidateChild (e : Element) (ov : Element option) (nv : Element option) = 
+                        match ov with
+                        | None          -> ()
+                        | Some child    -> child.ClearParent () // Invalidates old parent
+
+                        match nv with
+                        | None          -> ()
+                        | Some child    -> child.SetParent e    // Invalidates parent
+
+            static let Persistent id valueChanged value = Property.Persistent typeof<DecoratorElement> id valueChanged value 
 
             let mutable cachedChildren : Element array option = None
 
+
+            static member Child     = Persistent     "Child"        InvalidateChild <| Value (None : Element option)
+
+
             override x.OnChildren () = 
+                        let child = x.Get DecoratorElement.Child
                         match cachedChildren, child with
                         | Some c    , _         -> c
                         | None      , Some c    -> 
@@ -404,27 +419,16 @@ module Logical =
                             children
                                     
             override x.OnMeasureContent a   =   
+                        let child = x.Get DecoratorElement.Child
                         match child with
                         | None      -> Measurement.Zero
                         | Some c    -> c.MeasureElement a
 
             override x.OnPlaceContent p     =   
+                        let child = x.Get DecoratorElement.Child
                         match child with
                         | None      -> ()
                         | Some c    -> c.PlaceElement p
-
-            member x.Child 
-                with get () =   child
-                and set (c : Element option)   =   
-                        match child with
-                        | None          -> ()
-                        | Some child    -> child.ClearParent () // Invalidates old parent
-
-                        match c with
-                        | None          -> ()
-                        | Some child    -> child.SetParent x    // Invalidates parent
-
-                        child <- c
 
         type [<AbstractClass>] LayoutElement() = 
             inherit ContainerElement()
@@ -525,7 +529,7 @@ module Logical =
 
             static let Persistent id valueChanged value = Property.Persistent typeof<TextElement> id valueChanged value 
 
-            static member Text          = Persistent     "Text"        InvalidateMeasurement  (Value ""              )
+            static member Text          = Persistent     "Text"        InvalidateMeasurement  <| Value ""              
 
         type LabelElement() =
             inherit TextElement()
@@ -578,16 +582,6 @@ module Logical =
 
             override x.OnGetBox ()          = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
 
-            override x.OnMeasureContent a = 
-                        let context = x.Context
-                        match context with
-                        | None          -> Debug.Assert false; Measurement.Fill
-                        | Some context  -> 
-                            match x.Child with
-                            | Some c    -> c.MeasureElement a
-                            | None      -> Measurement.Zero
-
-
             override x.OnRenderContent (o : Placement)
                                        (i : Placement) =
                             let r = (o + x.Get Element.Margin).ToRectangleF ()
@@ -623,10 +617,17 @@ module Logical =
     
         let Padding         = ContainerElement.Padding
 
+        let Child           = DecoratorElement.Child
+
         let Orientation     = StackElement.Orientation
+
+        let Text            = TextElement.Text
+
 
     open Foundation
     open Standard
+
+    let SomeElement (e : #Element) = Some (e :> Element)
 
     let CreateElement<'T when 'T :> Element and 'T : (new: unit -> 'T)> (pvs : PropertyValue list) = 
         let element = new 'T()
@@ -645,3 +646,8 @@ module Logical =
 
     let Stack (pvs : PropertyValue list) (children : Element list)  = CreateContainer<StackElement> pvs children
 
+    let Button (pvs : PropertyValue list) = CreateElement<ButtonElement> pvs
+
+    let TextButton text (pvs : PropertyValue list) = 
+        let pv : PropertyValue = upcast Properties.Child.Value (SomeElement <| Label [ Properties.Text.Value text])
+        Button <| pv::pvs

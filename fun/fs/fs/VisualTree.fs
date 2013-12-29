@@ -3,20 +3,20 @@
 open System
 open SharpDX
 
-[<ReferenceEquality>]
-[<NoComparison>]
-type VisualTree =
-    | NoVisual
-    | Rectangle of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat
-    | Line      of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush*StrokeWidth:AnimatedFloat
-    | Text      of Text:string*TextFormat:TextFormatDescriptor*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
-    | Transform of Transform:AnimatedMatrix*Child:VisualTree
-    | Group     of Children:VisualTree array
-    | Fork      of Left:VisualTree*Right:VisualTree
-    | State     of State:obj*Child:VisualTree
-         
 module Visual = 
 
+    [<ReferenceEquality>]
+    [<NoComparison>]
+    type VisualTree =
+        | NoVisual
+        | Rectangle of Stroke:AnimatedBrush*Fill:AnimatedBrush*Rect:AnimatedRectangleF*StrokeWidth:AnimatedFloat
+        | Line      of Point0:AnimatedVector2*Point1:AnimatedVector2*Brush:AnimatedBrush*StrokeWidth:AnimatedFloat
+        | Text      of Text:string*TextFormat:TextFormatDescriptor*LayoutRect:AnimatedRectangleF*Foreground:AnimatedBrush
+        | Transform of Transform:AnimatedMatrix*Child:VisualTree
+        | Group     of Children:VisualTree array
+        | Fork      of Left:VisualTree*Right:VisualTree
+        | State     of State:obj*Child:VisualTree
+         
     let rec HasVisuals (vt : VisualTree) =
         match vt with
         | NoVisual          -> false

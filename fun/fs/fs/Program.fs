@@ -4,6 +4,7 @@ open FolderSize
 open System
 open SharpDX
 
+open Units
 open Logical
 open Logical.Properties
 
@@ -20,9 +21,14 @@ let main argv =
                 Orientation.Value FromTop
             ]
             [
-                Label []
-                Label []
-                Label []
+                Label 
+                    [ 
+                        Margin  .Value <| Thickness.Uniform 4.F
+                        Text    .Value "Hi there!" 
+                    ]
+                TextButton "Click me!"
+                    [ 
+                    ]
             ]
 
 
