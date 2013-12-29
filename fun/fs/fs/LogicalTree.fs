@@ -64,17 +64,19 @@ module Logical =
 
             static member Value v = fun () -> v
 
-            static member Persistent declaringType id valueChanged valueCreator = PersistentProperty<'T>(id,declaringType,valueCreator,valueChanged)
-            static member Computed   declaringType id computeValue = ComputedProperty<'T>(id,declaringType,computeValue)
+            static member Persistent<'TDeclaringType, 'T when 'T : equality> 
+                            id valueChanged valueCreator = PersistentProperty<'TDeclaringType, 'T>(id,valueCreator,valueChanged)
+            static member Computed<'TDeclaringType, 'T>   
+                            id computeValue = ComputedProperty<'TDeclaringType, 'T>(id,computeValue)
 
-            static member Empty = Property.Computed typeof<Property> "<EMPTY>" <| fun le -> obj()
+            static member Empty = Property.Computed<Property, obj> "<EMPTY>" <| fun le -> obj()
 
 
-        and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
-            inherit Property(id, typeof<'T>, declaringType)    
+        and [<AbstractClass>] Property<'TDeclaringType, 'T>(id : string) = 
+            inherit Property(id, typeof<'T>, typeof<'TDeclaringType>)    
 
-        and [<Sealed>] PersistentProperty<'T when 'T : equality>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
-            inherit Property<'T>(id, typeof<'T>)    
+        and [<Sealed>] PersistentProperty<'TDeclaringType, 'T when 'T : equality>(id : string, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+            inherit Property<'TDeclaringType, 'T>(id)    
 
             override x.OnIsComputed ()      = false
             override x.OnIsPersistent ()    = true
@@ -86,10 +88,10 @@ module Logical =
             member x.ValueChanged le oldValue newValue      = 
                         valueChanged le oldValue newValue
 
-            member x.Value (v : 'T) = PropertyValue<'T>(x, v)
+            member x.Value (v : 'T) = PropertyValue<'TDeclaringType, 'T>(x, v)
 
-        and [<Sealed>] ComputedProperty<'T>(id : string, declaringType : Type, computeValue : ComputePropertyValue<'T>) = 
-            inherit Property<'T>(id, typeof<'T>)
+        and [<Sealed>] ComputedProperty<'TDeclaringType, 'T>(id : string, computeValue : ComputePropertyValue<'T>) = 
+            inherit Property<'TDeclaringType, 'T>(id)
 
             override x.OnIsComputed ()      = true
             override x.OnIsPersistent ()    = false
@@ -107,7 +109,7 @@ module Logical =
 
             member x.Property   = p
 
-        and PropertyValue<'T when 'T : equality>(p : PersistentProperty<'T>, v : 'T)= 
+        and PropertyValue<'TDeclaringType, 'T when 'T : equality>(p : PersistentProperty<'TDeclaringType, 'T>, v : 'T)= 
             inherit PropertyValue(p)
         
             member x.Value      = v
@@ -126,8 +128,8 @@ module Logical =
             static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
             static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<Element> id valueChanged value 
-            static let Computed   id computeValue       = Property.Computed   typeof<Element> id computeValue
+            static let Persistent id valueChanged value = Property.Persistent<Element,_> id valueChanged value 
+            static let Computed   id computeValue       = Property.Computed<Element,_> id computeValue
 
             static let children : Element array = [||]
             let properties = Dictionary<Property, obj>()
@@ -158,12 +160,9 @@ module Logical =
                                 parent <- None
                                 context <- None
 
-            member private x.ValidateProperty (lp :Property<'T>) =
-                let t = x.GetType ()
-                if not <| lp.IsMemberOf t then
-                    failwithf "Property %s.%s is not a member %s" lp.DeclaringType.Name lp.Id t.Name
+            member private x.ValidateProperty (lp :Property<'TDeclaringType, 'T>) = ()
 
-            member private x.TryGet (lp :Property<'T>)  : 'T option = 
+            member private x.TryGet (lp :Property<'TDeclaringType, 'T>)  : 'T option = 
                     let v = properties.Find lp
                     match v with
                     | None      -> None
@@ -174,11 +173,11 @@ module Logical =
                         | Some tv   -> Some tv
 
 
-            member x.Get    (lp : ComputedProperty<'T>)  : 'T = 
+            member x.Get    (lp : ComputedProperty<'TDeclaringType, 'T>)  : 'T = 
                     x.ValidateProperty lp
                     lp.ComputeValue x
 
-            member x.Get    (lp : PersistentProperty<'T>)  : 'T = 
+            member x.Get    (lp : PersistentProperty<'TDeclaringType, 'T>)  : 'T = 
                     x.ValidateProperty lp
                     let v = x.TryGet lp
                     match v with
@@ -190,20 +189,20 @@ module Logical =
                             properties.Add(lp,dv)
                         dv  // No ValueChanged on initializing the default value
 
-            member x.Get    (lp : Property<'T>)           : 'T = 
+            member x.Get    (lp : Property<'TDeclaringType, 'T>)           : 'T = 
                     if lp.IsComputed then
-                        x.Get (lp :?> ComputedProperty<'T>)
+                        x.Get (lp :?> ComputedProperty<'TDeclaringType, 'T>)
                     else
-                        x.Get (lp :?> PersistentProperty<'T>)
+                        x.Get (lp :?> PersistentProperty<'TDeclaringType, 'T>)
 
-            member x.Set<'T when 'T : equality> (lp : PersistentProperty<'T>) (v : 'T)  : unit = 
+            member x.Set<'TDeclaringType, 'T when 'T : equality> (lp : PersistentProperty<'TDeclaringType, 'T>) (v : 'T)  : unit = 
                     x.ValidateProperty lp
                     let pv = x.Get lp
                     if pv = v then ()
                     else
                         properties.[lp] <- v
                         lp.ValueChanged x pv v
-            member x.Clear  (lp : PersistentProperty<'T>)           : unit = 
+            member x.Clear  (lp : PersistentProperty<'TDeclaringType, 'T>)           : unit = 
                     x.ValidateProperty lp
                     let v = x.TryGet lp
                     ignore <| properties.Remove lp  // Shouldn't be necessary but if the TryGet assert fails this is required to clear local value
@@ -377,7 +376,7 @@ module Logical =
         type [<AbstractClass>] ContainerElement() = 
             inherit Element()
     
-            static let Persistent id valueChanged value = Property.Persistent typeof<ContainerElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<ContainerElement,_> id valueChanged value 
 
             static member Padding           = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
 
@@ -465,7 +464,7 @@ module Logical =
             let AccumulateHeight (height : float32) (m : Measurement) = m
             let SubtractHeight (a : Available) (height : float32) = a
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<StackElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<StackElement, _> id valueChanged value 
 
             static member Orientation   = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
 
@@ -493,7 +492,7 @@ module Logical =
         type LabelElement() =
             inherit Element()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<LabelElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<LabelElement, _> id valueChanged value 
 
             static member Text          = Persistent     "Text"        InvalidateMeasurement  (Value ""              )
 
