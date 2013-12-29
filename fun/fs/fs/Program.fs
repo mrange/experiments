@@ -4,12 +4,28 @@ open FolderSize
 open System
 open SharpDX
 
+open Logical
+open Logical.Properties
+
 [<EntryPoint>]
 let main argv = 
 
     let os,o = FolderTree.BuildPipe <| Scanner.Start """C:\Temp\"""
 
     use onExitDisposeSource = OnExit <| fun () -> TryDispose os
+
+    let body = 
+        Stack 
+            [
+                Orientation.Value FromTop
+            ]
+            [
+                Label []
+                Label []
+                Label []
+            ]
+
+
 
 //    let myui = 
 //        ui {
