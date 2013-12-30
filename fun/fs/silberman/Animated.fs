@@ -1,7 +1,6 @@
 ﻿namespace silberman
 
 open SharpDX
-open SharpDX
 
 open Fundamental
 open Device

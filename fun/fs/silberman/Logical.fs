@@ -4,7 +4,6 @@ open System
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Diagnostics
-open System.Runtime.InteropServices
 
 open SharpDX
 

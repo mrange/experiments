@@ -4,9 +4,6 @@ open SharpDX
 
 open System
 open System.Diagnostics
-
-open System
-open System.Diagnostics
 open System.Threading
 open System.Collections.Generic
 
