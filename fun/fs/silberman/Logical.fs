@@ -1,4 +1,4 @@
-﻿namespace FolderSize
+﻿namespace silberman
 
 open System
 open System.Collections.Concurrent
@@ -8,10 +8,10 @@ open System.Runtime.InteropServices
 
 open SharpDX
 
-open Units
+open Fundamental
 open Visual
 
-module Logical = 
+module public Logical = 
 
     [<StructuralEquality>]
     [<StructuralComparison>]
@@ -73,14 +73,20 @@ module Logical =
                                 implicit.Clear ()
 
             member private x.TryFindBase_NoLock (k : Type) = 
-                let b = k.BaseType
-                let f : 'T option = 
-                    if b = null then 
-                        None
+                let v = RefOf<'T>
+                let found = explicit.TryGetValue(k, v)
+                if found then
+                    let r = Some !v
+                    ignore <| implicit.TryAdd(k,r)
+                    r
+                else
+                    let b = k.BaseType
+                    if b = null then None
                     else
-                        x.TryFind b
-                ignore <| implicit.TryAdd(b,f)
-                f
+                        let r = x.TryFindBase_NoLock b 
+                        ignore <| implicit.TryAdd(k,r)
+                        r
+
 
             member x.TryFind k = 
                 let v : 'T option ref = ref None
@@ -149,7 +155,7 @@ module Logical =
             inherit Property(id, typeof<'T>, declaringType)    
 
         and [<Sealed>] PersistentProperty<'T when 'T : equality>(id : string, declaringType : Type, defaultValue : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
-            inherit Property<'T>(id, typeof<'T>)    
+            inherit Property<'T>(id, declaringType)    
 
             static let overrideDefaultValue = TypeDictionary<PropertyDefaultValue<'T>>()
             static let overrideValueChanged = TypeDictionary<PropertyValueChanged<'T>>()
@@ -182,7 +188,7 @@ module Logical =
                         ()
 
         and [<Sealed>] ComputedProperty<'T>(id : string, declaringType : Type, computeValue : ComputePropertyValue<'T>) = 
-            inherit Property<'T>(id, typeof<'T>)
+            inherit Property<'T>(id, declaringType)
 
             static let overrideCompute = TypeDictionary<ComputePropertyValue<'T>>()
 

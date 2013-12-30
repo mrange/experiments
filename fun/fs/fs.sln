@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.21005.1
+VisualStudioVersion = 12.0.21126.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fs", "fs\fs.fsproj", "{5988EEC1-B682-499B-ACAD-110BFE64D5F2}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "silberman", "silberman\silberman.fsproj", "{94288CC6-68F8-4DF3-8101-62E1EDDB193B}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "silberman.testapp", "silberman.testapp\silberman.testapp.fsproj", "{280E62EC-30EB-4B37-B88F-DB44E5636586}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,9 +16,15 @@ Global
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{5988EEC1-B682-499B-ACAD-110BFE64D5F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5988EEC1-B682-499B-ACAD-110BFE64D5F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5988EEC1-B682-499B-ACAD-110BFE64D5F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5988EEC1-B682-499B-ACAD-110BFE64D5F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94288CC6-68F8-4DF3-8101-62E1EDDB193B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94288CC6-68F8-4DF3-8101-62E1EDDB193B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94288CC6-68F8-4DF3-8101-62E1EDDB193B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94288CC6-68F8-4DF3-8101-62E1EDDB193B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{280E62EC-30EB-4B37-B88F-DB44E5636586}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{280E62EC-30EB-4B37-B88F-DB44E5636586}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{280E62EC-30EB-4B37-B88F-DB44E5636586}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{280E62EC-30EB-4B37-B88F-DB44E5636586}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
