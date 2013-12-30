@@ -27,6 +27,8 @@ type BrushDescriptor    =
     | Transparent
     | SolidColor    of ColorDescriptor
 
+
+
 [<StructuralEquality>]
 [<StructuralComparison>]
 type TextFormatDescriptor   =

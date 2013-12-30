@@ -121,10 +121,10 @@ module Logical =
 
             static member Value v = fun () -> v
 
-            static member Persistent declaringType id valueChanged valueCreator = PersistentProperty<'T>(id,declaringType,valueCreator,valueChanged)
-            static member Computed   declaringType id computeValue = ComputedProperty<'T>(id,declaringType,computeValue)
+            static member Persistent<'TDeclaring, 'T when 'T : equality> id valueChanged valueCreator = PersistentProperty<'T>(id,typeof<'TDeclaring>,valueCreator,valueChanged)
+            static member Computed<'TDeclaring, 'T>   id computeValue = ComputedProperty<'T>(id,typeof<'TDeclaring>,computeValue)
 
-            static member Empty = Property.Computed typeof<Property> "<EMPTY>" <| fun le -> obj()
+            static member Empty = Property.Computed<Property, _> "<EMPTY>" <| fun le -> obj()
 
 
         and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
@@ -152,7 +152,8 @@ module Logical =
 
             member x.Value (v : 'T) = PropertyValue<'T>(x, v)
 
-            member x.Override (overrideType : Type) (defaultValue : PropertyDefaultValue<'T> option) (valueChanged : PropertyValueChanged<'T> option) =
+            member x.Override<'TOverride> (defaultValue : PropertyDefaultValue<'T> option) (valueChanged : PropertyValueChanged<'T> option) =
+                        let overrideType = typeof<'TOverride>
                         x.ValidateProperty overrideType
                         match defaultValue with
                         | Some defaultValue -> overrideDefaultValue.Replace overrideType defaultValue
@@ -174,7 +175,8 @@ module Logical =
                         let cv = (overrideCompute.TryFind <| e.GetType()) <??> computeValue
                         cv e
 
-            member x.Override (overrideType : Type) (computeValue : ComputePropertyValue<'T> option) =
+            member x.Override<'TOverride> (computeValue : ComputePropertyValue<'T> option) =
+                        let overrideType = typeof<'TOverride>
                         x.ValidateProperty overrideType
                         match computeValue with
                         | Some computeValue -> overrideCompute.Replace overrideType computeValue
@@ -211,8 +213,8 @@ module Logical =
             static let __InvalidatePlacement   (le : Element) (ov : 'T) (nv : 'T) = le.InvalidatePlacement     ()
             static let __InvalidateVisual      (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateVisual        ()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<Element> id valueChanged value 
-            static let Computed   id computeValue       = Property.Computed   typeof<Element> id computeValue
+            static let Persistent id valueChanged value = Property.Persistent<Element, _>   id valueChanged value 
+            static let Computed   id computeValue       = Property.Computed<Element, _>     id computeValue
 
             static let children : Element array = [||]
             let properties = Dictionary<Property, obj>()
@@ -460,7 +462,7 @@ module Logical =
         type [<AbstractClass>] ContainerElement() = 
             inherit Element()
     
-            static let Persistent id valueChanged value = Property.Persistent typeof<ContainerElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<ContainerElement, _>  id valueChanged value 
 
             static member Padding           = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
 
@@ -478,7 +480,7 @@ module Logical =
                         | None          -> ()
                         | Some child    -> child.SetParent e    // Invalidates parent
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<DecoratorElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<DecoratorElement, _>  id valueChanged value 
 
             let mutable cachedChildren : Element array option = None
 
@@ -568,7 +570,7 @@ module Logical =
                 | FromTop   -> placement,placement
                 | FromBottom-> placement,placement
                 
-            static let Persistent id valueChanged value = Property.Persistent typeof<StackElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<StackElement, _>  id valueChanged value 
 
             static member Orientation   = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
 
@@ -608,7 +610,7 @@ module Logical =
         type TextElement() =
             inherit Element()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<TextElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<TextElement, _> id valueChanged value 
 
             static member Text          = Persistent     "Text"        InvalidateMeasurement  <| Value ""              
 
@@ -645,14 +647,14 @@ module Logical =
             | Highlighted
             | Pressed
 
-        type ButtonElement() as x=
+        type ButtonElement() =
             inherit DecoratorElement()
 
-            static let Persistent id valueChanged value = Property.Persistent typeof<ButtonElement> id valueChanged value 
+            static let Persistent id valueChanged value = Property.Persistent<ButtonElement, _> id valueChanged value 
 
-            do
-                Element.Foreground.Override typeof<ButtonElement> (Some <| Value (SolidBrush Color.White)) None
-                Element.Background.Override typeof<ButtonElement> (Some <| Value (SolidBrush Color.Black)) None
+            static do
+                Element.Foreground.Override<ButtonElement> (Some <| Value (SolidBrush Color.White)) None
+                Element.Background.Override<ButtonElement> (Some <| Value (SolidBrush Color.Black)) None
 
             static member ButtonState       = Persistent     "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
 
