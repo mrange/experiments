@@ -35,10 +35,61 @@ module Logical =
         | FromTop
         | FromBottom
 
+    let TransparentBrush        = BrushDescriptor.Transparent
+    let SolidBrush (c : Color)  = BrushDescriptor.SolidColor <| ColorDescriptor.Color c
 
     module Foundation = 
         type IElementContext = 
             abstract member MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
+
+        type TypeDictionary<'T>() =
+
+            let safe     = obj()
+            let explicit = ConcurrentDictionary<Type,'T>()
+            let implicit = ConcurrentDictionary<Type,'T option>()
+            
+            member x.Add k v = 
+                lock safe <| fun () -> 
+                                if explicit.TryAdd(k,v) then
+                                    implicit.Clear ()
+                                else 
+                                    ()
+
+            member x.Replace k (v : 'T) = 
+                lock safe <| fun () -> 
+                                ignore <| explicit.AddOrUpdate(k,v,(fun _ _ -> v))
+                                implicit.Clear ()
+
+            member x.Remove k v = 
+                lock safe <| fun () -> 
+                                if explicit.TryRemove(k,v) then
+                                    implicit.Clear ()
+                                else 
+                                    ()
+
+            member x.Clear () =
+                lock safe <| fun () -> 
+                                explicit.Clear ()
+                                implicit.Clear ()
+
+            member private x.TryFindBase_NoLock (k : Type) = 
+                let b = k.BaseType
+                let f : 'T option = 
+                    if b = null then 
+                        None
+                    else
+                        x.TryFind b
+                ignore <| implicit.TryAdd(b,f)
+                f
+
+            member x.TryFind k = 
+                let v : 'T option ref = ref None
+                if implicit.TryGetValue(k, v) then
+                    !v
+                else
+                    lock safe <| fun () -> x.TryFindBase_NoLock k
+                        
+                    
 
         [<NoEquality>]
         [<NoComparison>]
@@ -54,7 +105,7 @@ module Logical =
             member x.Id             = id
             member x.Type           = ``type``
             member x.DeclaringType  = declaringType
-            member x.IsEmpty                                = x.Equals (Property.Empty)
+            member x.IsEmpty        = x.Equals (Property.Empty)
 
             member x.IsMemberOf (t : Type) = declaringType.IsAssignableFrom t
 
@@ -63,6 +114,10 @@ module Logical =
 
             abstract OnIsPersistent : unit -> bool
             member x.IsPersistent   = x.OnIsPersistent ()
+
+            member x.ValidateProperty (t : Type) =
+                if not <| x.IsMemberOf t then
+                    failwithf "Property %s.%s is not a member %s" x.DeclaringType.Name x.Id t.Name
 
             static member Value v = fun () -> v
 
@@ -75,28 +130,56 @@ module Logical =
         and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
             inherit Property(id, typeof<'T>, declaringType)    
 
-        and [<Sealed>] PersistentProperty<'T when 'T : equality>(id : string, declaringType : Type, value : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
+        and [<Sealed>] PersistentProperty<'T when 'T : equality>(id : string, declaringType : Type, defaultValue : PropertyDefaultValue<'T>, valueChanged : PropertyValueChanged<'T>)= 
             inherit Property<'T>(id, typeof<'T>)    
+
+            static let overrideDefaultValue = TypeDictionary<PropertyDefaultValue<'T>>()
+            static let overrideValueChanged = TypeDictionary<PropertyValueChanged<'T>>()
 
             override x.OnIsComputed ()      = false
             override x.OnIsPersistent ()    = true
 
             member x.DefaultValue (e : Element)             = 
-                        match value with
+                        let dv = (overrideDefaultValue.TryFind <| e.GetType()) <??> defaultValue
+                        match dv with
                         | Value         v -> v      , true
-                        | ValueCreator  v -> v e    , false
-            member x.ValueChanged le oldValue newValue      = 
-                        valueChanged le oldValue newValue
+                        | ValueCreator  vc-> vc e   , false
+
+            member x.ValueChanged e oldValue newValue      = 
+                        let vc = (overrideValueChanged.TryFind <| e.GetType()) <??> valueChanged
+                        vc e oldValue newValue
+                        
 
             member x.Value (v : 'T) = PropertyValue<'T>(x, v)
+
+            member x.Override (overrideType : Type) (defaultValue : PropertyDefaultValue<'T> option) (valueChanged : PropertyValueChanged<'T> option) =
+                        x.ValidateProperty overrideType
+                        match defaultValue with
+                        | Some defaultValue -> overrideDefaultValue.Replace overrideType defaultValue
+                        | None              -> ()
+                        match valueChanged with
+                        | Some valueChanged -> overrideValueChanged.Replace overrideType valueChanged
+                        | None              -> ()
+                        ()
 
         and [<Sealed>] ComputedProperty<'T>(id : string, declaringType : Type, computeValue : ComputePropertyValue<'T>) = 
             inherit Property<'T>(id, typeof<'T>)
 
+            static let overrideCompute = TypeDictionary<ComputePropertyValue<'T>>()
+
             override x.OnIsComputed ()      = true
             override x.OnIsPersistent ()    = false
 
-            member x.ComputeValue (e : Element)             = computeValue e
+            member x.ComputeValue (e : Element) = 
+                        let cv = (overrideCompute.TryFind <| e.GetType()) <??> computeValue
+                        cv e
+
+            member x.Override (overrideType : Type) (computeValue : ComputePropertyValue<'T> option) =
+                        x.ValidateProperty overrideType
+                        match computeValue with
+                        | Some computeValue -> overrideCompute.Replace overrideType computeValue
+                        | None              -> ()
+                        ()
 
         and [<AbstractClass>] PropertyValue(p : Property) =  
         
@@ -161,9 +244,7 @@ module Logical =
                                 context <- None
 
             member private x.ValidateProperty (lp :Property<'T>) =
-                let t = x.GetType ()
-                if not <| lp.IsMemberOf t then
-                    failwithf "Property %s.%s is not a member %s" lp.DeclaringType.Name lp.Id t.Name
+                lp.ValidateProperty <| x.GetType()
 
             member private x.TryGet (lp :Property<'T>)  : 'T option = 
                     let v = properties.Find lp
@@ -235,7 +316,7 @@ module Logical =
             static member FontSize              = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
 
             static member Background            = Persistent "Background"       __InvalidateVisual      <| Value BrushDescriptor.Transparent
-            static member Foreground            = Persistent "Foreground"       __InvalidateVisual      <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Black)
+            static member Foreground            = Persistent "Foreground"       __InvalidateVisual      <| Value (SolidBrush Color.Black)
 
             static member TextFormatDescriptor  = Computed   "FontSize"        <| fun x -> 
                                                                                     let fontFamily  = x.Get Element.FontFamily
@@ -570,14 +651,14 @@ module Logical =
             static let Persistent id valueChanged value = Property.Persistent typeof<ButtonElement> id valueChanged value 
 
             do
-                x.Set Element.Foreground <| (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.White)
-                x.Set Element.Background <| (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Black)
+                Element.Foreground.Override typeof<ButtonElement> (Some <| Value (SolidBrush Color.White)) None
+                Element.Background.Override typeof<ButtonElement> (Some <| Value (SolidBrush Color.Black)) None
 
             static member ButtonState       = Persistent     "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
 
-            static member Highlight         = Persistent     "Highlight"        InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.Purple      )
-            static member Pressed           = Persistent     "Pressed"          InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.LightBlue   )
-            static member Border            = Persistent     "Border"           InvalidateVisual        <| Value (BrushDescriptor.SolidColor <| ColorDescriptor.Color Color.White       )
+            static member Highlight         = Persistent     "Highlight"        InvalidateVisual        <| Value (SolidBrush Color.Purple      )
+            static member Pressed           = Persistent     "Pressed"          InvalidateVisual        <| Value (SolidBrush Color.LightBlue   )
+            static member Border            = Persistent     "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
             static member BorderThickness   = Persistent     "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
 
             override x.OnGetBox ()          = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
