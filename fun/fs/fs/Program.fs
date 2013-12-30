@@ -7,6 +7,7 @@ open SharpDX
 open Units
 open Logical
 open Logical.Properties
+open Logical.Events
 
 [<EntryPoint>]
 let main argv = 
@@ -29,6 +30,13 @@ let main argv =
                 TextButton "Click me!"
                     [ 
                     ]
+                    >>+ Clicked.Handler (fun e v -> true)
+                Label 
+                    [ 
+                        Margin  .Value <| Thickness.Uniform 4.F
+                        Text    .Value "Hi there!" 
+                    ]
+
             ]
 
 

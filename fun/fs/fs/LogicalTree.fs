@@ -96,28 +96,46 @@ module Logical =
         type PropertyDefaultValue<'T> =
             | Value         of 'T
             | ValueCreator  of (Element -> 'T)
-        and PropertyValueChanged<'T> = Element -> 'T -> 'T -> unit
-        and ComputePropertyValue<'T> = Element -> 'T
+        and PropertyValueChanged<'T>    = Element -> 'T -> 'T -> unit
+        and ComputePropertyValue<'T>    = Element -> 'T
+        and EventHandler<'TEventValue>   = Element -> 'TEventValue -> bool
+        and [<AbstractClass>] Member(id : string, declaringType : Type) = 
+
+            member x.Id             = id
+            member x.DeclaringType  = declaringType
+
+            member x.IsMemberOf (t : Type) = declaringType.IsAssignableFrom t
+
+            member x.ValidateMember (t : Type) =
+                if not <| x.IsMemberOf t then
+                    failwithf "%s %s.%s is not a member %s" (x.GetType().Name) x.DeclaringType.Name x.Id t.Name
+
+        and [<AbstractClass>] Event(id : string, eventValueType : Type, declaringType : Type) =
+            inherit Member(id, declaringType)
+
+            member x.EventValueType = eventValueType
+            
+            static member Routed<'TDeclaring, 'TEventValue> id  (sample : 'TEventValue) = Event<'TEventValue>(id,typeof<'TDeclaring>)
+            static member Empty = Event.Routed<Event, obj> "<EMPTY>"
+            
+        and [<Sealed>] Event<'TEventValue>(id : string, declaringType : Type) =
+            inherit Event(id, typeof<'TEventValue>, declaringType)
+
+            member x.Handler (eh : EventHandler<'TEventValue>) = EventListener<'TEventValue>(x, eh)
+
         and [<AbstractClass>] Property(id : string, ``type`` : Type, declaringType : Type) = 
+            inherit Member(id, declaringType)
 
             static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
 
-            member x.Id             = id
             member x.Type           = ``type``
-            member x.DeclaringType  = declaringType
             member x.IsEmpty        = x.Equals (Property.Empty)
-
-            member x.IsMemberOf (t : Type) = declaringType.IsAssignableFrom t
 
             abstract OnIsComputed   : unit -> bool
             member x.IsComputed     = x.OnIsComputed ()
 
             abstract OnIsPersistent : unit -> bool
             member x.IsPersistent   = x.OnIsPersistent ()
-
-            member x.ValidateProperty (t : Type) =
-                if not <| x.IsMemberOf t then
-                    failwithf "Property %s.%s is not a member %s" x.DeclaringType.Name x.Id t.Name
 
             static member Value v = fun () -> v
 
@@ -154,7 +172,7 @@ module Logical =
 
             member x.Override<'TOverride> (defaultValue : PropertyDefaultValue<'T> option) (valueChanged : PropertyValueChanged<'T> option) =
                         let overrideType = typeof<'TOverride>
-                        x.ValidateProperty overrideType
+                        x.ValidateMember overrideType
                         match defaultValue with
                         | Some defaultValue -> overrideDefaultValue.Replace overrideType defaultValue
                         | None              -> ()
@@ -177,32 +195,12 @@ module Logical =
 
             member x.Override<'TOverride> (computeValue : ComputePropertyValue<'T> option) =
                         let overrideType = typeof<'TOverride>
-                        x.ValidateProperty overrideType
+                        x.ValidateMember overrideType
                         match computeValue with
                         | Some computeValue -> overrideCompute.Replace overrideType computeValue
                         | None              -> ()
                         ()
 
-        and [<AbstractClass>] PropertyValue(p : Property) =  
-        
-            abstract OnAssignValueTo : Element -> bool
-
-            member x.AssignValueTo (e : Element) = 
-                        if p.IsMemberOf <| e.GetType () then
-                            x.OnAssignValueTo e 
-                        else false
-
-            member x.Property   = p
-
-        and PropertyValue<'T when 'T : equality>(p : PersistentProperty<'T>, v : 'T)= 
-            inherit PropertyValue(p)
-        
-            member x.Value      = v
-
-            override x.OnAssignValueTo (e : Element) = 
-                        e.Set p v
-                        true
-                    
         and [<AbstractClass>] Element() = 
         
             let mutable parent  : Element option        = None
@@ -217,7 +215,8 @@ module Logical =
             static let Computed   id computeValue       = Property.Computed<Element, _>     id computeValue
 
             static let children : Element array = [||]
-            let properties = Dictionary<Property, obj>()
+            let properties      = Dictionary<Property, obj>()
+            let eventHandlers   = Dictionary<Event, obj>()
 
             abstract OnChildren     : unit -> Element array
 
@@ -257,7 +256,10 @@ module Logical =
                                 context <- None
 
             member private x.ValidateProperty (lp :Property<'T>) =
-                lp.ValidateProperty <| x.GetType()
+                lp.ValidateMember <| x.GetType()
+
+            member private x.ValidateEvent (e :Event<'T>) =
+                e.ValidateMember <| x.GetType()
 
             member private x.TryGet (lp :Property<'T>)  : 'T option = 
                     let v = properties.Find lp
@@ -315,6 +317,29 @@ module Logical =
             member x.AssignFromPropertyValues (pvs : PropertyValue list) =
                 for pv in pvs do
                     ignore <| pv.AssignValueTo x 
+
+            member internal x.RaiseEventImpl<'TEventValue> (e : Event<'TEventValue>) (v : 'TEventValue) = 
+                    x.ValidateEvent e
+                    let event = eventHandlers.Find e
+                    match event,parent with
+                    | None      , None          -> false
+                    | None      , Some parent   -> parent.RaiseEventImpl e v
+                    | Some eh   , None          -> let eh : EventHandler<'TEventValue> = downcast eh
+                                                   eh x v
+                    | Some eh   , Some parent   -> let eh : EventHandler<'TEventValue> = downcast eh
+                                                   let handled = eh x v
+                                                   if handled then true
+                                                   else parent.RaiseEventImpl e v
+
+            member x.RaiseEvent<'TEventValue> (e : Event<'TEventValue>) (v : 'TEventValue) = 
+                    x.ValidateEvent e
+                    x.RaiseEventImpl e v
+
+            member x.ClearEventHandler (e : Event<'TEventValue>) = 
+                    ignore <| eventHandlers.Remove e
+
+            member x.SetEventHandler (e : Event<'TEventValue>) (eh : EventHandler<'TEventValue>) = 
+                    eventHandlers.[e] <- eh
 
             static member Measurement           = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
             static member Placement             = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
@@ -453,6 +478,58 @@ module Logical =
 
                                 x.Set Element.Visual <| Some visual
                                 visual
+        and [<AbstractClass>] EventListener(e : Event) =  
+        
+            abstract OnSetListener  : Element -> unit
+            abstract OnClearListener: Element -> unit
+
+            member x.SetListener (ee : Element) = 
+                        if e.IsMemberOf <| ee.GetType () then
+                            x.OnSetListener ee 
+                            true
+                        else false
+
+            member x.ClearListener (ee : Element) = 
+                        if e.IsMemberOf <| ee.GetType () then
+                            x.OnClearListener ee 
+                            true
+                        else false
+
+            member x.Event  = e
+
+        and EventListener<'TEventValue>(e : Event<'TEventValue>, handler : EventHandler<'TEventValue>)= 
+            inherit EventListener(e)
+        
+            member x.Handler : EventHandler<'TEventValue> = handler
+
+            override x.OnSetListener (ee : Element) = 
+                        ee.SetEventHandler e handler
+                        ()
+                    
+            override x.OnClearListener (ee : Element) = 
+                        ee.ClearEventHandler e
+                        ()
+        and [<AbstractClass>] PropertyValue(p : Property) =  
+        
+            abstract OnAssignValueTo : Element -> bool
+
+            member x.AssignValueTo (e : Element) = 
+                        if p.IsMemberOf <| e.GetType () then
+                            x.OnAssignValueTo e 
+                        else false
+
+            member x.Property   = p
+
+        and PropertyValue<'T when 'T : equality>(p : PersistentProperty<'T>, v : 'T)= 
+            inherit PropertyValue(p)
+        
+            member x.Value      = v
+
+            override x.OnAssignValueTo (e : Element) = 
+                        e.Set p v
+                        true
+                    
+
                                                       
     let NoAction                (e : Foundation.Element) (ov : 'T) (nv : 'T) = e.NoAction                ()
     let InvalidateMeasurement   (e : Foundation.Element) (ov : 'T) (nv : 'T) = e.InvalidateMeasurement   ()
@@ -524,19 +601,19 @@ module Logical =
 
             let mutable cachedChildren = None
 
-            override x.OnChildren ()    =   match cachedChildren with
-                                            | Some c    ->  c
-                                            | None      ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
-                                                            cachedChildren <- Some c
-                                                            c
+            override x.OnChildren ()  = match cachedChildren with
+                                        | Some c    ->  c
+                                        | None      ->  let c = children |> Seq.map (fun kv -> kv.Value) |> Seq.toArray
+                                                        cachedChildren <- Some c
+                                                        c
 
 
-            member x.InsertChild i le = ignore <| (children.[i] = le)
+            member x.SetChild i le    = ignore <| (children.[i] = le)
                                         le.SetParent x  // Invalidates parent
                                         cachedChildren <- None
                                         x
 
-            member x.RemoveChild i =    let c = children.Find i
+            member x.RemoveChild i    = let c = children.Find i
                                         match c with
                                         | None      -> ()
                                         | Some le    -> 
@@ -669,18 +746,21 @@ module Logical =
         type ButtonElement() =
             inherit DecoratorElement()
 
-            static let Persistent id valueChanged value = Property.Persistent<ButtonElement, _> id valueChanged value 
+            static let Persistent   id valueChanged value   = Property.Persistent<ButtonElement, _> id valueChanged value 
+            static let Routed       id sample               = Event.Routed<ButtonElement, _> id sample
 
             static do
                 Element.Foreground.Override<ButtonElement> (Some <| Value (SolidBrush Color.White)) None
                 Element.Background.Override<ButtonElement> (Some <| Value (SolidBrush Color.Black)) None
 
-            static member ButtonState       = Persistent     "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
+            static member ButtonState       = Persistent    "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
 
-            static member Highlight         = Persistent     "Highlight"        InvalidateVisual        <| Value (SolidBrush Color.Purple      )
-            static member Pressed           = Persistent     "Pressed"          InvalidateVisual        <| Value (SolidBrush Color.LightBlue   )
-            static member Border            = Persistent     "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
-            static member BorderThickness   = Persistent     "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
+            static member Highlight         = Persistent    "Highlight"        InvalidateVisual        <| Value (SolidBrush Color.Purple      )
+            static member Pressed           = Persistent    "Pressed"          InvalidateVisual        <| Value (SolidBrush Color.LightBlue   )
+            static member Border            = Persistent    "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
+            static member BorderThickness   = Persistent    "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
+
+            static member Clicked           = Routed        "Clicked"          ()
 
             override x.OnGetEffectiveMargin ()  = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
 
@@ -725,11 +805,24 @@ module Logical =
 
         let Text            = TextElement.Text
 
+    module Events = 
+
+        open Foundation
+        open Standard
+
+        let Clicked         = ButtonElement.Clicked
 
     open Foundation
     open Standard
 
     let SomeElement (e : #Element) = Some (e :> Element)
+
+    let ( >>+ ) (e : #Element) (el : EventListener<'T>) = 
+                    ignore <| el.SetListener e
+                    e
+    let ( >>- ) (e : #Element) (el : EventListener<'T>) = 
+                    ignore <| el.ClearListener e
+                    e
 
     let CreateElement<'T when 'T :> Element and 'T : (new: unit -> 'T)> (pvs : PropertyValue list) = 
         let element = new 'T()
@@ -740,7 +833,7 @@ module Logical =
         let layout = CreateElement<'T> pvs
         let mutable i = 0
         for child in children do
-            ignore <| layout.InsertChild i child
+            ignore <| layout.SetChild i child
             i <- i + 1
         layout
 
