@@ -11,7 +11,7 @@ open System.Windows.Forms
 [<AutoOpen>]
 module Utils =
     
-    let (|IsNaN|IsPositiveInfinity|IsNegativeInfinity|IsNegative|IsPositive|) (v : float32) = 
+    let inline (|IsNaN|IsPositiveInfinity|IsNegativeInfinity|IsNegative|IsPositive|) (v : float32) = 
         if      Single.IsNaN                v then IsNaN
         elif    Single.IsPositiveInfinity   v then IsPositiveInfinity
         elif    Single.IsNegativeInfinity   v then IsNegativeInfinity
@@ -21,7 +21,7 @@ module Utils =
     let inline Zero<'T when 'T : struct> = Unchecked.defaultof<'T>
 //    let inline Natural (comparable : 'T when 'T : comparison and 'T : struct) =  if comparable < Zero then Zero else comparable
 
-    let Clamp (v : float32) =
+    let inline Clamp (v : float32) =
         match v with
         | IsPositiveInfinity    -> v
         | IsPositive            -> v

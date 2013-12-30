@@ -52,6 +52,17 @@ module Units =
             | Fill                  -> Fill
         static member ( - ) (l : MeasurementUnit, r : float32) = l + (-r)
 
+        static member ( + ) (l : MeasurementUnit, r : MeasurementUnit) = 
+            match l,r with
+            | FixedMeasurement l, FixedMeasurement r    -> MeasurementUnit.Clamp <| FixedMeasurement (l + r)
+            | _                 , _                     -> Fill
+
+        static member ( - ) (l : MeasurementUnit, r : MeasurementUnit) = 
+            match l,r with
+            | FixedMeasurement l, FixedMeasurement r    -> MeasurementUnit.Clamp <| FixedMeasurement (l - r)
+            | FixedMeasurement _, Fill                  -> MeasurementUnit.Zero
+            | _                 , _                     -> Fill
+
         member x.Union (o : MeasurementUnit) = 
             match x,o with
             | Fill              , _                     -> Fill
@@ -116,6 +127,17 @@ module Units =
             | Unbound   -> Unbound
             | Bound v   -> AvailableUnit.Clamp <| Bound (v + r)
         static member ( - ) (l : AvailableUnit, r : float32) = l + (-r)
+
+        static member ( + ) (l : AvailableUnit, r : MeasurementUnit) = 
+            match l,r with
+            | Bound l, FixedMeasurement r -> AvailableUnit.Clamp <| Bound (l + r)
+            | _      , _                  -> Unbound
+
+        static member ( - ) (l : AvailableUnit, r : MeasurementUnit) = 
+            match l,r with
+            | Bound l, FixedMeasurement r -> AvailableUnit.Clamp <| Bound (l - r)
+            | Bound _, Fill               -> AvailableUnit.Zero
+            | _      , _                  -> Unbound
 
         member x.Max (o : AvailableUnit) = 
             match x,o with

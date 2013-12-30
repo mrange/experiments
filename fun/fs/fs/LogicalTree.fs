@@ -220,7 +220,18 @@ module Logical =
             let properties = Dictionary<Property, obj>()
 
             abstract OnChildren     : unit -> Element array
-            default x.OnChildren () = children
+
+            abstract OnMeasureContent                   : Available -> Measurement
+
+            abstract OnGetEffectiveMargin               : unit -> Thickness
+
+            abstract OnPlaceElement                     : Placement -> Placement -> unit
+
+            abstract OnRenderContent                    : Placement -> Placement -> VisualTree
+            abstract OnRenderOverlay                    : Placement -> Placement -> VisualTree
+
+            abstract OnRenderChild                      : Placement -> Placement -> Element -> VisualTree
+
             member x.Children       = x.OnChildren ()
 
             member x.Parent 
@@ -325,6 +336,23 @@ module Logical =
                                                                                     let fontSize    = x.Get Element.FontSize
                                                                                     TextFormatDescriptor.New fontFamily fontSize
 
+            default x.OnChildren () = children
+            default x.OnMeasureContent m                = Measurement.Fill
+            default x.OnGetEffectiveMargin ()           = x.Get Element.Margin
+            default x.OnPlaceElement    (o : Placement)
+                                        (i : Placement)
+                                                        = ()
+            default x.OnRenderContent   (o : Placement)
+                                        (i : Placement)
+                                                        = VisualTree.NoVisual
+            default x.OnRenderOverlay   (o : Placement)
+                                        (i : Placement)
+                                                        = VisualTree.NoVisual
+            default x.OnRenderChild     (o : Placement)
+                                        (i : Placement)
+                                        (e : Element)
+                                                        = e.Render ()        
+
             member x.NoAction               () = ()            
             member x.InvalidateMeasurement  () = 
                 let m = x.Get Element.Measurement
@@ -354,20 +382,14 @@ module Logical =
                                | Some p -> p.InvalidateVisual ()          
                                | None   -> ()
 
-            abstract OnGetBox                           : unit -> Thickness
-            default x.OnGetBox ()                       = x.Get Element.Margin
-
-            member x.Box                                = x.OnGetBox ()
-
-            abstract OnMeasureContent                   : Available -> Measurement
-            default x.OnMeasureContent m                = Measurement.Fill
+            member x.EffectiveMargin                    = x.OnGetEffectiveMargin ()
 
             member x.MeasureElement (a  : Available)    = 
                         let cachedMeasure = x.Get Element.Measurement
                         match cachedMeasure with
                         | Some m when a.IsMeasurementValid m  -> m
                         | _                                   -> 
-                            let box = x.Box
+                            let box = x.EffectiveMargin
                             let bounds = x.Get Element.Bounds
                             let innerMeasure = x.OnMeasureContent<| a - box
                             let finalMeasure = bounds.AdjustMeasurement a (innerMeasure + box)
@@ -375,9 +397,6 @@ module Logical =
                             x.Set Element.Placement None
                             x.Set Element.Visual None
                             finalMeasure
-
-            abstract OnPlaceContent                     : Placement -> unit
-            default x.OnPlaceContent p                  = ()
 
             member x.PlaceElement   (p : Placement)     = 
                         let cachedPlacement = x.Get Element.Placement
@@ -388,35 +407,20 @@ module Logical =
                             match cachedMeasure with
                             | None            -> ()
                             | Some cm         ->  
-                                let box = x.Box
+                                let box = x.EffectiveMargin
                                 let bounds = x.Get Element.Bounds
                                 let finalPlacement = bounds.AdjustPlacement cm p
-                                x.OnPlaceContent <| finalPlacement - box
+                                x.OnPlaceElement finalPlacement <| finalPlacement - box
                                 x.Set Element.Placement <| Some finalPlacement
                                 x.Set Element.Visual None
                                                         
-
-            abstract OnRenderContent                    : Placement -> Placement -> VisualTree
-            default x.OnRenderContent   (o : Placement)
-                                        (i : Placement)
-                                                        = VisualTree.NoVisual
-            abstract OnRenderOverlay                    : Placement -> Placement -> VisualTree
-            default x.OnRenderOverlay   (o : Placement)
-                                        (i : Placement)
-                                                        = VisualTree.NoVisual
-
-            abstract OnRenderChild                      : Placement -> Placement -> Element -> VisualTree
-            default x.OnRenderChild     (o : Placement)
-                                        (i : Placement)
-                                        (e : Element)
-                                                        = e.Render ()        
 
             member x.Render ()                          = 
                         let cachedVisual = x.Get Element.Visual
                         match cachedVisual with
                         | Some v    -> v
                         | None      -> 
-                            let box = x.Box
+                            let box = x.EffectiveMargin
                             let p = x.Get Element.Placement
                             match p with
                             | None                      -> NoVisual
@@ -464,9 +468,9 @@ module Logical =
     
             static let Persistent id valueChanged value = Property.Persistent<ContainerElement, _>  id valueChanged value 
 
-            static member Padding           = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
+            static member Padding               = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
 
-            override x.OnGetBox ()          = x.Get Element.Margin + x.Get ContainerElement.Padding
+            override x.OnGetEffectiveMargin ()  = x.Get Element.Margin + x.Get ContainerElement.Padding
 
         type [<AbstractClass>] DecoratorElement() =
             inherit ContainerElement()
@@ -507,11 +511,11 @@ module Logical =
                         | None      -> Measurement.Zero
                         | Some c    -> c.MeasureElement a
 
-            override x.OnPlaceContent p     =   
+            override x.OnPlaceElement o i   =   
                         let child = x.Get DecoratorElement.Child
                         match child with
                         | None      -> ()
-                        | Some c    -> c.PlaceElement p
+                        | Some c    -> c.PlaceElement i
 
         type [<AbstractClass>] LayoutElement() = 
             inherit ContainerElement()
@@ -550,25 +554,40 @@ module Logical =
         type StackElement() = 
             inherit LayoutElement()
 
-            let AccumulateMeasurementUnit   (measurement : MeasurementUnit) (other : MeasurementUnit) = measurement
-            let SubtractAvailable           (available : AvailableUnit) (other : MeasurementUnit) = available
-                
             let AccumulateMeasurement   (orientation : StackOrientation) (measurement : Measurement) (other : Measurement) = 
                 match orientation with
-                | FromLeft | FromRight  -> Measurement.New (AccumulateMeasurementUnit measurement.Width other.Width) measurement.Height
-                | FromTop  | FromBottom -> Measurement.New measurement.Width (AccumulateMeasurementUnit measurement.Height other.Height) 
+                | FromLeft | FromRight  -> Measurement.New (measurement.Width + other.Width) measurement.Height
+                | FromTop  | FromBottom -> Measurement.New measurement.Width (measurement.Height + other.Height) 
                 
             let SubtractAvailable       (orientation : StackOrientation) (available : Available) (other : Measurement) = 
                 match orientation with
-                | FromLeft | FromRight  -> Available.New (SubtractAvailable available.Width other.Width) available.Height
-                | FromTop  | FromBottom -> Available.New available.Width (SubtractAvailable available.Height other.Height) 
+                | FromLeft | FromRight  -> Available.New (available.Width - other.Width) available.Height
+                | FromTop  | FromBottom -> Available.New available.Width (available.Height - other.Height) 
 
-            let AccumulatePlacement   (orientation : StackOrientation) (placement : Placement) (other : Measurement) = 
+            let Intersect (f : float32) (m : MeasurementUnit) =
+                match m with
+                | FixedMeasurement m    -> Clamp <| min f m 
+                | Fill                  -> f
+
+            let Subtract (f : float32) (m : MeasurementUnit) =
+                match m with
+                | FixedMeasurement m    -> Clamp <| f - m 
+                | Fill                  -> 0.F
+
+            let AccumulateAndIntersectPlacement   (orientation : StackOrientation) (placement : Placement) (other : Measurement) = 
                 match orientation with
-                | FromLeft  -> placement,placement
-                | FromRight -> placement,placement
-                | FromTop   -> placement,placement
-                | FromBottom-> placement,placement
+                | FromLeft  -> let intersected  = Placement.New placement.X placement.Y (Intersect placement.Width other.Width) placement.Height
+                               let adjusted     = Placement.New (placement.X + intersected.Width) placement.Y (Clamp <| placement.Width - intersected.Width) placement.Height
+                               adjusted,intersected
+                | FromRight -> let adjusted     = Placement.New placement.X placement.Y (Subtract placement.Width other.Width) placement.Height
+                               let intersected  = Placement.New (placement.X + adjusted.Width) placement.Y (Clamp <| placement.Width - adjusted.Width) placement.Height
+                               adjusted,intersected
+                | FromTop   -> let intersected  = Placement.New placement.X placement.Y placement.Width (Intersect placement.Height other.Height)
+                               let adjusted     = Placement.New placement.X (placement.Y + intersected.Height) placement.Width (Clamp <| placement.Height - intersected.Height)
+                               adjusted,intersected
+                | FromBottom-> let adjusted     = Placement.New placement.X placement.Y placement.Width (Subtract placement.Height other.Height) 
+                               let intersected  = Placement.New placement.X (placement.Y + adjusted.Height) placement.Width (Clamp <| placement.Height - adjusted.Height) 
+                               adjusted,intersected
                 
             static let Persistent id valueChanged value = Property.Persistent<StackElement, _>  id valueChanged value 
 
@@ -589,10 +608,10 @@ module Logical =
     
                         measurement
     
-            override x.OnPlaceContent p     = 
+            override x.OnPlaceElement o i   = 
                         let orientation = x.Get StackElement.Orientation
 
-                        let mutable placement = p
+                        let mutable placement = i
 
                         let children = x.Children
                         for c in children do
@@ -600,9 +619,9 @@ module Logical =
                             match cachedMeasurement with
                             | None      -> ()
                             | Some m    ->
-                                let p,i = AccumulatePlacement orientation placement m
+                                let a,i = AccumulateAndIntersectPlacement orientation placement m
                                 c.PlaceElement i
-                                placement <- p
+                                placement <- a
     
                         ()
 
@@ -663,7 +682,7 @@ module Logical =
             static member Border            = Persistent     "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
             static member BorderThickness   = Persistent     "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
 
-            override x.OnGetBox ()          = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
+            override x.OnGetEffectiveMargin ()  = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
 
             override x.OnRenderContent (o : Placement)
                                        (i : Placement) =
