@@ -1,6 +1,7 @@
 ﻿namespace silberman
 
 open System
+open System.Collections.Concurrent
 open System.Diagnostics
 
 open SharpDX
@@ -8,6 +9,30 @@ open SharpDX
 open Fundamental
 
 module Device = 
+    
+    type DirectWrite () = 
+        let dwFactory           = new DirectWrite.Factory (DirectWrite.FactoryType.Shared)
+
+        let textFormatCache     = ConcurrentDictionary<TextFormatDescriptor, DirectWrite.TextFormat>()
+
+        let CreateTextFormat (tfd : TextFormatDescriptor) =
+                new DirectWrite.TextFormat(dwFactory, tfd.FontFamily, tfd.FontSize)
+
+        member x.GetTextFormat (tfd : TextFormatDescriptor) : DirectWrite.TextFormat = textFormatCache.GetOrAdd(tfd, CreateTextFormat)
+
+        member x.EstimateTextSize (tfd : TextFormatDescriptor) (sz : Size2F) (text : string) = 
+            let tf = x.GetTextFormat tfd
+            use tl = new DirectWrite.TextLayout(dwFactory, text, tf, sz.Width, sz.Height)
+            let min = tl.DetermineMinWidth()
+            Size2F (min, sz.Height)
+
+        interface IDisposable with
+            member x.Dispose() =
+                let tfc = textFormatCache.ToArray ()
+                textFormatCache.Clear()
+                for kv in tfc do
+                    TryDispose kv.Value 
+        
 
     type WindowedDevice(form : Windows.RenderForm) = 
 
@@ -29,8 +54,8 @@ module Device =
             desc.SwapEffect         <- DXGI.SwapEffect.Sequential
             desc.Usage              <- DXGI.Usage.RenderTargetOutput
 
-            let device              = ref DefaultOf<Direct3D11.Device>
-            let swapChain           = ref DefaultOf<DXGI.SwapChain>
+            let device              = RefOf<Direct3D11.Device>
+            let swapChain           = RefOf<DXGI.SwapChain>
 
             let featureLevels       = 
                 [|
@@ -55,7 +80,7 @@ module Device =
         let width               = float32 form.ClientSize.Width
         let height              = float32 form.ClientSize.Height
 
-        let dwFactory           = new DirectWrite.Factory (DirectWrite.FactoryType.Isolated)
+        let directWrite         = new DirectWrite()
         let d2dFactory          = new Direct2D1.Factory(Direct2D1.FactoryType.SingleThreaded)
         let device, swapChain   = GetDeviceAndSwapChain form
         let factory             = swapChain.GetParent<DXGI.Factory>()
@@ -75,36 +100,21 @@ module Device =
                                         )
                                     )
 
-        let mutable brushCache : Map<BrushDescriptor, Direct2D1.Brush> = Map.empty
+        let brushCache = ConcurrentDictionary<BrushDescriptor, Direct2D1.Brush>()
 
-        let mutable textFormatCache : Map<TextFormatDescriptor, DirectWrite.TextFormat> = Map.empty
+        let Solid (c : ColorDescriptor) =  new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4)                                    
 
-        let solid (c : ColorDescriptor)   = 
-            new Direct2D1.SolidColorBrush(d2dRenderTarget, c.ToColor4)                                    
+        let CreateBrush (bd : BrushDescriptor) : Direct2D1.Brush = 
+                match bd with
+                | Transparent       -> null
+                | SolidColor c      -> upcast Solid c
+            
+
+        member x.DirectWrite = directWrite
 
         member x.GetBrush (bd : BrushDescriptor) : Direct2D1.Brush =
-            let find = brushCache.TryFind bd
-            match find with
-            | Some b    -> b
-            | None      ->
-                let b : Direct2D1.Brush= 
-                    match bd with
-                    | Transparent       -> null
-                    | SolidColor c      -> upcast solid c
-                brushCache <- brushCache |> Map.add bd b
-                b
+            brushCache.GetOrAdd(bd, CreateBrush)
         
-        member x.GetTextFormat (tfd : TextFormatDescriptor) : DirectWrite.TextFormat = 
-            let find = textFormatCache.TryFind tfd
-            match find with
-            | Some tf   -> tf
-            | None      ->
-                let tf = new DirectWrite.TextFormat(dwFactory, tfd.FontFamily, tfd.FontSize)
-                textFormatCache <- textFormatCache |> Map.add tfd tf
-                tf
-        
-
-
         member x.Width              = width
         member x.Height             = height
 
@@ -119,12 +129,8 @@ module Device =
 
         interface IDisposable with
             member x.Dispose() =
-                let tfc = textFormatCache
-                textFormatCache <- Map.empty
-                for kv in tfc do
-                    TryDispose kv.Value 
-                let bc = brushCache
-                brushCache <- Map.empty
+                let bc = brushCache.ToArray()
+                brushCache.Clear()
                 for kv in bc do
                     TryDispose kv.Value 
                 TryDispose d2dRenderTarget
@@ -134,7 +140,7 @@ module Device =
                 TryDispose swapChain
                 TryDispose device
                 TryDispose d2dFactory
-                TryDispose dwFactory
+                TryDispose directWrite
             
 
 

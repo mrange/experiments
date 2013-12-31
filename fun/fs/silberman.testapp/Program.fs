@@ -31,6 +31,8 @@ let main argv =
 
             ]
 
-    Application.Show "Test app" 1600 1200 body
+    let app = Application.Show "Test app" 1600 1200 body
+
+    Async.StartImmediate app
 
     0

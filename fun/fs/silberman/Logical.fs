@@ -38,8 +38,11 @@ module public Logical =
     let SolidBrush (c : Color)  = BrushDescriptor.SolidColor <| ColorDescriptor.Color c
 
     module Foundation = 
-        type IElementContext = 
-            abstract member MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
+        type ElementContext = 
+            {
+                MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
+            }
+            static member New mt = {MeasureText = mt}
 
         type TypeDictionary<'T>() =
 
@@ -209,7 +212,7 @@ module public Logical =
         and [<AbstractClass>] Element() = 
         
             let mutable parent  : Element option        = None
-            let mutable context : IElementContext option= None
+            let mutable context : ElementContext option = None
 
             static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
             static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
@@ -243,6 +246,7 @@ module public Logical =
 
             member x.Context        = context
 
+            member internal x.SetContext ctx = context <- Some ctx
             member internal x.SetParent p =
                                 match parent with
                                 | None      -> ()
@@ -627,10 +631,12 @@ module public Logical =
                                             cachedChildren <- None
                                         x  
 
-        type DocumentElement() =
+        type DocumentElement(ctx : ElementContext) as x=
             inherit DecoratorElement()
-            interface IElementContext with 
-                member x.MeasureText textFormatDescriptor size text = Size2F()  // TODO:
+
+            do
+                x.SetContext ctx
+                
                 
 
         type StackElement() = 

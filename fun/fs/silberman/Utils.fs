@@ -3,6 +3,7 @@
 open SharpDX
 
 open System
+open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Diagnostics
 open System.Threading
@@ -91,7 +92,7 @@ module internal Utils =
         | _             -> false
         
 
-    let CombineDisposable (l : #IDisposable) (r : #IDisposable) = 
+    let DisposeWith (l : #IDisposable) (r : #IDisposable) = 
         OnExit <| fun () -> 
                     TryDispose l
                     r.Dispose ()
@@ -103,7 +104,7 @@ module internal Utils =
     let inline ( <???> ) o defaultValue = CastTo o defaultValue
 
     type IDisposable with 
-        member x.Combine (o : IDisposable) = CombineDisposable x o            
+        member x.DisposeWith (o : IDisposable) = DisposeWith x o            
 
     type Matrix3x2 with 
         member x.Multiply (o : Matrix3x2) = Matrix3x2.Multiply(x,o) 
@@ -144,5 +145,20 @@ module internal Utils =
                     let v = RefOf<'TValue>
                     if x.TryGetValue(key, v) then Some !v
                     else None
+                                                
+
+    type BlockingCollection<'T> with
+        member x.AsyncTryGet (waitFor : int) (ct : CancellationToken) : Async<'T option> = 
+            Async.FromContinuations <| fun (cont, econt, ccont) -> 
+                try
+                    let m = RefOf<'T>
+                    if x.TryTake(m, waitFor,ct) then
+                        cont <| Some !m
+                    elif ct.IsCancellationRequested then
+                        ccont <| new OperationCanceledException ()
+                    else
+                        cont None
+                with
+                    | e ->  econt e
                                                 
 
