@@ -50,13 +50,14 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <None Include="packages.config" />
+    <Compile Include="Win32.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Fundamental.fs" />
     <Compile Include="Device.fs" />
     <Compile Include="Animated.fs" />
     <Compile Include="Visual.fs" />
     <Compile Include="Logical.fs" />
-    <Compile Include="Application.fs" />
+    <Compile Include="App.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

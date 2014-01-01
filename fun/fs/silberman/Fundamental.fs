@@ -17,12 +17,6 @@ module public Fundamental =
 
     [<NoEquality>]
     [<NoComparison>]
-    type MouseStates = 
-        | Outside   of Set<MouseButtonStates>
-        | Inside    of Set<MouseButtonStates>
-
-    [<NoEquality>]
-    [<NoComparison>]
     type MouseState = 
         {
             ButtonState : Set<MouseButtonStates>

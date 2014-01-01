@@ -12,6 +12,15 @@ open System.Windows.Forms
 [<AutoOpen>]
 module internal Utils =
     
+    let GlobalClock =   let sw = new Stopwatch ()
+                        sw.Start ()
+                        sw
+
+    let CurrentTime () : float32 = 
+        (float32 GlobalClock.ElapsedMilliseconds) / 1000.F
+
+    let CurrentTimeInMs () = GlobalClock.ElapsedMilliseconds
+
     let inline (|IsNaN|IsPositiveInfinity|IsNegativeInfinity|IsNegative|IsPositive|) (v : float32) = 
         if      Single.IsNaN                v then IsNaN
         elif    Single.IsPositiveInfinity   v then IsPositiveInfinity
@@ -146,19 +155,81 @@ module internal Utils =
                     if x.TryGetValue(key, v) then Some !v
                     else None
                                                 
+    type BlockingQueue<'T>() =
+        let safe    = obj()
+        let queue   = Queue<'T>()                                            
 
-    type BlockingCollection<'T> with
-        member x.AsyncTryGet (waitFor : int) (ct : CancellationToken) : Async<'T option> = 
-            Async.FromContinuations <| fun (cont, econt, ccont) -> 
-                try
-                    let m = RefOf<'T>
-                    if x.TryTake(m, waitFor,ct) then
-                        cont <| Some !m
-                    elif ct.IsCancellationRequested then
-                        ccont <| new OperationCanceledException ()
+        member x.Enqueue (v : 'T) =
+            Monitor.Enter safe
+            try
+                queue.Enqueue v
+                Monitor.Pulse safe
+            finally
+                Monitor.Exit safe
+
+        member x.Enqueue (vs : 'T array) =
+            Monitor.Enter safe
+            try
+                for v in vs do
+                    queue.Enqueue v
+                Monitor.Pulse safe
+            finally
+                Monitor.Exit safe
+
+        member x.TryDequeue (timeOut : int) (ct : CancellationToken) : 'T array =
+
+            let now = CurrentTimeInMs ()
+            let waitUntil = now + (max 0L <| int64 timeOut)
+
+            Monitor.Enter safe
+            try
+                let mutable result = [||]
+                let mutable cont = true
+                while cont do
+                    if queue.Count > 0 then
+                        result <-   [|                
+                                        while queue.Count > 0 do
+                                            yield queue.Dequeue ()
+                                    |]
+                        cont <- false
                     else
-                        cont None
-                with
-                    | e ->  econt e
-                                                
+                        let waitFor = int32 <| waitUntil - CurrentTimeInMs ()
+                        if waitFor > 0 then
+                            cont <- Monitor.Wait(safe,waitFor)
+                        else
+                            cont <- false
 
+                result
+            finally
+                Monitor.Exit safe
+
+
+        member x.AsyncDequeue (timeOut : int) : Async<'T array> =
+            let dequeue ct =    Async.FromContinuations <| fun (cont, econt, ccont) -> 
+                                    try
+                                        let d = x.TryDequeue timeOut ct
+                                        if not ct.IsCancellationRequested then
+                                            cont d
+                                        else
+                                            ccont <| OperationCanceledException ()
+                                    with
+                                        | e -> econt e
+            async.Bind(Async.CancellationToken,dequeue)
+
+module internal Async = 
+    let SwitchToThread2 (state : ApartmentState) (tp : ThreadPriority): Async<unit> = 
+        Async.FromContinuations <| fun (cont, econt, ccont) -> 
+                try
+                    let thread = Thread(fun () -> 
+                                    try
+                                        cont ()
+                                    with
+                                    | e -> econt e
+                                    )
+                    thread.IsBackground <- true
+                    thread.SetApartmentState state
+                    thread.Priority <- tp
+                    thread.Start ()
+                with
+                | e -> econt e
+    
