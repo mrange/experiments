@@ -180,7 +180,10 @@ module public App =
 
             let document = Logical.Standard.DocumentElement(context)
 
-            let mouseState= ref <| MouseState.Zero
+            document.Set Properties.Child <| Some body
+
+            let mouseState      = ref <| MouseState.Zero
+            let nextMouseState  = ref <| MouseState.Zero
 
             let available = ref <| Available.New (AvailableUnit.Bound <| float32 width) (AvailableUnit.Bound <| float32 height)
             let placement = ref <| Placement.New 0.F 0.F (float32 width) (float32 height)
@@ -198,16 +201,16 @@ module public App =
                             match fromMessage with
                             | ShutDownApplication   -> cont := false
                             | Resized (w,h)         -> document.InvalidateMeasurement ()
-                            | MouseChange ms        -> mouseState := ms 
+                            | MouseChange ms        -> nextMouseState := ms 
                             | Exception e           -> ()
                     else
                         nextRebuild := CurrentTime () + 0.1F
 
-//                        ignore <| document.MeasureElement !available
-//                        ignore <| document.PlaceElement !placement
-//                        let vt = document.Render ()
-//
-//                        toui.Enqueue <| NewVisual vt
+                        ignore <| document.MeasureElement !available
+                        ignore <| document.PlaceElement !placement
+                        let vt = document.Render ()
+
+                        toui.Enqueue <| NewVisual vt
                         ()
 
             finally 

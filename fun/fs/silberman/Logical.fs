@@ -4,6 +4,7 @@ open System
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Diagnostics
+open System.Threading
 
 open SharpDX
 
@@ -38,6 +39,8 @@ module public Logical =
     let SolidBrush (c : Color)  = BrushDescriptor.SolidColor <| ColorDescriptor.Color c
 
     module Foundation = 
+        
+        [<ReferenceEquality>]
         type ElementContext = 
             {
                 MeasureText : TextFormatDescriptor -> Size2F -> string -> Size2F
@@ -108,6 +111,20 @@ module public Logical =
         and ComputePropertyValue<'T>    = Element -> 'T
         and EventHandler<'TEventValue>   = Element -> 'TEventValue -> bool
         and [<AbstractClass>] Member(id : string, declaringType : Type) = 
+            inherit obj()
+
+
+            static let globalId = ref 1000
+            static let CreateInternalId () : int = 
+                            let id = Interlocked.Increment globalId
+                            id
+
+            let internalId = CreateInternalId()
+
+            interface IEquatable<Member> with
+                member x.Equals o = internalId = o.InternalId
+
+            member x.InternalId     = internalId
 
             member x.Id             = id
             member x.DeclaringType  = declaringType
@@ -117,6 +134,15 @@ module public Logical =
             member x.ValidateMember (t : Type) =
                 if not <| x.IsMemberOf t then
                     failwithf "%s %s.%s is not a member %s" (x.GetType().Name) x.DeclaringType.Name x.Id t.Name
+
+            override x.ToString () = sprintf "%s:%s.%s (%d)" (x.GetType().Name) x.DeclaringType.Name x.Id internalId
+
+            override x.Equals o = 
+                        match o with
+                        | :? Member as m    -> internalId = m.InternalId
+                        | _                 -> false
+
+            override  x.GetHashCode () = internalId.GetHashCode ()
 
         and [<AbstractClass>] Event(id : string, eventValueType : Type, declaringType : Type) =
             inherit Member(id, declaringType)
@@ -136,8 +162,10 @@ module public Logical =
 
             static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
 
+            static let empty        = EmptyProperty()
+
             member x.Type           = ``type``
-            member x.IsEmpty        = x.Equals (Property.Empty)
+            member x.IsEmpty        = x.Equals (empty)
 
             abstract OnIsComputed   : unit -> bool
             member x.IsComputed     = x.OnIsComputed ()
@@ -150,8 +178,13 @@ module public Logical =
             static member Persistent<'TDeclaring, 'T when 'T : equality> id valueChanged valueCreator = PersistentProperty<'T>(id,typeof<'TDeclaring>,valueCreator,valueChanged)
             static member Computed<'TDeclaring, 'T>   id computeValue = ComputedProperty<'T>(id,typeof<'TDeclaring>,computeValue)
 
-            static member Empty = Property.Computed<Property, _> "<EMPTY>" <| fun le -> obj()
+            static member Empty = empty
 
+        and [<Sealed>] EmptyProperty() =
+            inherit Property("<EMPTY>", typeof<obj>, typeof<Property>)    
+
+            override x.OnIsComputed ()      = false
+            override x.OnIsPersistent ()    = false
 
         and [<AbstractClass>] Property<'T>(id : string, declaringType : Type) = 
             inherit Property(id, typeof<'T>, declaringType)    
@@ -212,7 +245,6 @@ module public Logical =
         and [<AbstractClass>] Element() = 
         
             let mutable parent  : Element option        = None
-            let mutable context : ElementContext option = None
 
             static let __NoAction              (le : Element) (ov : 'T) (nv : 'T) = le.NoAction                ()
             static let __InvalidateMeasurement (le : Element) (ov : 'T) (nv : 'T) = le.InvalidateMeasurement   ()
@@ -223,9 +255,31 @@ module public Logical =
             static let Computed   id computeValue       = Property.Computed<Element, _>     id computeValue
 
             static let children : Element array = [||]
+
             let properties      = Dictionary<Property, obj>()
             let eventHandlers   = Dictionary<Event, obj>()
 
+            static let elementContext        = Persistent "ElementContext"  __NoAction              <| Value (None : ElementContext option)
+
+            static let measurement           = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
+            static let placement             = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
+            static let visual                = Persistent "Visual"          __NoAction              <| Value (None : VisualTree option)
+                                                                                               
+            static let bounds                = Persistent "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
+            static let isVisible             = Persistent "IsVisible"       __InvalidateMeasurement <| Value true           
+                                              
+            static let margin                = Persistent "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
+                                              
+            static let fontFamily            = Persistent "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
+            static let fontSize              = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
+
+            static let background            = Persistent "Background"       __InvalidateVisual      <| Value BrushDescriptor.Transparent
+            static let foreground            = Persistent "Foreground"       __InvalidateVisual      <| Value (SolidBrush Color.Black)
+
+            static let textFormatDescriptor  = Computed   "FontSize"        <| fun x -> 
+                                                                                    let fontFamily  = x.Get fontFamily
+                                                                                    let fontSize    = x.Get fontSize
+                                                                                    TextFormatDescriptor.New fontFamily fontSize
             abstract OnChildren     : unit -> Element array
 
             abstract OnMeasureContent                   : Available -> Measurement
@@ -244,15 +298,21 @@ module public Logical =
             member x.Parent 
                 with get ()         = parent
 
-            member x.Context        = context
+            member x.Root 
+                with get ()         = 
+                        match parent with
+                        | None        -> x
+                        | Some parent -> parent.Root
 
-            member internal x.SetContext ctx = context <- Some ctx
+            member x.Context        = 
+                        let root = x.Root
+                        root.Get elementContext
+
             member internal x.SetParent p =
                                 match parent with
                                 | None      -> ()
                                 | Some pp   -> failwith "Element is already a member of a logical tree"
                                 parent <- Some p
-                                context <- p.Context
                                 match parent with
                                 | None      -> ()
                                 | Some pp   -> pp.InvalidateMeasurement ()
@@ -262,7 +322,6 @@ module public Logical =
                                 | None      -> ()
                                 | Some pp   -> pp.InvalidateMeasurement ()
                                 parent <- None
-                                context <- None
 
             member private x.ValidateProperty (lp :Property<'T>) =
                 lp.ValidateMember <| x.GetType()
@@ -285,7 +344,7 @@ module public Logical =
                     x.ValidateProperty lp
                     lp.ComputeValue x
 
-            member x.Get    (lp : PersistentProperty<'T>)  : 'T = 
+            member x.Get<'T when 'T : equality> (lp : PersistentProperty<'T>)  : 'T = 
                     x.ValidateProperty lp
                     let v = x.TryGet lp
                     match v with
@@ -350,26 +409,25 @@ module public Logical =
             member x.SetEventHandler (e : Event<'TEventValue>) (eh : EventHandler<'TEventValue>) = 
                     eventHandlers.[e] <- eh
 
-            static member Measurement           = Persistent "Measurement"     __NoAction              <| Value (None : Measurement option)
-            static member Placement             = Persistent "Placement"       __NoAction              <| Value (None : Placement option)
-            static member Visual                = Persistent "Visual"          __NoAction              <| Value (None : VisualTree option)
-                                                                                               
-            static member Bounds                = Persistent "Bounds"          __InvalidateMeasurement <| Value Bounds.MinMin
-            static member IsVisible             = Persistent "IsVisible"       __InvalidateMeasurement <| Value true           
-                                              
-            static member Margin                = Persistent "Margin"          __InvalidateMeasurement <| Value Thickness.Zero 
-                                              
-            static member FontFamily            = Persistent "FontFamily"      __InvalidateMeasurement <| Value "Verdana"      
-            static member FontSize              = Persistent "FontSize"        __InvalidateMeasurement <| Value 12.F           
+            static member ElementContext        = elementContext
 
-            static member Background            = Persistent "Background"       __InvalidateVisual      <| Value BrushDescriptor.Transparent
-            static member Foreground            = Persistent "Foreground"       __InvalidateVisual      <| Value (SolidBrush Color.Black)
+            static member Measurement           = measurement         
+            static member Placement             = placement           
+            static member Visual                = visual              
+                                                                      
+            static member Bounds                = bounds              
+            static member IsVisible             = isVisible           
+                                                                      
+            static member Margin                = margin              
+                                                                      
+            static member FontFamily            = fontFamily          
+            static member FontSize              = fontSize            
 
-            static member TextFormatDescriptor  = Computed   "FontSize"        <| fun x -> 
-                                                                                    let fontFamily  = x.Get Element.FontFamily
-                                                                                    let fontSize    = x.Get Element.FontSize
-                                                                                    TextFormatDescriptor.New fontFamily fontSize
+            static member Background            = background          
+            static member Foreground            = foreground          
 
+            static member TextFormatDescriptor  = textFormatDescriptor
+                                                  
             default x.OnChildren () = children
             default x.OnMeasureContent m                = Measurement.Fill
             default x.OnGetEffectiveMargin ()           = x.Get Element.Margin
@@ -554,7 +612,9 @@ module public Logical =
     
             static let Persistent id valueChanged value = Property.Persistent<ContainerElement, _>  id valueChanged value 
 
-            static member Padding               = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
+            static let padding                  = Persistent "Padding"         InvalidateMeasurement    <| Value Thickness.Zero
+
+            static member Padding               = padding
 
             override x.OnGetEffectiveMargin ()  = x.Get Element.Margin + x.Get ContainerElement.Padding
 
@@ -572,11 +632,11 @@ module public Logical =
 
             static let Persistent id valueChanged value = Property.Persistent<DecoratorElement, _>  id valueChanged value 
 
+            static let child        = Persistent     "Child"        InvalidateChild <| Value (None : Element option)
+
             let mutable cachedChildren : Element array option = None
 
-
-            static member Child     = Persistent     "Child"        InvalidateChild <| Value (None : Element option)
-
+            static member Child     = child
 
             override x.OnChildren () = 
                         let child = x.Get DecoratorElement.Child
@@ -635,7 +695,7 @@ module public Logical =
             inherit DecoratorElement()
 
             do
-                x.SetContext ctx
+                x.Set Element.ElementContext <| Some ctx
                 
                 
 
@@ -679,7 +739,9 @@ module public Logical =
                 
             static let Persistent id valueChanged value = Property.Persistent<StackElement, _>  id valueChanged value 
 
-            static member Orientation   = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
+            static let orientation      = Persistent "Orientation"     InvalidateMeasurement    <| Value StackOrientation.FromTop
+
+            static member Orientation   = orientation
 
             override x.OnMeasureContent a   = 
                         let orientation = x.Get StackElement.Orientation
@@ -719,7 +781,9 @@ module public Logical =
 
             static let Persistent id valueChanged value = Property.Persistent<TextElement, _> id valueChanged value 
 
-            static member Text          = Persistent     "Text"        InvalidateMeasurement  <| Value ""              
+            static let text             = Persistent     "Text"        InvalidateMeasurement  <| Value ""              
+
+            static member Text          = text
 
         type LabelElement() =
             inherit TextElement()
@@ -760,18 +824,27 @@ module public Logical =
             static let Persistent   id valueChanged value   = Property.Persistent<ButtonElement, _> id valueChanged value 
             static let Routed       id sample               = Event.Routed<ButtonElement, _> id sample
 
+            static let buttonState       = Persistent    "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
+                   
+            static let highlight         = Persistent    "Highlight"        InvalidateVisual        <| Value (SolidBrush Color.Purple      )
+            static let pressed           = Persistent    "Pressed"          InvalidateVisual        <| Value (SolidBrush Color.LightBlue   )
+            static let border            = Persistent    "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
+            static let borderThickness   = Persistent    "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
+
+            static let clicked           = Routed        "Clicked"          ()
+
             static do
                 Element.Foreground.Override<ButtonElement> (Some <| Value (SolidBrush Color.White)) None
                 Element.Background.Override<ButtonElement> (Some <| Value (SolidBrush Color.Black)) None
 
-            static member ButtonState       = Persistent    "ButtonState"      InvalidateVisual        <| Value ButtonState.Normal
+            static member ButtonState       = buttonState    
 
-            static member Highlight         = Persistent    "Highlight"        InvalidateVisual        <| Value (SolidBrush Color.Purple      )
-            static member Pressed           = Persistent    "Pressed"          InvalidateVisual        <| Value (SolidBrush Color.LightBlue   )
-            static member Border            = Persistent    "Border"           InvalidateVisual        <| Value (SolidBrush Color.White       )
-            static member BorderThickness   = Persistent    "BorderThickness"  InvalidateMeasurement   <| Value 2.0F           
+            static member Highlight         = highlight      
+            static member Pressed           = pressed        
+            static member Border            = border         
+            static member BorderThickness   = borderThickness
 
-            static member Clicked           = Routed        "Clicked"          ()
+            static member Clicked           = clicked
 
             override x.OnGetEffectiveMargin ()  = x.Get Element.Margin + (Thickness.Uniform <| x.Get ButtonElement.BorderThickness) + x.Get ContainerElement.Padding
 
