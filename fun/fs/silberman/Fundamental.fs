@@ -23,6 +23,7 @@ module public Fundamental =
             Coordinate  : Vector2
         }
         static member New bs c = {ButtonState = bs; Coordinate = c}
+        static member Zero = MouseState.New Set.empty <| Vector2()
 
     [<NoEquality>]
     [<NoComparison>]

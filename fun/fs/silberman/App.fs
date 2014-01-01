@@ -19,9 +19,6 @@ open Logical
 module public App =
 
 
-    let CurrentState () : ApplicationState = 
-        ApplicationState.New (CurrentTime ()) (MouseState.New Set.empty (Vector2 ()))
-    
     type private ToUIMessage =
         | NewVisual of VisualTree
         | ShutDownUI  
@@ -58,7 +55,7 @@ module public App =
 
         use onExitDisposeDevice = OnExit disposeDevice
 
-        let mouseState          = ref <| MouseState.New Set.empty Vector2.Zero
+        let mouseState          = ref <| MouseState.Zero
 
         let getButtonState (e : MouseEventArgs) =
             let btn = e.Button
@@ -133,7 +130,7 @@ module public App =
 
                     let transform = Animated.Constant <| Matrix3x2.Scaling d.Height
 
-                    let appState = CurrentState ()
+                    let appState = ApplicationState.New (CurrentTime()) <| !mouseState 
 
                     Visual.RenderTree appState d2dRenderTarget tfc bc <| Transform (transform,!vt)
 
@@ -183,6 +180,8 @@ module public App =
 
             let document = Logical.Standard.DocumentElement(context)
 
+            let mouseState= ref <| MouseState.Zero
+
             let available = ref <| Available.New (AvailableUnit.Bound <| float32 width) (AvailableUnit.Bound <| float32 height)
             let placement = ref <| Placement.New 0.F 0.F (float32 width) (float32 height)
 
@@ -199,6 +198,7 @@ module public App =
                             match fromMessage with
                             | ShutDownApplication   -> cont := false
                             | Resized (w,h)         -> document.InvalidateMeasurement ()
+                            | MouseChange ms        -> mouseState := ms 
                             | Exception e           -> ()
                     else
                         nextRebuild := CurrentTime () + 0.1F
