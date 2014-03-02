@@ -2,11 +2,13 @@
 @@@ extension cs
 @@@ include myother.mp
 @@@ require ostruct
-@@@ inject_token begin='@@=' end='=@@'
+@@@ inject_tokens @@= =@@
 
 @@> for (var iter = 0; iter < 10; ++iter ) {
 @@>     if (iter % 2 == 0) {
-    // This is a test @@=iter=@@
+    // This \n is 'a' test @@=iter=@@ of injects
+    // This is a test of nothing special
+    // This is a test @@=iter=@@ of two injects @@=iter=@@
 @@>     }
 @@> }
 
