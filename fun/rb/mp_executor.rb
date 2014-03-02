@@ -185,7 +185,7 @@ def read_metaprogram (filename)
     metaprogram.extension          = ""
     metaprogram.template_lines     = []
     metaprogram.program_lines      = []
-    metaprogram.requires           = ["mp_runtime"]
+    metaprogram.requires           = ["./mp_runtime"]
     metaprogram.failures           = []
 
     read_metaprogram_impl filename, seen_files, metaprogram
@@ -235,8 +235,7 @@ puts document.get_lines
 
     program = lines.join "\n"
 
-    puts program
-
+    eval program
 
 end
 

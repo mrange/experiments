@@ -4,7 +4,7 @@
 @@@ require ostruct
 @@@ inject_tokens @@= =@@
 
-@@> for i in 0..10
+@@> for iter in 0..10
 @@>     if iter % 2 == 0 then
     // This \n is 'a' test @@=iter=@@ of injects
     // This is a test of nothing special

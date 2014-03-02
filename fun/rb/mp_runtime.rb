@@ -1,10 +1,12 @@
 
 class Document
-    @current_line   = ""
-    @lines          = []
+    def initialize ()
+        @current_line   = ""
+        @lines          = []
+    end
 
     def write (value)
-        @current_line << (value || "")
+        @current_line << (value || "").to_s
     end
 
     def new_line ()
