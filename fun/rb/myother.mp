@@ -2,7 +2,6 @@
 @@@ require ostruct
 
 
-@@+ class OtherClass
-@@+ {
-@@+     public string Name;
-@@+ }
+@@+ def HelperMethodY (x)
+@@+     puts "HelperY"
+@@+ end

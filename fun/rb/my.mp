@@ -4,15 +4,15 @@
 @@@ require ostruct
 @@@ inject_tokens @@= =@@
 
-@@> for (var iter = 0; iter < 10; ++iter ) {
-@@>     if (iter % 2 == 0) {
+@@> for i in 0..10
+@@>     if iter % 2 == 0 then
     // This \n is 'a' test @@=iter=@@ of injects
     // This is a test of nothing special
     // This is a test @@=iter=@@ of two injects @@=iter=@@
-@@>     }
-@@> }
+@@>     end
+@@> end
 
-@@+ class HelperClass
-@@+ {
-@@+     public string Name;
-@@+ }
+@@+ def HelperMethodX (x)
+@@+     HelperMethodY (x)
+@@+     puts "HelperX"
+@@+ end
