@@ -1,0 +1,26 @@
+# [PackageDev] target_format: plist, ext: tmLanguage
+---
+name:       MetaProgrammer
+scopeName:  source.syntax_name
+fileTypes: [mp]
+uuid:       e7e1138b-c71a-4c85-9d03-8d2b4dae028e
+
+patterns:
+-   match:      ^@@[>|\+|@](.*)$
+    name:       keyword.source.mp
+    captures:
+        '1':
+            name:   constant.language.mp
+    comment:    Meta line
+-   match:      ^@@.*$
+    name:       invalid.illegal.starttoken.mp
+    comment:    Invalid line
+-   name:       keyword.source.mp
+    begin:      \@@=
+    patterns:
+    -   include:    $self
+    -   name:       constant.language.mp
+        match:      .
+    end:        =@@
+    comment:    inject token
+...

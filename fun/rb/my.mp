@@ -12,6 +12,8 @@
 @@>     end
 @@> end
 
+\@@ testing @@=ddeee=@@
+
 @@+ def HelperMethodX (x)
 @@+     HelperMethodY (x)
 @@+     puts "HelperX"
