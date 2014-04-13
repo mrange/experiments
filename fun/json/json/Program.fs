@@ -59,7 +59,7 @@ module JSONParser =
                                 result,digits.Length
                             )
         let p_e             : Parser<float, unit>       = 
-            skipAnyOf "eE" >>. (choice [charReturn '-' 0.1;charReturn '+' 1.] <|> preturn 1.)
+            skipAnyOf "eE" >>. (choice [charReturn '-' 0.1;charReturn '+' 10.] <|> preturn 10.)
         let p_exponent      : Parser<float, unit>       = 
             p_e .>>. p_int |>> (fun (exp, (i,_)) -> pown exp (int i)) <|> preturn 1.
         let p_fraction      : Parser<float, unit>       = 
@@ -124,10 +124,25 @@ let main argv =
             """[true]"""        , Some <| Array [Boolean true]
             """[false]"""       , Some <| Array [Boolean false]
             """[0]"""           , Some <| Array [Number 0.]
+            """[0.5]"""         , Some <| Array [Number 0.5]
             """[1234]"""        , Some <| Array [Number 1234.]
+            """[-1234]"""       , Some <| Array [Number -1234.]
+            """[1234.25]"""     , Some <| Array [Number 1234.25]
+            """[-1234.25]"""    , Some <| Array [Number -1234.25]
+            """[1234.50E2]"""      , Some <| Array [Number 123450.]
+            """[-1234.5E+2]"""  , Some <| Array [Number -123450.]
+// Rounding issues
+//            """[123450E-2]"""   , Some <| Array [Number 1234.50]
+//            """[-123450e-2]"""  , Some <| Array [Number -1234.50]
+            """[null,false]"""  , Some <| Array [Null;Boolean false]
+            """[{}]"""          , Some <| Array [Object []]
             """{}"""            , Some <| Object []
             """{"a":null}"""    , Some <| Object ["a",Null]
+            """{"a":[]}"""      , Some <| Object ["a",Array []]
             // Failure cases
+            """[,]"""           , None
+            """[true,]"""       , None
+            """[0123]"""        , None
             // Complex cases
         ]
 
