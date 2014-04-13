@@ -127,8 +127,8 @@ let main argv =
             """[""]"""              , Some <| Array [String ""]
             """["Test"]"""          , Some <| Array [String "Test"]
             """["Test\t"]"""        , Some <| Array [String "Test\t"]
-// TODO: This test case currently fails
-//            """["\"\\\/\b\f\n\r\t\u0041"]"""    , Some <| Array [String "\"\\\/\b\f\n\r\t\u0041"]
+            """["\"\\\//\b\f\n\r\t\u0041"]"""    
+                                    , Some <| Array [String "\"\\//\b\f\n\r\t\u0041"]
             """[0]"""               , Some <| Array [Number 0.]
             """[0.5]"""             , Some <| Array [Number 0.5]
             """[1234]"""            , Some <| Array [Number 1234.]
