@@ -26,10 +26,10 @@ module JSONParser =
 
         let p_ws            : Parser<unit, unit>        = spaces
         let p_token token   : Parser<unit, unit>        = skipChar token
-        let p_wstoken token : Parser<unit, unit>        = p_ws >>. skipChar token
+        let p_wstoken token : Parser<unit, unit>        = attempt (p_ws >>. p_token token)
 
         let p_escape        : Parser<char, unit>      =  
-                anyOf "\"\\/bfnrt"
+                anyOf """"\/bfnrt"""
                 |>> function
                     | 'b' -> '\b'
                     | 'f' -> '\f'
@@ -97,9 +97,9 @@ module JSONParser =
                             p_object
                             p_array  
                         ])
-        and p_member        : Parser<string*JSON, unit> = p_stringLiteral .>> (p_wstoken ':') .>>. p_value
-        and p_object        : Parser<JSON, unit>    = between (skipChar '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> Object)
-        and p_array         : Parser<JSON, unit>    = between (skipChar '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> Array)
+        and p_member        : Parser<string*JSON, unit> = p_ws >>. p_stringLiteral .>> p_ws .>> (p_token ':') .>>. p_value
+        and p_object        : Parser<JSON, unit>    = between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> Object)
+        and p_array         : Parser<JSON, unit>    = between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> Array)
 
         let p_root          : Parser<JSON, unit>    = 
             p_ws 
@@ -120,26 +120,57 @@ let main argv =
     let testCases = 
         [
             // Simple cases
-            """[]"""            , Some <| Array []
-            """[true]"""        , Some <| Array [Boolean true]
-            """[false]"""       , Some <| Array [Boolean false]
-            """[0]"""           , Some <| Array [Number 0.]
-            """[0.5]"""         , Some <| Array [Number 0.5]
-            """[1234]"""        , Some <| Array [Number 1234.]
-            """[-1234]"""       , Some <| Array [Number -1234.]
-            """[1234.25]"""     , Some <| Array [Number 1234.25]
-            """[-1234.25]"""    , Some <| Array [Number -1234.25]
-            """[1234.50E2]"""      , Some <| Array [Number 123450.]
-            """[-1234.5E+2]"""  , Some <| Array [Number -123450.]
-// Rounding issues
+            """[]"""                , Some <| Array []
+            """[null]"""            , Some <| Array [Null]
+            """[true]"""            , Some <| Array [Boolean true]
+            """[false]"""           , Some <| Array [Boolean false]
+            """[""]"""              , Some <| Array [String ""]
+            """["Test"]"""          , Some <| Array [String "Test"]
+            """["Test\t"]"""        , Some <| Array [String "Test\t"]
+// TODO: This test case currently fails
+//            """["\"\\\/\b\f\n\r\t\u0041"]"""    , Some <| Array [String "\"\\\/\b\f\n\r\t\u0041"]
+            """[0]"""               , Some <| Array [Number 0.]
+            """[0.5]"""             , Some <| Array [Number 0.5]
+            """[1234]"""            , Some <| Array [Number 1234.]
+            """[-1234]"""           , Some <| Array [Number -1234.]
+            """[1234.25]"""         , Some <| Array [Number 1234.25]
+            """[-1234.25]"""        , Some <| Array [Number -1234.25]
+            """[1234.50E2]"""       , Some <| Array [Number 123450.]
+            """[-1234.5E+2]"""      , Some <| Array [Number -123450.]
+// TODO: Implement own comparer due to rounding issues
 //            """[123450E-2]"""   , Some <| Array [Number 1234.50]
 //            """[-123450e-2]"""  , Some <| Array [Number -1234.50]
-            """[null,false]"""  , Some <| Array [Null;Boolean false]
-            """[{}]"""          , Some <| Array [Object []]
-            """{}"""            , Some <| Object []
-            """{"a":null}"""    , Some <| Object ["a",Null]
-            """{"a":[]}"""      , Some <| Object ["a",Array []]
+            """[null,false]"""      , Some <| Array [Null;Boolean false]
+            """[{}]"""              , Some <| Array [Object []]
+            """{}"""                , Some <| Object []
+            """{"a":null}"""        , Some <| Object ["a",Null]
+            """{"a":[]}"""          , Some <| Object ["a",Array []]
+            """{"a":[],"b":{}}"""   , Some <| Object ["a",Array [];"b",Object []]
+            // Whitespace cases
+            """ []"""               , Some <| Array []
+            """[] """               , Some <| Array []
+            """ [] """              , Some <| Array []
+            """[ true]"""           , Some <| Array [Boolean true]
+            """[true ]"""           , Some <| Array [Boolean true]
+            """[ true ]"""          , Some <| Array [Boolean true]
+            """[null, true]"""      , Some <| Array [Null;Boolean true]
+            """[null ,true]"""      , Some <| Array [Null;Boolean true]
+            """[null , true]"""     , Some <| Array [Null;Boolean true]
+            """ {}"""               , Some <| Object []
+            """{} """               , Some <| Object []
+            """ {} """              , Some <| Object []
+            """{ "a":true}"""       , Some <| Object ["a",Boolean true]
+            """{"a":true }"""       , Some <| Object ["a",Boolean true]
+            """{ "a":true }"""      , Some <| Object ["a",Boolean true]
+            """{"a" :true}"""       , Some <| Object ["a",Boolean true]
+            """{"a": true}"""       , Some <| Object ["a",Boolean true]
+            """{"a" : true}"""      , Some <| Object ["a",Boolean true]
+            """{"a":[] ,"b":{}}"""  , Some <| Object ["a",Array [];"b",Object []]
+            """{"a":[], "b":{}}"""  , Some <| Object ["a",Array [];"b",Object []]
+            """{"a":[] , "b":{}}""" , Some <| Object ["a",Array [];"b",Object []]
             // Failure cases
+            """0"""             , None
+            """true"""          , None
             """[,]"""           , None
             """[true,]"""       , None
             """[0123]"""        , None
