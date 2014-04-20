@@ -2,18 +2,75 @@
 module JSONParser = 
     open FParsec
 
-    type JSON = 
+    type JsonValue = 
+    | String of string
+    | Number of decimal
+    | Float of float 
+    | Record of properties:(string * JsonValue)[]
+    | Array of elements:JsonValue[]
+    | Boolean of bool
     | Null
-    | Boolean   of bool
-    | Number    of float
-    | String    of string
-    | Array     of JSON list
-    | Object    of (string*JSON) list
 
     module Details =
 
-        let satisfy1To9 c = c >= '1' && c <= '9'
+        open System
+        open System.Linq.Expressions
 
+        let fastMap (items : (string*'T) list) (defaultValue : 'T) : Func<char, int, 'T> = 
+            let tt = typeof<'T>
+            let parameter0     = Expression.Parameter   (typeof<char>   , "ch"      )
+            let parameter1     = Expression.Parameter   (typeof<int>    , "index"   )
+            let resultVariable = Expression.Variable    (tt             , "result"  )
+
+            let switchCases =
+                items 
+                |> List.map (fun (anyOf,v) -> 
+                    Expression.SwitchCase    (
+                        Expression.Assign     (resultVariable, Expression.Constant(v, tt))                  ,
+                        anyOf |> Seq.map (fun ch -> Expression.Constant (ch) :> Expression) |> Seq.toArray) )
+                |> List.toArray
+
+            let switchStatement = 
+                Expression.Switch (
+                    parameter0                                                                          ,
+                    Expression.Assign        (resultVariable, Expression.Constant(defaultValue, tt))    ,
+                    switchCases                                                                         )
+
+            let body = 
+                Expression.Block (
+                    [|resultVariable|]  ,
+                    switchStatement     ,
+                    resultVariable      )
+
+            let lambda = 
+                Expression.Lambda<Func<char, int, 'T>>(
+                   body         ,
+                   parameter0   ,
+                   parameter1   )
+
+            lambda.Compile ();
+(*
+        let fastChoice (parsers : (string*Parser<'T, 'UserState>) list) : Parser<'T, 'UserState> = 
+            let choices = parsers |> List.map (fun (anyOf,v) -> (anyOf, Some v))
+            let fm = fastMap choices None
+            let ems = 
+                parsers 
+                |> List.collect (fun (anyOf,_) -> anyOf |> Seq.toList)
+                |> List.map expectedChar
+            fun ps -> 
+                if ps.IsEndOfStream then failure ems
+                else 
+                    let ch  = ps.Peek ()
+                    let f   = fm.Invoke(ch, 0)
+                    match f with
+                    | None      -> failure ems
+                    | Some p    -> 
+                        let me  = initialMerge ps ems
+                        let r   = p ps
+                        me.Merge ps r.ErrorMessages
+                        if r.Ok then success r.Result me.Errors
+                        else failure me.Errors
+*)
         let hex2int c = 
             match c with
             | _ when c >= '0' && c <= '9'   -> (int c) - (int '0')     
@@ -44,13 +101,13 @@ module JSONParser =
         let p_char          : Parser<char, unit>        =
             choice
                 [
-                    satisfy (fun ch -> ch <> '"' && ch <> '\\')
+                    noneOf """"\"""
                     p_token '\\' >>. (p_escape <|> p_unicodeEscape)
                 ]
         let p_stringLiteral : Parser<string, unit>      =
             between (p_token '"') (p_token '"') (manyChars p_char)
 
-        let p_digit1To9     : Parser<char, unit>        = satisfy satisfy1To9
+        let p_digit1To9     : Parser<char, unit>        = anyOf "123456789"
         let p_digit         : Parser<int, unit>         = digit |>> hex2int
         let p_int           : Parser<int64*int, unit>   = many p_digit |>> (fun digits ->
                                 let mutable result = 0L
@@ -78,36 +135,44 @@ module JSONParser =
                             ] |>> (fun (s,n) -> s*n)
 
 
-        let p_null          : Parser<JSON, unit>    = stringReturn "null"   Null
-        let p_true          : Parser<JSON, unit>    = stringReturn "true"   <| Boolean true
-        let p_false         : Parser<JSON, unit>    = stringReturn "false"  <| Boolean false
-        let p_string        : Parser<JSON, unit>    = p_stringLiteral       |>> String
-        let p_number        : Parser<JSON, unit>    = p_numberLiteral       |>> Number
+        let p_null          : Parser<JsonValue, unit>    = stringReturn "null"   JsonValue.Null
+        let p_true          : Parser<JsonValue, unit>    = stringReturn "true"   <| JsonValue.Boolean true
+        let p_false         : Parser<JsonValue, unit>    = stringReturn "false"  <| JsonValue.Boolean false
+        let p_string        : Parser<JsonValue, unit>    = p_stringLiteral       |>> JsonValue.String
+        let p_number        : Parser<JsonValue, unit>    = p_numberLiteral       |>> JsonValue.Float
 
-        let rec p_value     : Parser<JSON, unit>    = fun cs -> 
-            cs 
-            |>  (p_ws 
+        let rec p_value     : Parser<JsonValue, unit>    = 
+            let p = 
+                lazy
+                    p_ws 
                     >>. choice
                         [
-                            p_null  
+                            p_null 
                             p_true
                             p_false
                             p_string
                             p_number  
                             p_object
                             p_array  
-                        ])
-        and p_member        : Parser<string*JSON, unit> = 
+                        ]
+            fun ps -> p.Value ps
+        and p_member        : Parser<string*JsonValue, unit> = 
             p_ws >>. p_stringLiteral .>> p_ws .>> (p_token ':') .>>. p_value
-        and p_object        : Parser<JSON, unit>        = 
-            between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> Object)
-        and p_array         : Parser<JSON, unit>        = 
-            between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> Array)
+        and p_object        : Parser<JsonValue, unit>        = 
+            between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> (List.toArray >> JsonValue.Record))
+        and p_array         : Parser<JsonValue, unit>        = 
+            between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> (List.toArray >> JsonValue.Array))
 
-        let p_root          : Parser<JSON, unit>        = p_ws >>. choice [p_object;p_array]
+        let p_root          : Parser<JsonValue, unit>        = p_ws 
+                                                                >>. choice 
+                                                                    [
+                                                                        p_object
+                                                                        p_array  
+                                                                    ]
     
-        let p_json = p_root .>> p_ws .>> eof
+        let p_json  = p_root .>> p_ws .>> eof
         let p_jsons = (many p_root) .>> p_ws .>> eof
+    
 
     let Parse           str = run Details.p_json str
     let ParseMultiple   str = run Details.p_jsons str
@@ -128,54 +193,54 @@ let runTestCases () =
     let testCases = 
         [
             // Simple cases
-            """[]"""                , Some <| Array []
-            """[null]"""            , Some <| Array [Null]
-            """[true]"""            , Some <| Array [Boolean true]
-            """[false]"""           , Some <| Array [Boolean false]
-            """[""]"""              , Some <| Array [String ""]
-            """["Test"]"""          , Some <| Array [String "Test"]
-            """["Test\t"]"""        , Some <| Array [String "Test\t"]
+            """[]"""                , Some <| Array [||]
+            """[null]"""            , Some <| Array [|Null|]
+            """[true]"""            , Some <| Array [|Boolean true|]
+            """[false]"""           , Some <| Array [|Boolean false|]
+            """[""]"""              , Some <| Array [|String ""|]
+            """["Test"]"""          , Some <| Array [|String "Test"|]
+            """["Test\t"]"""        , Some <| Array [|String "Test\t"|]
             """["\"\\\//\b\f\n\r\t\u0041"]"""    
-                                    , Some <| Array [String "\"\\//\b\f\n\r\t\u0041"]
-            """[0]"""               , Some <| Array [Number 0.]
-            """[0.5]"""             , Some <| Array [Number 0.5]
-            """[1234]"""            , Some <| Array [Number 1234.]
-            """[-1234]"""           , Some <| Array [Number -1234.]
-            """[1234.25]"""         , Some <| Array [Number 1234.25]
-            """[-1234.25]"""        , Some <| Array [Number -1234.25]
-            """[1234.50E2]"""       , Some <| Array [Number 123450.]
-            """[-1234.5E+2]"""      , Some <| Array [Number -123450.]
+                                    , Some <| Array [|String "\"\\//\b\f\n\r\t\u0041"|]
+            """[0]"""               , Some <| Array [|Float 0.|]
+            """[0.5]"""             , Some <| Array [|Float 0.5|]
+            """[1234]"""            , Some <| Array [|Float 1234.|]
+            """[-1234]"""           , Some <| Array [|Float -1234.|]
+            """[1234.25]"""         , Some <| Array [|Float 1234.25|]
+            """[-1234.25]"""        , Some <| Array [|Float -1234.25|]
+            """[1234.50E2]"""       , Some <| Array [|Float 123450.|]
+            """[-1234.5E+2]"""      , Some <| Array [|Float -123450.|]
 // TODO: Implement own comparer due to rounding issues
 //            """[123450E-2]"""   , Some <| Array [Number 1234.50]
 //            """[-123450e-2]"""  , Some <| Array [Number -1234.50]
-            """[null,false]"""      , Some <| Array [Null;Boolean false]
-            """[{}]"""              , Some <| Array [Object []]
-            """{}"""                , Some <| Object []
-            """{"a":null}"""        , Some <| Object ["a",Null]
-            """{"a":[]}"""          , Some <| Object ["a",Array []]
-            """{"a":[],"b":{}}"""   , Some <| Object ["a",Array [];"b",Object []]
+            """[null,false]"""      , Some <| Array [|Null;Boolean false|]
+            """[{}]"""              , Some <| Array [|Record [||]|]
+            """{}"""                , Some <| Record [||]
+            """{"a":null}"""        , Some <| Record [|"a",Null|]
+            """{"a":[]}"""          , Some <| Record [|"a",Array [||]|]
+            """{"a":[],"b":{}}"""   , Some <| Record [|"a",Array [||];"b",Record [||]|]
             // Whitespace cases
-            """ []"""               , Some <| Array []
-            """[] """               , Some <| Array []
-            """ [] """              , Some <| Array []
-            """[ true]"""           , Some <| Array [Boolean true]
-            """[true ]"""           , Some <| Array [Boolean true]
-            """[ true ]"""          , Some <| Array [Boolean true]
-            """[null, true]"""      , Some <| Array [Null;Boolean true]
-            """[null ,true]"""      , Some <| Array [Null;Boolean true]
-            """[null , true]"""     , Some <| Array [Null;Boolean true]
-            """ {}"""               , Some <| Object []
-            """{} """               , Some <| Object []
-            """ {} """              , Some <| Object []
-            """{ "a":true}"""       , Some <| Object ["a",Boolean true]
-            """{"a":true }"""       , Some <| Object ["a",Boolean true]
-            """{ "a":true }"""      , Some <| Object ["a",Boolean true]
-            """{"a" :true}"""       , Some <| Object ["a",Boolean true]
-            """{"a": true}"""       , Some <| Object ["a",Boolean true]
-            """{"a" : true}"""      , Some <| Object ["a",Boolean true]
-            """{"a":[] ,"b":{}}"""  , Some <| Object ["a",Array [];"b",Object []]
-            """{"a":[], "b":{}}"""  , Some <| Object ["a",Array [];"b",Object []]
-            """{"a":[] , "b":{}}""" , Some <| Object ["a",Array [];"b",Object []]
+            """ []"""               , Some <| Array [||]
+            """[] """               , Some <| Array [||]
+            """ [] """              , Some <| Array [||]
+            """[ true]"""           , Some <| Array [|Boolean true|]
+            """[true ]"""           , Some <| Array [|Boolean true|]
+            """[ true ]"""          , Some <| Array [|Boolean true|]
+            """[null, true]"""      , Some <| Array [|Null;Boolean true|]
+            """[null ,true]"""      , Some <| Array [|Null;Boolean true|]
+            """[null , true]"""     , Some <| Array [|Null;Boolean true|]
+            """ {}"""               , Some <| Record [||]
+            """{} """               , Some <| Record [||]
+            """ {} """              , Some <| Record [||]
+            """{ "a":true}"""       , Some <| Record [|"a",Boolean true|]
+            """{"a":true }"""       , Some <| Record [|"a",Boolean true|]
+            """{ "a":true }"""      , Some <| Record [|"a",Boolean true|]
+            """{"a" :true}"""       , Some <| Record [|"a",Boolean true|]
+            """{"a": true}"""       , Some <| Record [|"a",Boolean true|]
+            """{"a" : true}"""      , Some <| Record [|"a",Boolean true|]
+            """{"a":[] ,"b":{}}"""  , Some <| Record [|"a",Array [||];"b",Record [||]|]
+            """{"a":[], "b":{}}"""  , Some <| Record [|"a",Array [||];"b",Record [||]|]
+            """{"a":[] , "b":{}}""" , Some <| Record [|"a",Array [||];"b",Record [||]|]
             // Failure cases
             """0"""             , None
             """true"""          , None
