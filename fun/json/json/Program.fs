@@ -97,26 +97,24 @@ module JSONParser =
                             p_object
                             p_array  
                         ])
-        and p_member        : Parser<string*JSON, unit> = p_ws >>. p_stringLiteral .>> p_ws .>> (p_token ':') .>>. p_value
-        and p_object        : Parser<JSON, unit>    = between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> Object)
-        and p_array         : Parser<JSON, unit>    = between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> Array)
+        and p_member        : Parser<string*JSON, unit> = 
+            p_ws >>. p_stringLiteral .>> p_ws .>> (p_token ':') .>>. p_value
+        and p_object        : Parser<JSON, unit>        = 
+            between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> Object)
+        and p_array         : Parser<JSON, unit>        = 
+            between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> Array)
 
-        let p_root          : Parser<JSON, unit>    = 
-            p_ws 
-                >>. choice [p_object;p_array]
-                .>> p_ws 
-                .>> eof
+        let p_root          : Parser<JSON, unit>        = p_ws >>. choice [p_object;p_array]
     
-        let p_json = p_root
+        let p_json = p_root .>> p_ws .>> eof
+        let p_jsons = (many p_root) .>> p_ws .>> eof
 
     let Parse str = run Details.p_json str
 
 open FParsec
 open JSONParser
 
-[<EntryPoint>]
-let main argv = 
-
+let runTestCases () = 
     let testCases = 
         [
             // Simple cases
@@ -197,5 +195,9 @@ let main argv =
             failure <| sprintf  "Parse failed:\nMessage:%s\nExpected:\n%A\nJSON:\n%s" d e json
         |   (Failure (d,_,_), Some e)                          -> 
             failure <| sprintf  "Parse failed: %s, %A, %s" d e json
+
+[<EntryPoint>]
+let main argv = 
+    runTestCases ()
 
     0
