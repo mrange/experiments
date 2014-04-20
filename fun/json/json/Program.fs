@@ -109,10 +109,20 @@ module JSONParser =
         let p_json = p_root .>> p_ws .>> eof
         let p_jsons = (many p_root) .>> p_ws .>> eof
 
-    let Parse str = run Details.p_json str
+    let Parse           str = run Details.p_json str
+    let ParseMultiple   str = run Details.p_jsons str
 
+open System
+open System.Diagnostics
+open System.IO
 open FParsec
 open JSONParser
+
+let failures = ref 0
+
+let failure (s : string) = 
+    failures := !failures + 1
+    printfn "FAILED: %s" s
 
 let runTestCases () = 
     let testCases = 
@@ -175,12 +185,6 @@ let runTestCases () =
             // Complex cases
         ]
 
-    let failures = ref 0
-
-    let failure (s : string) = 
-        failures := !failures + 1
-        printfn "FAILED: %s" s
-
     for (json, expected) in testCases do
         let result = Parse json
 
@@ -196,8 +200,36 @@ let runTestCases () =
         |   (Failure (d,_,_), Some e)                          -> 
             failure <| sprintf  "Parse failed: %s, %A, %s" d e json
 
+let runPerformanceTestCases () =
+    printfn "Running performance test cases"
+
+    let samplePath      = AppDomain.CurrentDomain.BaseDirectory
+    let documentPath    = Path.Combine (samplePath, "topics.json")
+
+    try
+        let document = File.ReadAllText documentPath
+
+        // Dry run
+        ignore <| ParseMultiple document
+
+        let iterations  = 100
+
+        printfn "Running %d iterations on document: %s using new parser" iterations documentPath
+        let newStopWatch   = Stopwatch()
+        newStopWatch.Start()
+        for i in 1..iterations do
+            ignore <| ParseMultiple document
+        newStopWatch.Stop()
+
+        printfn "Result: %d ms" newStopWatch.ElapsedMilliseconds
+
+    with
+        e -> 
+            failure <| sprintf "Parsed failed for document: %s, message: %s" documentPath e.Message
+
 [<EntryPoint>]
 let main argv = 
     runTestCases ()
+    runPerformanceTestCases ()
 
     0
