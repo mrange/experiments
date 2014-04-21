@@ -140,21 +140,19 @@ module Parser =
             let i           = input
             let length      = i.Length
 
-            let mutable cont = true
             let mutable pos  = position
 
-            while cont && pos < length do
-                cont    <-  match i.[pos] with
-                            | ' '
-                            | '\t'
-                            | '\n'
-                            | '\r'  -> true
-                            | _     -> false
-                pos     <- pos + 1
+            while   pos < length &&
+                    match i.[pos] with
+                    | ' '
+                    | '\t'
+                    | '\n'
+                    | '\r'  -> true
+                    | _     -> false
+                do
+                pos <- pos + 1
 
-            let stopped = if cont then pos else pos - 1
-
-            position <- stopped
+            position <- pos
 
     type ErrorMessage =
         | Expected      of string
@@ -566,6 +564,10 @@ module Parser =
                 else
                     success (result |> Seq.toList) me.Errors
 
+    let createParserForwardedToRef () =
+        let dummyParser = fun stream -> failwith "a parser created with createParserForwardedToRef was not initialized"
+        let r = ref dummyParser
+        (fun stream -> !r stream), r : Parser<_,'u> * Parser<_,'u> ref
 
 open Parser
 #else
@@ -713,26 +715,13 @@ module JSONParser =
         let p_string        : Parser<JsonValue, unit>    = p_stringLiteral       |>> JsonValue.String
         let p_number        : Parser<JsonValue, unit>    = p_numberLiteral       |>> JsonValue.Float
 
-        let rec p_value     : Parser<JsonValue, unit>    =
-            let p =
-                lazy
-                    p_ws
-                    >>. choice
-                        [
-                            p_null
-                            p_true
-                            p_false
-                            p_string
-                            p_number
-                            p_object
-                            p_array
-                        ]
-            fun ps -> p.Value ps
-        and p_member        : Parser<string*JsonValue, unit> =
+        let (p_value : Parser<JsonValue, unit>, p_value_ref) = createParserForwardedToRef ()
+
+        let p_member        : Parser<string*JsonValue, unit> =
             p_ws >>. p_stringLiteral .>> p_ws .>> (p_token ':') .>>. p_value
-        and p_object        : Parser<JsonValue, unit>        =
+        let p_object        : Parser<JsonValue, unit>        =
             between (p_token '{') (p_wstoken '}') (sepBy p_member (p_wstoken ',') |>> (List.toArray >> JsonValue.Record))
-        and p_array         : Parser<JsonValue, unit>        =
+        let p_array         : Parser<JsonValue, unit>        =
             between (p_token '[') (p_wstoken ']') (sepBy p_value (p_wstoken ',') |>> (List.toArray >> JsonValue.Array))
 
         let p_root          : Parser<JsonValue, unit>        = p_ws
@@ -741,6 +730,19 @@ module JSONParser =
                                                                         p_object
                                                                         p_array
                                                                     ]
+
+        p_value_ref := 
+            p_ws
+            >>. choice
+                [
+                    p_null
+                    p_true
+                    p_false
+                    p_string
+                    p_number
+                    p_object
+                    p_array
+                ]
 
         let p_json  = p_root .>> p_ws .>> eof
         let p_jsons = (many p_root) .>> p_ws .>> eof
