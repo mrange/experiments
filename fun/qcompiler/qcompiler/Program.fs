@@ -174,6 +174,61 @@ module QCompiler =
             | PropertySet           (f, _, s, t)    -> state |> foldExpr_Opt folder f |> foldExpr_Many folder s |> foldExpr folder t |> folder expr
             | _                     -> failwith "Unhandled case"
 
+        let rec createTupleExpression (es : Expression list) = 
+            match es with
+            | []                            -> null :> Expression
+            | x1::[]                        -> x1
+            | x1::x2::[]                    -> 
+                let ts      = [|x1.Type; x2.Type|]
+                let ps      = [|x1; x2|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::[]                -> 
+                let ts      = [|x1.Type; x2.Type; x3.Type|]
+                let ps      = [|x1; x2; x3|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::x4::[]            -> 
+                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type|]
+                let ps      = [|x1; x2; x3; x4|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::x4::x5::[]        -> 
+                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type|]
+                let ps      = [|x1; x2; x3; x4; x5|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::x4::x5::x6::[]    -> 
+                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type|]
+                let ps      = [|x1; x2; x3; x4; x5; x6|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::x4::x5::x6::x7::[]-> 
+                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type|]
+                let ps      = [|x1; x2; x3; x4; x5; x6; x7|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+            | x1::x2::x3::x4::x5::x6::x7::xs-> 
+                let rest    = createTupleExpression xs
+                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type; rest.Type|]
+                let ps      = [|x1; x2; x3; x4; x5; x6; x7; rest|]
+                let t       = typeOfTuple2.MakeGenericType ts
+                let ci      = t.GetConstructor ts
+                let new_q   = Expression.New (ci, ps)
+                new_q :> Expression
+
         let newVariable (vars : VariableExpressions) (v : Var) =
             let vd      = VariableDefinition.New v.Type v.Name
             let v_q     = Expression.Variable (v.Type, v.Name)
@@ -200,61 +255,6 @@ module QCompiler =
             | Application           (f_e,_)             ->
                 // TODO:
 
-                let rec buildParameterExpression (es : Expression list) = 
-                    match es with
-                    | []                            -> null :> Expression
-                    | x1::[]                        -> x1
-                    | x1::x2::[]                    -> 
-                        let ts      = [|x1.Type; x2.Type|]
-                        let ps      = [|x1; x2|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::[]                -> 
-                        let ts      = [|x1.Type; x2.Type; x3.Type|]
-                        let ps      = [|x1; x2; x3|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::x4::[]            -> 
-                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type|]
-                        let ps      = [|x1; x2; x3; x4|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::x4::x5::[]        -> 
-                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type|]
-                        let ps      = [|x1; x2; x3; x4; x5|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::x4::x5::x6::[]    -> 
-                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type|]
-                        let ps      = [|x1; x2; x3; x4; x5; x6|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::x4::x5::x6::x7::[]-> 
-                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type|]
-                        let ps      = [|x1; x2; x3; x4; x5; x6; x7|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-                    | x1::x2::x3::x4::x5::x6::x7::xs-> 
-                        let rest    = buildParameterExpression xs
-                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type; rest.Type|]
-                        let ps      = [|x1; x2; x3; x4; x5; x6; x7; rest|]
-                        let t       = typeOfTuple2.MakeGenericType ts
-                        let ci      = t.GetConstructor ts
-                        let new_q   = Expression.New (ci, ps)
-                        new_q :> Expression
-
                 let rec buildExpression (f : Expression) (ess : Expression list list) = 
                     let rec returnType (t : Type)   = 
                         let args = t.GetGenericArguments()
@@ -265,13 +265,13 @@ module QCompiler =
                     match ess with
                     | []                        -> f
                     | x1::[]                    -> 
-                        let p1  = buildParameterExpression x1
+                        let p1  = createTupleExpression x1
                         let mi  = f.Type.GetMethod ("Invoke", [|p1.Type|])
                         let a_q = Expression.Call (f, mi, [|p1|])
                         a_q :> Expression
                     | x1::x2::[]                -> 
-                        let p1  = buildParameterExpression x1
-                        let p2  = buildParameterExpression x2
+                        let p1  = createTupleExpression x1
+                        let p2  = createTupleExpression x2
                         let ps  = [|f;p1;p2|]
                         let ts  = [|returnType f.Type|]
                         let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
@@ -282,9 +282,9 @@ module QCompiler =
                         let a_q = Expression.Call(null, mi, ps)
                         a_q :> Expression
                     | x1::x2::x3::[]            -> 
-                        let p1  = buildParameterExpression x1
-                        let p2  = buildParameterExpression x2
-                        let p3  = buildParameterExpression x3
+                        let p1  = createTupleExpression x1
+                        let p2  = createTupleExpression x2
+                        let p3  = createTupleExpression x3
                         let ps  = [|f;p1;p2;p3|]
                         let ts  = [|p3.Type; returnType f.Type|]
                         let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
@@ -295,10 +295,10 @@ module QCompiler =
                         let a_q = Expression.Call(null, mi, ps)
                         a_q :> Expression
                     | x1::x2::x3::x4::[]        -> 
-                        let p1  = buildParameterExpression x1
-                        let p2  = buildParameterExpression x2
-                        let p3  = buildParameterExpression x3
-                        let p4  = buildParameterExpression x4
+                        let p1  = createTupleExpression x1
+                        let p2  = createTupleExpression x2
+                        let p3  = createTupleExpression x3
+                        let p4  = createTupleExpression x4
                         let ps  = [|f;p1;p2;p3;p4|]
                         let ts  = [|p3.Type; p4.Type; returnType f.Type|]
                         let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
@@ -309,11 +309,11 @@ module QCompiler =
                         let a_q = Expression.Call(null, mi, ps)
                         a_q :> Expression
                     | x1::x2::x3::x4::x5::[]    -> 
-                        let p1  = buildParameterExpression x1
-                        let p2  = buildParameterExpression x2
-                        let p3  = buildParameterExpression x3
-                        let p4  = buildParameterExpression x4
-                        let p5  = buildParameterExpression x5
+                        let p1  = createTupleExpression x1
+                        let p2  = createTupleExpression x2
+                        let p3  = createTupleExpression x3
+                        let p4  = createTupleExpression x4
+                        let p5  = createTupleExpression x5
                         let ps  = [|f;p1;p2;p3;p4;p5|]
                         let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
                         let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
@@ -324,11 +324,11 @@ module QCompiler =
                         let a_q = Expression.Call(null, mi, ps)
                         a_q :> Expression
                     | x1::x2::x3::x4::x5::xs    -> 
-                        let p1  = buildParameterExpression x1
-                        let p2  = buildParameterExpression x2
-                        let p3  = buildParameterExpression x3
-                        let p4  = buildParameterExpression x4
-                        let p5  = buildParameterExpression x5
+                        let p1  = createTupleExpression x1
+                        let p2  = createTupleExpression x2
+                        let p3  = createTupleExpression x3
+                        let p4  = createTupleExpression x4
+                        let p5  = createTupleExpression x5
                         let ps  = [|f;p1;p2;p3;p4;p5|]
                         let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
                         let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
@@ -415,6 +415,9 @@ module QCompiler =
                 let a_qs    = toLinqExpression_Many vars a_es
                 let n_q     = Expression.New (ci, a_qs)
                 n_q :> Expression
+            | NewTuple              (a_es)              ->
+                let a_qs    = createTupleExpression <| toLinqExpression_Many vars a_es
+                a_qs
             | PropertyGet           (t_e, pi, i_es)     ->
                 let t_q     = toLinqExpression_Opt vars t_e
                 let i_qs    = toLinqExpression_Many vars i_es
@@ -463,6 +466,11 @@ module QCompiler =
 
                 let b_q         = Expression.Block (gotoTest_q, startLabel_q, l_q, testLabel_q, if_q)
                 b_q :> Expression
+            | TupleGet              (t_e, idx)          ->
+                let t_q         = toLinqExpression vars t_e
+                let pi          = t_q.Type.GetProperty <| sprintf "Item%d" (idx + 1)
+                let p_q         = Expression.Property (t_q, pi)
+                p_q :> Expression
             | TryFinally            (b_e, f_e)          ->
                 let b_q         = toLinqExpression vars b_e
                 let f_q         = toLinqExpression vars f_e
@@ -479,16 +487,16 @@ module QCompiler =
             | LetRecursive          _
             | NewDelegate           _
             | NewRecord             _
-            | NewTuple              _
             | NewUnionCase          _
             | TryWith               _                   
-            | TupleGet              _
             | UnionCaseTest         _
-            | _                     -> failwith "Unhandled case"
+            | _                     -> failwith "Unhandled expr: %A" expr
             
 
     let compile (expr : Expr<'T>) : unit->'T = 
-        let e = Details.toLinqExpression Map.empty expr.Raw
+        let mutable e = Details.toLinqExpression Map.empty expr.Raw
+        while e.CanReduce do
+            e <- e.Reduce ()
         let l = Expression.Lambda<Func<unit, 'T>> (e)
         let c = l.Compile ()
         fun () -> c.Invoke ()
@@ -674,9 +682,9 @@ let main argv =
     let n = 400
 
     let qcs = QParser.CharStream<unit> (document, ())
-    //let skipper1 = qcs.MakeSkip qwsQuote2
+    let skipper1 = qcs.MakeSkip qwsQuote1
 //    let skipper2 = qcs.MakeSkip2 qwsQuote4
-    let skipper3 = qcs.MakeSkip3 qwsQuote6
+//    let skipper3 = qcs.MakeSkip3 qwsQuote6
     //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
