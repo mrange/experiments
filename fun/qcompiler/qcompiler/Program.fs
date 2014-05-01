@@ -1,13 +1,80 @@
 ﻿
 module QCompiler = 
     open Microsoft.FSharp.Quotations
+    open Microsoft.FSharp.Quotations.DerivedPatterns
     open Microsoft.FSharp.Quotations.Patterns
+
+    open OptimizedClosures
+
     open System
     open System.Linq.Expressions
+    open System.Reflection
 
     module Details = 
-        let gdt :Type   = typedefof<Converter>
-        let gfft:Type   = typedefof<FSharpFunc>
+
+        let getStaticMethodInfo (a : Expr<'T>) : MethodInfo     = 
+            match a with
+            | Call (_, mi, _)   -> mi
+            | _                 -> failwith "getStaticMethodInfo expects a Call expression"
+            
+        let getConstructorInfo (a : Expr<'T>) : ConstructorInfo = 
+            match a with
+            | NewObject (ci, _) -> ci
+            | _                 -> failwith "getStaticMethodInfo expects a NewObject expression"
+
+        type FSharpFuncAdapter<'T1, 'U>(func : Func<'T1, 'U>) =
+            inherit FSharpFunc<'T1, 'U>() 
+                override x.Invoke p1                = func.Invoke p1
+
+        type FSharpFuncAdapter<'T1, 'T2, 'U>(func : Func<'T1, 'T2, 'U>) =
+            inherit FSharpFunc<'T1, 'T2, 'U>() 
+                override x.Invoke p1                = fun p2 -> func.Invoke(p1,p2)
+                override x.Invoke (p1,p2)           = func.Invoke(p1,p2)
+
+        type FSharpFuncAdapter<'T1, 'T2, 'T3, 'U>(func : Func<'T1, 'T2, 'T3, 'U>) =
+            inherit FSharpFunc<'T1, 'T2, 'T3, 'U>() 
+                override x.Invoke p1                = fun p2 p3 -> func.Invoke(p1,p2,p3)
+                override x.Invoke (p1,p2,p3)        = func.Invoke(p1,p2,p3)
+
+        type FSharpFuncAdapter<'T1, 'T2, 'T3, 'T4, 'U>(func : Func<'T1, 'T2, 'T3, 'T4, 'U>) =
+            inherit FSharpFunc<'T1, 'T2, 'T3, 'T4, 'U>() 
+                override x.Invoke p1                = fun p2 p3 p4 -> func.Invoke(p1,p2,p3, p4)
+                override x.Invoke (p1,p2,p3,p4)     = func.Invoke(p1,p2,p3,p4)
+
+        type FSharpFuncAdapter<'T1, 'T2, 'T3, 'T4, 'T5, 'U>(func : Func<'T1, 'T2, 'T3, 'T4, 'T5, 'U>) =
+            inherit FSharpFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'U>() 
+                override x.Invoke p1                = fun p2 p3 p4 p5 -> func.Invoke(p1,p2,p3, p4, p5)
+                override x.Invoke (p1,p2,p3,p4,p5)  = func.Invoke(p1,p2,p3,p4,p5)
+
+        let bflags          = BindingFlags.Public ||| BindingFlags.Static 
+
+        let typeOfFFunc     = typedefof<FSharpFunc<_, _>>
+        let invokeFasts     = typeOfFFunc.GetMethods (bflags)
+                                |> Array.filter (fun mi -> mi.Name = "InvokeFast" && mi.IsStatic)
+                                |> Array.map (fun mi -> (mi.GetParameters().Length - 1),mi)
+                                |> Map.ofArray
+        let invokeFast2     = invokeFasts.[2]
+        let invokeFast3     = invokeFasts.[3]
+        let invokeFast4     = invokeFasts.[4]
+        let invokeFast5     = invokeFasts.[5]
+                
+        let typeOfAdapter1  = typedefof<FSharpFuncAdapter<_, _>>
+        let typeOfAdapter2  = typedefof<FSharpFuncAdapter<_, _, _>>
+        let typeOfAdapter3  = typedefof<FSharpFuncAdapter<_, _, _, _>>
+        let typeOfAdapter4  = typedefof<FSharpFuncAdapter<_, _, _, _, _>>
+        let typeOfAdapter5  = typedefof<FSharpFuncAdapter<_, _, _, _, _, _>>
+
+        let typeOfTuple0    = typeof<Tuple>
+        let typeOfTuple1    = typedefof<Tuple<_>>
+        let typeOfTuple2    = typedefof<Tuple<_, _>>
+        let typeOfTuple3    = typedefof<Tuple<_, _, _>>
+        let typeOfTuple4    = typedefof<Tuple<_, _, _, _>>
+        let typeOfTuple5    = typedefof<Tuple<_, _, _, _, _>>
+        let typeOfTuple6    = typedefof<Tuple<_, _, _, _, _, _>>
+        let typeOfTuple7    = typedefof<Tuple<_, _, _, _, _, _, _>>
+        let typeOfTuple8    = typedefof<Tuple<_, _, _, _, _, _, _, _>>
+
+        // Do generic caches
 
         [<CustomEquality>]
         [<CustomComparison>]
@@ -41,7 +108,7 @@ module QCompiler =
         type VariableExpressions = Map<VariableDefinition, ParameterExpression>
 
 
-        let optimizeApplication (expr : Expr) = 
+        let inlineApplication (expr : Expr) = 
             let rec opti (expr : Expr) = 
                 match expr with 
                 | Application (Lambda (v, l_e), a_e)    ->  [v,a_e],l_e
@@ -120,12 +187,168 @@ module QCompiler =
         and toLinqExpression_Many (vars : VariableExpressions) (expr : Expr list) : Expression list =
             expr
             |> List.map (fun e -> toLinqExpression vars e)
+        and toLinqExpression_ManyMany (vars : VariableExpressions) (expr : Expr list list) : Expression list list=
+            expr
+            |> List.map (fun e -> toLinqExpression_Many vars e)
         and toLinqExpression (vars : VariableExpressions) (expr : Expr) : Expression = 
             match expr with
-            | Application           (f_e,a_e)           ->
-                let o_e = optimizeApplication expr
-                null :> Expression
+            | AndAlso               (f_e,s_e)           ->
+                let f_e     = toLinqExpression vars f_e
+                let s_e     = toLinqExpression vars s_e
+                let aa_q    = Expression.AndAlso (f_e, s_e)
+                aa_q :> Expression
+            | Application           (f_e,_)             ->
                 // TODO:
+
+                let rec buildParameterExpression (es : Expression list) = 
+                    match es with
+                    | []                            -> null :> Expression
+                    | x1::[]                        -> x1
+                    | x1::x2::[]                    -> 
+                        let ts      = [|x1.Type; x2.Type|]
+                        let ps      = [|x1; x2|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::[]                -> 
+                        let ts      = [|x1.Type; x2.Type; x3.Type|]
+                        let ps      = [|x1; x2; x3|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::x4::[]            -> 
+                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type|]
+                        let ps      = [|x1; x2; x3; x4|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::x4::x5::[]        -> 
+                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type|]
+                        let ps      = [|x1; x2; x3; x4; x5|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::x4::x5::x6::[]    -> 
+                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type|]
+                        let ps      = [|x1; x2; x3; x4; x5; x6|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::x4::x5::x6::x7::[]-> 
+                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type|]
+                        let ps      = [|x1; x2; x3; x4; x5; x6; x7|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+                    | x1::x2::x3::x4::x5::x6::x7::xs-> 
+                        let rest    = buildParameterExpression xs
+                        let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type; rest.Type|]
+                        let ps      = [|x1; x2; x3; x4; x5; x6; x7; rest|]
+                        let t       = typeOfTuple2.MakeGenericType ts
+                        let ci      = t.GetConstructor ts
+                        let new_q   = Expression.New (ci, ps)
+                        new_q :> Expression
+
+                let rec buildExpression (f : Expression) (ess : Expression list list) = 
+                    let rec returnType (t : Type)   = 
+                        let args = t.GetGenericArguments()
+                        if args.Length = 0 then
+                            t
+                        else
+                            returnType args.[args.Length - 1]
+                    match ess with
+                    | []                        -> f
+                    | x1::[]                    -> 
+                        let p1  = buildParameterExpression x1
+                        let mi  = f.Type.GetMethod ("Invoke", [|p1.Type|])
+                        let a_q = Expression.Call (f, mi, [|p1|])
+                        a_q :> Expression
+                    | x1::x2::[]                -> 
+                        let p1  = buildParameterExpression x1
+                        let p2  = buildParameterExpression x2
+                        let ps  = [|f;p1;p2|]
+                        let ts  = [|returnType f.Type|]
+                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
+                        let mis = ff.GetMethods(bflags) 
+                        let gmi = mis 
+                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 3)
+                        let mi  = gmi.MakeGenericMethod ts
+                        let a_q = Expression.Call(null, mi, ps)
+                        a_q :> Expression
+                    | x1::x2::x3::[]            -> 
+                        let p1  = buildParameterExpression x1
+                        let p2  = buildParameterExpression x2
+                        let p3  = buildParameterExpression x3
+                        let ps  = [|f;p1;p2;p3|]
+                        let ts  = [|p3.Type; returnType f.Type|]
+                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
+                        let mis = ff.GetMethods(bflags) 
+                        let gmi = mis 
+                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 4)
+                        let mi  = gmi.MakeGenericMethod ts
+                        let a_q = Expression.Call(null, mi, ps)
+                        a_q :> Expression
+                    | x1::x2::x3::x4::[]        -> 
+                        let p1  = buildParameterExpression x1
+                        let p2  = buildParameterExpression x2
+                        let p3  = buildParameterExpression x3
+                        let p4  = buildParameterExpression x4
+                        let ps  = [|f;p1;p2;p3;p4|]
+                        let ts  = [|p3.Type; p4.Type; returnType f.Type|]
+                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
+                        let mis = ff.GetMethods(bflags) 
+                        let gmi = mis 
+                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 5)
+                        let mi  = gmi.MakeGenericMethod ts
+                        let a_q = Expression.Call(null, mi, ps)
+                        a_q :> Expression
+                    | x1::x2::x3::x4::x5::[]    -> 
+                        let p1  = buildParameterExpression x1
+                        let p2  = buildParameterExpression x2
+                        let p3  = buildParameterExpression x3
+                        let p4  = buildParameterExpression x4
+                        let p5  = buildParameterExpression x5
+                        let ps  = [|f;p1;p2;p3;p4;p5|]
+                        let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
+                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
+                        let mis = ff.GetMethods(bflags) 
+                        let gmi = mis 
+                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 6)
+                        let mi  = gmi.MakeGenericMethod ts
+                        let a_q = Expression.Call(null, mi, ps)
+                        a_q :> Expression
+                    | x1::x2::x3::x4::x5::xs    -> 
+                        let p1  = buildParameterExpression x1
+                        let p2  = buildParameterExpression x2
+                        let p3  = buildParameterExpression x3
+                        let p4  = buildParameterExpression x4
+                        let p5  = buildParameterExpression x5
+                        let ps  = [|f;p1;p2;p3;p4;p5|]
+                        let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
+                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
+                        let mis = ff.GetMethods(bflags) 
+                        let gmi = mis 
+                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 6)
+                        let mi  = gmi.MakeGenericMethod ts
+                        let a_q = Expression.Call(null, mi, ps)
+                        buildExpression a_q xs
+
+                let i_e = inlineApplication expr
+
+                match i_e with
+                | Applications (f_e, arg_es)    -> 
+                    let f_q     = toLinqExpression vars f_e
+                    let arg_qs  = toLinqExpression_ManyMany vars arg_es
+                    let a_q     = buildExpression f_q arg_qs
+                    a_q
+                | _                             -> toLinqExpression vars i_e
+                
             | Call                  (t_e, mi, a_es)     ->
                 let t_q     = toLinqExpression_Opt vars t_e
                 let a_qs    = toLinqExpression_Many vars a_es
@@ -173,13 +396,8 @@ module QCompiler =
                 let f_q     = toLinqExpression vars f_e
                 let t_q     = Expression.Condition (if_q, t_q, f_q, t_q.Type)
                 t_q :> Expression
-//            | Lambda                (v,e_e)             ->
-//                let p_q     = Expression.Parameter (v.Type, v.Name)
-//                let e_q     = toLinqExpression vars e_e
-//                let dt      = gdt.MakeGenericType (p_q.Type, e_q.Type)                
-//                let l_q     = Expression.Lambda (dt,e_q,p_q)
-//                let fft     = gfft.Make (p_q.Type, e_q.Type)
-//                FSharpFunc.
+            | Lambdas               (vs, e_e)           ->
+                null :> Expression
 
             | Let                   (v, let_e, in_e)    ->
                 // TODO: Coalesce lets in sequence
@@ -254,10 +472,10 @@ module QCompiler =
                 let f_q         = toLinqExpression vars f_e
                 let t_q         = Expression.TypeIs (f_q, t)
                 t_q :> Expression
-            //  
+            // Difficult to realize with Linq Expressions
             | AddressOf             _ 
             | AddressSet            _
-
+            // TODO:
             | LetRecursive          _
             | NewDelegate           _
             | NewRecord             _
@@ -287,7 +505,23 @@ module QParser =
         let mutable position            = 0
         let mutable noErrorMessages     = true
 
-        let skipTemplate (charTest : Expr<char->int->bool>)= 
+        let skipTemplate (charTest : Expr<char*int->bool>)= 
+            <@
+                let i           = input
+                let length      = i.Length
+
+                let mutable pos  = position
+                let mutable iter = 0
+
+                while pos < length && (%charTest) (i.[pos],iter) do
+                    pos     <- pos + 1
+                    iter    <- iter + 1
+
+                position <- pos
+                
+            @>
+
+        let skipTemplate2 (charTest : Expr<char->int->bool>)= 
             <@
                 let i           = input
                 let length      = i.Length
@@ -296,6 +530,22 @@ module QParser =
                 let mutable iter = 0
 
                 while pos < length && (%charTest) i.[pos] iter do
+                    pos     <- pos + 1
+                    iter    <- iter + 1
+
+                position <- pos
+                
+            @>
+
+        let skipTemplate3 (charTest : Expr<char->int->string->bool>)= 
+            <@
+                let i           = input
+                let length      = i.Length
+
+                let mutable pos  = position
+                let mutable iter = 0
+
+                while pos < length && (%charTest) i.[pos] iter "" do
                     pos     <- pos + 1
                     iter    <- iter + 1
 
@@ -315,8 +565,14 @@ module QParser =
         member x.SetNoErrorMessages flag= noErrorMessages <- flag
 
 
-        member x.MakeSkip (charTest : Expr<char->int->bool>) =
+        member x.MakeSkip (charTest : Expr<char*int->bool>) =
             skipTemplate charTest |> compile
+
+        member x.MakeSkip2 (charTest : Expr<char->int->bool>) =
+            skipTemplate2 charTest |> compile
+
+        member x.MakeSkip3 (charTest : Expr<char->int->string->bool>) =
+            skipTemplate3 charTest |> compile
 
 open System.Diagnostics
 open Microsoft.FSharp.Quotations
@@ -333,7 +589,54 @@ let timeIt what n action =
     sw.Stop ()
     printfn "... took %d ms" sw.ElapsedMilliseconds
 
-let qwsTest : Expr<char->int->bool> = 
+let qws1 : char*int->bool = 
+    fun (ch,_) -> 
+        match ch with
+        | ' '
+        | '\t'
+        | '\n'
+        | '\r'  -> true
+        | _     -> false
+
+let qws2 = qws1
+
+let qws3 : char->int->bool = 
+    fun ch _ -> 
+        match ch with
+        | ' '
+        | '\t'
+        | '\n'
+        | '\r'  -> true
+        | _     -> false
+
+let qws4 = qws3
+
+let qws5 : char->int->string->bool = 
+    fun ch _ _ -> 
+        match ch with
+        | ' '
+        | '\t'
+        | '\n'
+        | '\r'  -> true
+        | _     -> false
+
+let qws6 = qws5
+
+let qwsQuote1 : Expr<char*int->bool> = 
+    <@
+        fun (ch,_) -> 
+            match ch with
+            | ' '
+            | '\t'
+            | '\n'
+            | '\r'  -> true
+            | _     -> false
+    @>
+let qwsQuote2 : Expr<char*int->bool> = 
+    <@
+        qws2
+    @>
+let qwsQuote3 : Expr<char->int->bool> = 
     <@
         fun ch _ -> 
             match ch with
@@ -343,18 +646,38 @@ let qwsTest : Expr<char->int->bool> =
             | '\r'  -> true
             | _     -> false
     @>
+let qwsQuote4 : Expr<char->int->bool> = 
+    <@
+        qws4
+    @>
+let qwsQuote5 : Expr<char->int->string->bool> = 
+    <@
+        fun ch _ _-> 
+            match ch with
+            | ' '
+            | '\t'
+            | '\n'
+            | '\r'  -> true
+            | _     -> false
+    @>
+let qwsQuote6 : Expr<char->int->string->bool> = 
+    <@
+        qws6
+    @>
 
 [<EntryPoint>]
 let main argv = 
 
-    let x : FSharpFunc<int, int>= FSharpFunc<int,int>( 
-
+    let t = typedefof<FSharpFunc<int,int>>
+    
     let document    = System.String (' ', 10000)
     let n = 400
 
     let qcs = QParser.CharStream<unit> (document, ())
-    let skipper = qcs.MakeSkip qwsTest
-    timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
+    //let skipper1 = qcs.MakeSkip qwsQuote2
+//    let skipper2 = qcs.MakeSkip2 qwsQuote4
+    let skipper3 = qcs.MakeSkip3 qwsQuote6
+    //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
     0
