@@ -494,12 +494,20 @@ module QCompiler =
             
 
     let compile (expr : Expr<'T>) : unit->'T = 
-        let mutable e = Details.toLinqExpression Map.empty expr.Raw
+        let rawExpr     = expr.Raw
+        let mutable e   = Details.toLinqExpression Map.empty expr.Raw
         while e.CanReduce do
             e <- e.Reduce ()
-        let l = Expression.Lambda<Func<unit, 'T>> (e)
-        let c = l.Compile ()
-        fun () -> c.Invoke ()
+        let resultType  = typeof<'T>
+        if resultType = typeof<unit> then
+            let l = Expression.Lambda<Action> (e)
+            let c = l.Compile ()
+            fun () -> c.Invoke (); Unchecked.defaultof<'T>
+        else
+            let l = Expression.Lambda<Func<'T>> (e)
+            let c = l.Compile ()
+            fun () -> c.Invoke ()
+            
 
     
 
@@ -527,6 +535,7 @@ module QParser =
 
                 position <- pos
                 
+                iter
             @>
 
         let skipTemplate2 (charTest : Expr<char->int->bool>)= 
@@ -543,6 +552,7 @@ module QParser =
 
                 position <- pos
                 
+                iter
             @>
 
         let skipTemplate3 (charTest : Expr<char->int->string->bool>)= 
@@ -559,6 +569,7 @@ module QParser =
 
                 position <- pos
                 
+                iter
             @>
 
         member x.StateTag               = position
@@ -682,9 +693,9 @@ let main argv =
     let n = 400
 
     let qcs = QParser.CharStream<unit> (document, ())
-    let skipper1 = qcs.MakeSkip qwsQuote1
+//    let skipper1 = qcs.MakeSkip qwsQuote2
 //    let skipper2 = qcs.MakeSkip2 qwsQuote4
-//    let skipper3 = qcs.MakeSkip3 qwsQuote6
+    let skipper3 = qcs.MakeSkip3 qwsQuote6
     //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
