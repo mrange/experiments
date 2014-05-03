@@ -245,75 +245,22 @@ module QCompiler =
                         let mi  = f.Type.GetMethod ("Invoke", [|p1.Type|])
                         let a_q = Expression.Call (f, mi, [|p1|])
                         a_q :> Expression
-                    | x1::x2::[]                -> 
-                        let p1  = createTupleExpression x1
-                        let p2  = createTupleExpression x2
-                        let ps  = [|f;p1;p2|]
-                        let ts  = [|returnType f.Type|]
-                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
-                        let mis = ff.GetMethods(bflags) 
-                        let gmi = mis 
-                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 3)
-                        let mi  = gmi.MakeGenericMethod ts
+                    | _                         ->
+                        let xs,rest = ess |> takeUpto 5
+                        let txs     = xs |> List.map (fun x -> createTupleExpression x)
+                        let ps      = f::txs
+                        let fs,rs   = txs |> List.map (fun x -> x.Type) |> takeUpto 2
+                        let fft     = typeOfFFunc.MakeGenericType(fs |> List.toArray);
+                        let ts      = rs@[returnType f.Type]
+                        let gmis    = fft.GetMethods(bflags) 
+                        let gmi     = gmis 
+                                        |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = (xs.Length + 1))
+                        let mi      = gmi.MakeGenericMethod (ts |> List.toArray)
                         let a_q = Expression.Call(null, mi, ps)
-                        a_q :> Expression
-                    | x1::x2::x3::[]            -> 
-                        let p1  = createTupleExpression x1
-                        let p2  = createTupleExpression x2
-                        let p3  = createTupleExpression x3
-                        let ps  = [|f;p1;p2;p3|]
-                        let ts  = [|p3.Type; returnType f.Type|]
-                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
-                        let mis = ff.GetMethods(bflags) 
-                        let gmi = mis 
-                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 4)
-                        let mi  = gmi.MakeGenericMethod ts
-                        let a_q = Expression.Call(null, mi, ps)
-                        a_q :> Expression
-                    | x1::x2::x3::x4::[]        -> 
-                        let p1  = createTupleExpression x1
-                        let p2  = createTupleExpression x2
-                        let p3  = createTupleExpression x3
-                        let p4  = createTupleExpression x4
-                        let ps  = [|f;p1;p2;p3;p4|]
-                        let ts  = [|p3.Type; p4.Type; returnType f.Type|]
-                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
-                        let mis = ff.GetMethods(bflags) 
-                        let gmi = mis 
-                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 5)
-                        let mi  = gmi.MakeGenericMethod ts
-                        let a_q = Expression.Call(null, mi, ps)
-                        a_q :> Expression
-                    | x1::x2::x3::x4::x5::[]    -> 
-                        let p1  = createTupleExpression x1
-                        let p2  = createTupleExpression x2
-                        let p3  = createTupleExpression x3
-                        let p4  = createTupleExpression x4
-                        let p5  = createTupleExpression x5
-                        let ps  = [|f;p1;p2;p3;p4;p5|]
-                        let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
-                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
-                        let mis = ff.GetMethods(bflags) 
-                        let gmi = mis 
-                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 6)
-                        let mi  = gmi.MakeGenericMethod ts
-                        let a_q = Expression.Call(null, mi, ps)
-                        a_q :> Expression
-                    | x1::x2::x3::x4::x5::xs    -> 
-                        let p1  = createTupleExpression x1
-                        let p2  = createTupleExpression x2
-                        let p3  = createTupleExpression x3
-                        let p4  = createTupleExpression x4
-                        let p5  = createTupleExpression x5
-                        let ps  = [|f;p1;p2;p3;p4;p5|]
-                        let ts  = [|p3.Type; p4.Type; p5.Type; returnType f.Type|]
-                        let ff  = typeOfFFunc.MakeGenericType(p1.Type, p2.Type);
-                        let mis = ff.GetMethods(bflags) 
-                        let gmi = mis 
-                                  |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = 6)
-                        let mi  = gmi.MakeGenericMethod ts
-                        let a_q = Expression.Call(null, mi, ps)
-                        buildExpression a_q xs
+                        if rest.IsEmpty then
+                            a_q :> Expression
+                        else
+                            buildExpression a_q rest
 
                 let i_e = inlineApplication expr
 
@@ -669,9 +616,9 @@ let main argv =
     let n = 400
 
     let qcs = QParser.CharStream<unit> (document, ())
-    let skipper1 = qcs.MakeSkip qwsQuote2
+//    let skipper1 = qcs.MakeSkip qwsQuote2
 //    let skipper2 = qcs.MakeSkip2 qwsQuote4
-//    let skipper3 = qcs.MakeSkip3 qwsQuote6
+    let skipper3 = qcs.MakeSkip3 qwsQuote6
     //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
