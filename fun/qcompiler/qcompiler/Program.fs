@@ -31,6 +31,14 @@ module QCompiler =
             | NewObject (ci, _) -> ci
             | _                 -> failwith "getStaticMethodInfo expects a NewObject expression"
 
+        let bflags          = BindingFlags.Public ||| BindingFlags.Static 
+
+        let typeOfFFunc     = typedefof<FSharpFunc<_, _>>
+        
+        type FSharpFuncAdapter<'U>(func : Func<'U>) =
+            inherit FSharpFunc<unit, 'U>() 
+                override x.Invoke _                 = func.Invoke ()
+
         type FSharpFuncAdapter<'T1, 'U>(func : Func<'T1, 'U>) =
             inherit FSharpFunc<'T1, 'U>() 
                 override x.Invoke p1                = func.Invoke p1
@@ -55,24 +63,14 @@ module QCompiler =
                 override x.Invoke p1                = fun p2 p3 p4 p5 -> func.Invoke(p1,p2,p3, p4, p5)
                 override x.Invoke (p1,p2,p3,p4,p5)  = func.Invoke(p1,p2,p3,p4,p5)
 
-        let bflags          = BindingFlags.Public ||| BindingFlags.Static 
-
-        let typeOfFFunc     = typedefof<FSharpFunc<_, _>>
-        let invokeFasts     = typeOfFFunc.GetMethods (bflags)
-                                |> Array.filter (fun mi -> mi.Name = "InvokeFast" && mi.IsStatic)
-                                |> Array.map (fun mi -> (mi.GetParameters().Length - 1),mi)
-                                |> Map.ofArray
-
-        let invokeFast2     = invokeFasts.[2]
-        let invokeFast3     = invokeFasts.[3]
-        let invokeFast4     = invokeFasts.[4]
-        let invokeFast5     = invokeFasts.[5]
-                
-        let typeOfAdapter1  = typedefof<FSharpFuncAdapter<_, _>>
-        let typeOfAdapter2  = typedefof<FSharpFuncAdapter<_, _, _>>
-        let typeOfAdapter3  = typedefof<FSharpFuncAdapter<_, _, _, _>>
-        let typeOfAdapter4  = typedefof<FSharpFuncAdapter<_, _, _, _, _>>
-        let typeOfAdapter5  = typedefof<FSharpFuncAdapter<_, _, _, _, _, _>>
+        let typeOfAdapters  = [|
+                                typedefof<FSharpFuncAdapter<_>>
+                                typedefof<FSharpFuncAdapter<_, _>>
+                                typedefof<FSharpFuncAdapter<_, _, _>>
+                                typedefof<FSharpFuncAdapter<_, _, _, _>>
+                                typedefof<FSharpFuncAdapter<_, _, _, _, _>>
+                                typedefof<FSharpFuncAdapter<_, _, _, _, _, _>>
+                              |]
 
         let typeOfTuples    = [|
                                 typeof<Tuple>
