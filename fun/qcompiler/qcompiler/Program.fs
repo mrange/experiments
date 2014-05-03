@@ -11,6 +11,15 @@ module QCompiler =
     open System.Reflection
 
     module Details = 
+        
+        let takeUpto (n : int) (xs : 'T list) : ('T list)*('T List) =
+            let mutable result  = []
+            let mutable input   = xs
+            while result.Length < n && input.Length > 0 do
+                result  <- input.Head::result
+                input   <- input.Tail
+            result |> List.rev,input
+            
 
         let getStaticMethodInfo (a : Expr<'T>) : MethodInfo     = 
             match a with
@@ -53,6 +62,7 @@ module QCompiler =
                                 |> Array.filter (fun mi -> mi.Name = "InvokeFast" && mi.IsStatic)
                                 |> Array.map (fun mi -> (mi.GetParameters().Length - 1),mi)
                                 |> Map.ofArray
+
         let invokeFast2     = invokeFasts.[2]
         let invokeFast3     = invokeFasts.[3]
         let invokeFast4     = invokeFasts.[4]
@@ -64,15 +74,17 @@ module QCompiler =
         let typeOfAdapter4  = typedefof<FSharpFuncAdapter<_, _, _, _, _>>
         let typeOfAdapter5  = typedefof<FSharpFuncAdapter<_, _, _, _, _, _>>
 
-        let typeOfTuple0    = typeof<Tuple>
-        let typeOfTuple1    = typedefof<Tuple<_>>
-        let typeOfTuple2    = typedefof<Tuple<_, _>>
-        let typeOfTuple3    = typedefof<Tuple<_, _, _>>
-        let typeOfTuple4    = typedefof<Tuple<_, _, _, _>>
-        let typeOfTuple5    = typedefof<Tuple<_, _, _, _, _>>
-        let typeOfTuple6    = typedefof<Tuple<_, _, _, _, _, _>>
-        let typeOfTuple7    = typedefof<Tuple<_, _, _, _, _, _, _>>
-        let typeOfTuple8    = typedefof<Tuple<_, _, _, _, _, _, _, _>>
+        let typeOfTuples    = [|
+                                typeof<Tuple>
+                                typedefof<Tuple<_>>
+                                typedefof<Tuple<_, _>>
+                                typedefof<Tuple<_, _, _>>
+                                typedefof<Tuple<_, _, _, _>>
+                                typedefof<Tuple<_, _, _, _, _>>
+                                typedefof<Tuple<_, _, _, _, _, _>>
+                                typedefof<Tuple<_, _, _, _, _, _, _>>
+                                typedefof<Tuple<_, _, _, _, _, _, _, _>>
+                              |]
 
         // Do generic caches
 
@@ -178,53 +190,17 @@ module QCompiler =
             match es with
             | []                            -> null :> Expression
             | x1::[]                        -> x1
-            | x1::x2::[]                    -> 
-                let ts      = [|x1.Type; x2.Type|]
-                let ps      = [|x1; x2|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::[]                -> 
-                let ts      = [|x1.Type; x2.Type; x3.Type|]
-                let ps      = [|x1; x2; x3|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::x4::[]            -> 
-                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type|]
-                let ps      = [|x1; x2; x3; x4|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::x4::x5::[]        -> 
-                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type|]
-                let ps      = [|x1; x2; x3; x4; x5|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::x4::x5::x6::[]    -> 
-                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type|]
-                let ps      = [|x1; x2; x3; x4; x5; x6|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::x4::x5::x6::x7::[]-> 
-                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type|]
-                let ps      = [|x1; x2; x3; x4; x5; x6; x7|]
-                let t       = typeOfTuple2.MakeGenericType ts
-                let ci      = t.GetConstructor ts
-                let new_q   = Expression.New (ci, ps)
-                new_q :> Expression
-            | x1::x2::x3::x4::x5::x6::x7::xs-> 
-                let rest    = createTupleExpression xs
-                let ts      = [|x1.Type; x2.Type; x3.Type; x4.Type; x5.Type; x6.Type; x7.Type; rest.Type|]
-                let ps      = [|x1; x2; x3; x4; x5; x6; x7; rest|]
-                let t       = typeOfTuple2.MakeGenericType ts
+            | _                             -> 
+                let xs,rest = es |> takeUpto 7
+                let ps = 
+                    if rest.IsEmpty then
+                        xs
+                    else
+                        let rest    = createTupleExpression rest
+                        xs@[rest]
+                let ts      = ps |> List.map (fun x -> x.Type) |> List.toArray
+                let gt      = typeOfTuples.[ps.Length]
+                let t       = gt.MakeGenericType ts
                 let ci      = t.GetConstructor ts
                 let new_q   = Expression.New (ci, ps)
                 new_q :> Expression
@@ -693,9 +669,9 @@ let main argv =
     let n = 400
 
     let qcs = QParser.CharStream<unit> (document, ())
-//    let skipper1 = qcs.MakeSkip qwsQuote2
+    let skipper1 = qcs.MakeSkip qwsQuote2
 //    let skipper2 = qcs.MakeSkip2 qwsQuote4
-    let skipper3 = qcs.MakeSkip3 qwsQuote6
+//    let skipper3 = qcs.MakeSkip3 qwsQuote6
     //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
