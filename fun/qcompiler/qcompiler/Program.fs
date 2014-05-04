@@ -12,7 +12,8 @@ module QCompiler =
 
     module Details = 
 
-        let mutableList () = System.Collections.Generic.List<'T>()                                    
+        let mutableList ()                          = System.Collections.Generic.List<_>()                                    
+        let concurrentDictionary<'TKey, 'TValue> () = System.Collections.Concurrent.ConcurrentDictionary<'TKey, 'TValue>()
 
         let takeUpto (n : int) (xs : 'T list) : ('T list)*('T List) =
             let result          = mutableList ()
@@ -32,6 +33,29 @@ module QCompiler =
             match a with
             | NewObject (ci, _) -> ci
             | _                 -> failwith "getStaticMethodInfo expects a NewObject expression"
+
+        type TypeKey(types : Type array) =
+            override x.Equals other =    
+                match other with
+                | :? TypeKey as tk -> 
+                    let oTypes : Type array = tk.Types
+                    if types.Length         = oTypes.Length then
+                        let mutable i       = 0
+                        let mutable result  = true
+                        while result && i < types.Length do
+                            result <- types.[i] = oTypes.[i]
+                            i <- i + 1
+                        result
+                    else
+                        false
+                | _ -> false
+            override x.GetHashCode ()   = 
+                let mutable hc = 0x55555555
+                for t in types do
+                    hc <- hc ^^^ t.GetHashCode ()
+                hc
+
+            member x.Types = types
 
         let bflags          = BindingFlags.Public ||| BindingFlags.Static 
 
@@ -86,7 +110,40 @@ module QCompiler =
                                 typedefof<Tuple<_, _, _, _, _, _, _, _>>
                               |]
 
-        // Do generic caches
+        let cacheOfTupleConstructors    = concurrentDictionary<TypeKey, ConstructorInfo> ()
+        let getTupleConstructor (ts : Type array) =
+            let tk = TypeKey ts
+            let creator = Func<TypeKey, ConstructorInfo>(fun tk -> 
+                let gt      = typeOfTuples.[tk.Types.Length]
+                let t       = gt.MakeGenericType tk.Types
+                let ci      = t.GetConstructor tk.Types
+                ci
+                )
+            cacheOfTupleConstructors.GetOrAdd(tk,creator)
+
+        let cacheOfInvokeFastMethods    = concurrentDictionary<TypeKey, MethodInfo> ()            
+        let getInvokeFast (ts : Type array) =
+            let rec returnType (t : Type)   = 
+                let args = t.GetGenericArguments()
+                if args.Length = 0 then
+                    t
+                else
+                    returnType args.[args.Length - 1]
+
+            let tk = TypeKey ts
+            let creator = Func<TypeKey, MethodInfo>(fun tk ->
+                let firstType   = tk.Types.[0]
+                let restOfTypes = tk.Types.[1..]
+
+                let fs,rs   = restOfTypes |> Array.toList |> takeUpto 2
+                let fft     = typeOfFFunc.MakeGenericType(fs |> List.toArray);
+                let ts      = rs@[returnType firstType]
+                let gmis    = fft.GetMethods(bflags) 
+                let gmi     = gmis 
+                                |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = tk.Types.Length)
+                gmi.MakeGenericMethod (ts |> List.toArray)
+                )
+            cacheOfInvokeFastMethods.GetOrAdd(tk,creator)
 
         [<CustomEquality>]
         [<CustomComparison>]
@@ -199,9 +256,7 @@ module QCompiler =
                         let rest    = createTupleExpression rest
                         xs@[rest]
                 let ts      = ps |> List.map (fun x -> x.Type) |> List.toArray
-                let gt      = typeOfTuples.[ps.Length]
-                let t       = gt.MakeGenericType ts
-                let ci      = t.GetConstructor ts
+                let ci      = getTupleConstructor ts
                 let new_q   = Expression.New (ci, ps)
                 new_q :> Expression
 
@@ -230,12 +285,6 @@ module QCompiler =
                 aa_q :> Expression
             | Application           (f_e,_)             ->
                 let rec buildExpression (f : Expression) (ess : Expression list list) = 
-                    let rec returnType (t : Type)   = 
-                        let args = t.GetGenericArguments()
-                        if args.Length = 0 then
-                            t
-                        else
-                            returnType args.[args.Length - 1]
                     match ess with
                     | []                        -> f
                     | x1::[]                    -> 
@@ -245,15 +294,9 @@ module QCompiler =
                         a_q :> Expression
                     | _                         ->
                         let xs,rest = ess |> takeUpto 5
-                        let txs     = xs |> List.map (fun x -> createTupleExpression x)
-                        let ps      = f::txs
-                        let fs,rs   = txs |> List.map (fun x -> x.Type) |> takeUpto 2
-                        let fft     = typeOfFFunc.MakeGenericType(fs |> List.toArray);
-                        let ts      = rs@[returnType f.Type]
-                        let gmis    = fft.GetMethods(bflags) 
-                        let gmi     = gmis 
-                                        |> Array.find (fun mi -> mi.IsStatic && mi.Name = "InvokeFast" && mi.GetParameters().Length = (xs.Length + 1))
-                        let mi      = gmi.MakeGenericMethod (ts |> List.toArray)
+                        let ps      = f::(xs |> List.map (fun x -> createTupleExpression x))
+                        let ts      = ps |> List.map (fun x -> x.Type) |> List.toArray
+                        let mi      = getInvokeFast ts
                         let a_q = Expression.Call(null, mi, ps)
                         if rest.IsEmpty then
                             a_q :> Expression
@@ -635,7 +678,7 @@ let main argv =
     let qcs = QParser.CharStream<unit> (document, ())
 //    let skipper1 = qcs.MakeSkip qwsQuote2
 //    let skipper2 = qcs.MakeSkip2 qwsQuote4
-    let skipper3 = qcs.MakeSkip3 qwsQuote6
+//    let skipper3 = qcs.MakeSkip3 qwsQuote6
     //timeIt "Version4" n <| fun () -> qcs.SetPosition 0; skipper ()
 
 
