@@ -11,14 +11,16 @@ module QCompiler =
     open System.Reflection
 
     module Details = 
-        
+
+        let mutableList () = System.Collections.Generic.List<'T>()                                    
+
         let takeUpto (n : int) (xs : 'T list) : ('T list)*('T List) =
-            let mutable result  = []
+            let result          = mutableList ()
             let mutable input   = xs
-            while result.Length < n && input.Length > 0 do
-                result  <- input.Head::result
+            while result.Count < n && input.Length > 0 do
+                result.Add input.Head
                 input   <- input.Tail
-            result |> List.rev,input
+            result |> List.ofSeq,input
             
 
         let getStaticMethodInfo (a : Expr<'T>) : MethodInfo     = 
@@ -227,8 +229,6 @@ module QCompiler =
                 let aa_q    = Expression.AndAlso (f_e, s_e)
                 aa_q :> Expression
             | Application           (f_e,_)             ->
-                // TODO:
-
                 let rec buildExpression (f : Expression) (ess : Expression list list) = 
                     let rec returnType (t : Type)   = 
                         let args = t.GetGenericArguments()
@@ -318,15 +318,32 @@ module QCompiler =
                 let t_q     = Expression.Condition (if_q, t_q, f_q, t_q.Type)
                 t_q :> Expression
             | Lambdas               (vs, e_e)           ->
-                null :> Expression
+                // TODO:
 
+                null :> Expression
             | Let                   (v, let_e, in_e)    ->
                 // TODO: Coalesce lets in sequence
-                let let_q   = toLinqExpression vars let_e
                 let vars,v_q= newVariable vars v
+                let let_q   = toLinqExpression vars let_e
                 let a_q     = Expression.Assign (v_q, let_q)
                 let in_q    = toLinqExpression vars in_e
                 let b_q     = Expression.Block ([v_q], a_q, in_q)
+                b_q :> Expression
+            | LetRecursive          (lets, in_e)        ->
+                let mutable vars    = vars
+                let v_qs            = mutableList ()
+                let a_qs            = mutableList ()
+                for v,let_e in lets do
+                    let newVars,v_q = newVariable vars v
+                    vars <- newVars
+                    v_qs.Add v_q
+                    let let_q       = toLinqExpression vars let_e
+                    let a_q         = Expression.Assign (v_q, let_q) :> Expression
+                    a_qs.Add a_q
+                    
+                let in_q    = toLinqExpression vars in_e
+                let qs      = Seq.append a_qs [|in_q|] |> Seq.toArray
+                let b_q     = Expression.Block (v_qs.ToArray (), qs)
                 b_q :> Expression
             | NewArray              (t, a_es)           ->
                 let a_qs    = toLinqExpression_Many vars a_es
@@ -405,7 +422,6 @@ module QCompiler =
             | AddressOf             _ 
             | AddressSet            _
             // TODO:
-            | LetRecursive          _
             | NewDelegate           _
             | NewRecord             _
             | NewUnionCase          _
@@ -483,13 +499,16 @@ module QParser =
 
                 let mutable pos  = position
                 let mutable iter = 0
-
+                
                 while pos < length && (%charTest) i.[pos] iter "" do
                     pos     <- pos + 1
                     iter    <- iter + 1
 
                 position <- pos
                 
+                let rec x = 3
+                and y = 4
+
                 iter
             @>
 
