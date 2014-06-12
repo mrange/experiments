@@ -24,17 +24,17 @@ module Turtle =
         static member UnsafeNew c w p d dl = 
             {Color = c; Width = w; Position = p; Direction = d; DrawLine = dl;}
 
-    type Movement<'T> =
+    type Result<'T> =
         {
             Value       : 'T
             State       : State
         }
         static member New v s = {Value = v; State = s;}
 
-    type Turtle<'T> = State -> Movement<'T>
+    type Turtle<'T> = State -> Result<'T>
 
-    let Return v                        : Turtle<'T>    = fun s ->   Movement<_>.New v s
-    let Zero ()                         : Turtle<'T>    = fun s ->   Movement<_>.New Unchecked.defaultof<_> s
+    let Return v                        : Turtle<'T>    = fun s ->   Result<_>.New v s
+    let Zero ()                         : Turtle<unit>  = fun s ->   Result<_>.New () s
     let ReturnFrom (t : Turtle<'T>)     : Turtle<'T>    = t
     let Yield                                           = Return
     let YieldFrom                                       = ReturnFrom
@@ -51,46 +51,38 @@ module Turtle =
         fun s ->   
             let m = l s
             r m.State
-        
 
-    let For (seq : seq<'T>) (r : 'T -> Turtle<'U>) : Turtle<'U> =
+    let For (seq : seq<'T>) (r : 'T -> Turtle<unit>) : Turtle<unit> =
         fun s ->   
             let mutable state   = s
-            let mutable result  = Unchecked.defaultof<'U>
             for v in seq do
                 let mm = r v state 
                 state <- mm.State
-                result <- mm.Value
-            
-            Movement<_>.New result state
-        
+            Result<_>.New () state
 
-    let While (e : unit -> bool) (r : Turtle<'T>) : Turtle<'T> =
+    let While (e : unit -> bool) (r : Turtle<unit>) : Turtle<unit> =
         fun s ->   
             let mutable state   = s
-            let mutable result  = Unchecked.defaultof<'T>
             while e() do
                 let mm = r state
                 state <- mm.State
-                result <- mm.Value
-
-            Movement<_>.New result state
+            Result<_>.New () state
         
     let RunAndReturn (t : Turtle<'T>)   : Turtle<'T>    = 
         fun s ->    
             let m = t s
-            Movement<_>.New m.Value s
+            Result<_>.New m.Value s
 
     let Color (c : Color) : Turtle<unit>= 
         fun s -> 
             let ss = State.UnsafeNew c s.Width s.Position s.Direction s.DrawLine
-            Movement<_>.New () ss
+            Result<_>.New () ss
         
 
     let Width (w : float32) : Turtle<unit>= 
         fun s -> 
             let ss = State.UnsafeNew s.Color w s.Position s.Direction s.DrawLine
-            Movement<_>.New () ss
+            Result<_>.New () ss
         
 
     let Turn (a : float32) : Turtle<unit>= 
@@ -98,7 +90,7 @@ module Turtle =
             let r = Matrix3x2.Rotation(Deg2Rad * a)
             let d = Matrix3x2.TransformPoint(r, s.Direction)
             let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
-            Movement<_>.New () ss
+            Result<_>.New () ss
         
 
     let Forward (v : float32) : Turtle<unit>= 
@@ -106,7 +98,7 @@ module Turtle =
             let p = s.Position + v*s.Direction 
             let ss = State.UnsafeNew s.Color s.Width p s.Direction s.DrawLine
             ss.DrawLine s.Color s.Width s.Position p
-            Movement<_>.New () ss
+            Result<_>.New () ss
         
 
     let Execute (c : Color) (w : float32) (p : Vector2) (d : Vector2) (dl : DrawLine) (t : Turtle<'T>) =
