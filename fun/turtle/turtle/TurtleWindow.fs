@@ -26,8 +26,8 @@ module TurtleWindow =
         }
         static member New t r = {Turtle = t; Reply = r;}
 
-    let Show (turtleGenerator : float32 -> Turtle.Turtle<unit>) = 
-        let turtleExecutor (t : Turtle.Turtle<unit>) : List<Line> =
+    let Show (turtleGenerator : float32 -> Turtle.Movement<unit>) = 
+        let turtleExecutor (t : Turtle.Movement<unit>) : List<Line> =
             let lines = List<Line>(64)
             ignore <| Turtle.Execute 
                 Turtle.Brown
