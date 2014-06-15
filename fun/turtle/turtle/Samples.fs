@@ -125,7 +125,7 @@ module WavingTreeFractal =
             if n <= 0 then
                 do! GenerateFlower v
             else
-                let turn = min 20.F <| 1.F + time
+                let turn = 20.F
                 let c = 
                     match n with
                     | _ when n < 3  -> Lime
