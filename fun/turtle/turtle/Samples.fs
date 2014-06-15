@@ -81,15 +81,15 @@ module TreeFractal =
             else
                 let c = 
                     match n with
-                    | nn when nn < 3    -> Lime
-                    | nn when nn < 6    -> LimeGreen
-                    | _                 -> Brown
+                    | _ when n < 3  -> Lime
+                    | _ when n < 6  -> LimeGreen
+                    | _             -> Brown
 
                 do! Color c
                 do! Width <| float32 n
 
-                //let turn = 30.F
-                let turn = (3.0F * time) % 180.0F
+                let turn = 30.F
+                //let turn = (3.0F * time) % 180.0F
 
                 do! Forward v
                 do! RunAndReturn <| GenerateBranch n (v * 0.75F) time turn
@@ -128,9 +128,9 @@ module WavingTreeFractal =
                 let turn = min 20.F <| 1.F + time
                 let c = 
                     match n with
-                    | nn when nn < 3    -> Lime
-                    | nn when nn < 6    -> LimeGreen
-                    | _                 -> Brown
+                    | _ when n < 3  -> Lime
+                    | _ when n < 6  -> LimeGreen
+                    | _             -> Brown
 
                 do! Color c
                 do! Turn <| 10.F * (sin <| 20.F * Deg2Rad * time)
@@ -169,9 +169,9 @@ module OptimizedTreeFractal =
             let turn = min 20.F <| 1.F + time
             let c = 
                 match n with
-                | nn when nn < 3    -> Lime
-                | nn when nn < 6    -> LimeGreen
-                | _                 -> Brown
+                | _ when n < 3  -> Lime
+                | _ when n < 6  -> LimeGreen
+                | _             -> Brown
             let turn = 10.F * (sin <| 20.F * Deg2Rad * time)
 
             Color c
@@ -198,9 +198,9 @@ module OtherTreeFractal =
             else
                 let c = 
                     match n with
-                    | nn when nn < 3    -> Lime
-                    | nn when nn < 6    -> LimeGreen
-                    | _                 -> Brown
+                    | _ when n < 3  -> Lime
+                    | _ when n < 6  -> LimeGreen
+                    | _             -> Brown
 
                 do! Color c
                 do! Width <| float32 n
