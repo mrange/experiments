@@ -28,7 +28,7 @@ module TurtleWindow =
 
     let Show (turtleGenerator : float32 -> Turtle.Movement<unit>) = 
         let turtleExecutor (t : Turtle.Movement<unit>) : List<Line> =
-            let lines = List<Line>(64)
+            let lines = List<Line> (64)
             ignore <| Turtle.Execute 
                 Turtle.Brown
                 3.F 
@@ -41,23 +41,23 @@ module TurtleWindow =
         let turtleProcessor (ct : CancellationToken) (input : MailboxProcessor<TurtleMessage>) : Async<unit> =
             async {
                 while not ct.IsCancellationRequested do
-                    let! message = input.Receive()
+                    let! message = input.Receive ()
                     let lines = message.Turtle ()
                     message.Reply lines
             }
 
-        let sw = Stopwatch()
-        sw.Start()
+        let sw = Stopwatch ()
+        sw.Start ()
 
-        use form                = new Windows.RenderForm("Turtle Power")
+        use form                = new Windows.RenderForm ("Turtle Power")
 
-        form.ClientSize         <- System.Drawing.Size(1600,1200)
+        form.ClientSize         <- System.Drawing.Size (1600,1200)
 
-        let device              = ref <| new Device(form)
+        let device              = ref <| new Device (form)
 
         let disposeDevice ()    = TryRun (upcast !device : IDisposable).Dispose
         let recreateDevice ()   = disposeDevice ()
-                                  device := new Device(form)
+                                  device := new Device (form)
 
         use onExitDisposeDevice = OnExit disposeDevice
 
@@ -71,13 +71,13 @@ module TurtleWindow =
 
         use onExitCancelTask    = OnExit cts.Cancel
 
-        let resizer             = EventHandler(fun o e -> recreateDevice ())
+        let resizer             = EventHandler (fun o e -> recreateDevice ())
 
         form.Resize.AddHandler  resizer
 
         use onExitRemoveHandler = OnExit <| fun () -> form.Resize.RemoveHandler resizer
 
-        Windows.RenderLoop.Run(form, fun () -> 
+        Windows.RenderLoop.Run (form, fun () -> 
 
             let turtle = turtleGenerator <| float32 sw.Elapsed.TotalSeconds
             mp.Post <| TurtleMessage.New (fun () -> turtleExecutor turtle) (fun lines -> currentLines := lines)
@@ -95,7 +95,7 @@ module TurtleWindow =
 
             d.Draw <| fun d2dRenderTarget -> 
                 
-                d2dRenderTarget.Clear(Nullable<_>(Color.White.ToColor4()))
+                d2dRenderTarget.Clear (Nullable<_> (Color.White.ToColor4 ()))
 
                 let transform = 
                     Matrix3x2.Identity 
@@ -106,7 +106,7 @@ module TurtleWindow =
                 let c = lines.Count
                 for i in 0..c - 1 do
                     let l = lines.[i]
-                    d2dRenderTarget.DrawLine(l.From, l.To, colors.[l.Color], l.Width)
+                    d2dRenderTarget.DrawLine (l.From, l.To, colors.[l.Color], l.Width)
                 )
 
 

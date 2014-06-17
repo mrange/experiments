@@ -10,25 +10,21 @@ module Utils =
     let Deg2Rad = float32 Math.PI/180.F
     let Rad2Deg = 1.F / Deg2Rad
 
-    let DefaultOf<'T> = Unchecked.defaultof<'T>
+    let inline DefaultOf<'T> = Unchecked.defaultof<'T>
 
-    let NewVector2 x y = Vector2(x,y)
-
-    let inline ( <*> ) (l : Matrix3x2) (r : Matrix3x2) = Matrix3x2.Multiply(l,r)
+    let inline NewVector2 x y = Vector2 (x,y)
+    let inline ( <*> ) (l : Matrix3x2) (r : Matrix3x2) = Matrix3x2.Multiply (l,r)
+    let inline Normalize (v : Vector2) = v.Normalize (); v
 
     let TryRun (a : unit -> unit) = 
         try
-            a()
+            a ()
         with
         | e -> printfn "Caught exception: %A" e
 
-
-    let Normalize (v : Vector2) = v.Normalize()
-                                  v
-
-    type Disposer(action : unit->unit) = 
+    type Disposer (action : unit->unit) = 
     
         interface IDisposable with
-            member x.Dispose() = TryRun action
+            member x.Dispose () = TryRun action
 
-    let OnExit a = new Disposer(a)
+    let OnExit a = new Disposer (a)

@@ -63,7 +63,7 @@ module Turtle =
     let While (e : unit -> bool) (r : Movement<unit>)       : Movement<unit> =
         fun s ->   
             let mutable state   = s
-            while e() do
+            while e () do
                 let mm = r state
                 state <- mm.State
             Result<_>.New () state
@@ -87,8 +87,8 @@ module Turtle =
 
     let Turn (a : float32)                                  : Movement<unit> = 
         fun s -> 
-            let r = Matrix3x2.Rotation(Deg2Rad * a)
-            let d = Matrix3x2.TransformPoint(r, s.Direction)
+            let r = Matrix3x2.Rotation (Deg2Rad * a)
+            let d = Matrix3x2.TransformPoint (r, s.Direction)
             let ss = State.UnsafeNew s.Color s.Width s.Position d s.DrawLine
             Result<_>.New () ss
         
@@ -108,20 +108,20 @@ module Turtle =
 [<AutoOpen>]
 module TurtleBuilder =
 
-    type TurtleBuilder() =
-        member x.Return(value)                  = Turtle.Return value
-        member x.Zero()                         = Turtle.Zero
-        member x.ReturnFrom(value)              = Turtle.ReturnFrom value
-        member x.Yield(value)                   = Turtle.Yield value
-        member x.YieldFrom(value)               = Turtle.YieldFrom value
-        member x.Delay(func)                    = Turtle.Delay func
-        member x.Run(func)                      = Turtle.Run func
-        member x.Bind(func, comp)               = Turtle.Bind func comp
-        member x.Combine(expr1, expr2)          = Turtle.Combine expr1 expr2
-        member x.For(expr1, expr2)              = Turtle.For expr1 expr2
-        member x.While(expr1, expr2)            = Turtle.While expr1 expr2
+    type TurtleBuilder () =
+        member x.Return (value)         = Turtle.Return value
+        member x.Zero ()                = Turtle.Zero
+        member x.ReturnFrom (value)     = Turtle.ReturnFrom value
+        member x.Yield (value)          = Turtle.Yield value
+        member x.YieldFrom (value)      = Turtle.YieldFrom value
+        member x.Delay (func)           = Turtle.Delay func
+        member x.Run (func)             = Turtle.Run func
+        member x.Bind (func, comp)      = Turtle.Bind func comp
+        member x.Combine (expr1, expr2) = Turtle.Combine expr1 expr2
+        member x.For (expr1, expr2)     = Turtle.For expr1 expr2
+        member x.While (expr1, expr2)   = Turtle.While expr1 expr2
 
     let inline ( >>= ) l r = Turtle.Bind l r
     let inline ( >>+ ) l r = Turtle.Combine l r
     
-    let turtle = TurtleBuilder()
+    let turtle = TurtleBuilder ()
