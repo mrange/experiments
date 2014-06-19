@@ -34,7 +34,7 @@ module Window =
             async {
                 while not ct.IsCancellationRequested do
                     let! message    = input.Receive ()
-                    let rp          = TimeStep particles
+                    let rp          = TimeStep (1.F / 60.F) particles
                     message.Reply rp
             }
 

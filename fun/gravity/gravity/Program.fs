@@ -19,10 +19,15 @@ let main argv =
 
     let particles = 
         [|
-            Particle.New 1000000.F  (V2 0.0F 0.0F)          (V2 0.0F 0.0F)
-            Particle.New 1000.F     (V2 300.0F 300.0F)      (V2 -5.0F 1.0F)
-            Particle.New 1000.F     (V2 -300.0F -300.0F)    (V2 7.0F 1.0F)
-        |]
+//            1000000.F   , 000.0F    , 000.0F    , 0.0F  , 000.F
+//            100000.F    , 300.0F    , 000.0F    , 0.0F  , 100.F
+//            100000.F    , 000.0F    , 300.0F    ,-102.F , 000.F
+//            100000.F    , 000.0F    ,-300.0F    , 149.F , 000.F
+//            100000.F    ,-300.0F    , 000.0F    , 0.0F  ,-148.F
+//            100000.F    , 000.0F    ,-300.0F    , 149.F , 000.F
+            100000.F    , 100.0F    , 000.0F    , 0.0F  , 0.0F
+            100000.F    ,-100.0F    , 000.0F    , 0.0F  , 0.0F
+        |] |> Array.map (fun (m,x,y,vx,vy) -> Particle.New m (V2 x y) (1.3F * (V2 vx vy)))
 
     Window.Show particles
     0
