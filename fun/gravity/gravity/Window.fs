@@ -32,9 +32,11 @@ module Window =
     let Show (particles : Particle []) = 
         let gravityProcessor (particles : Particle []) (ct : CancellationToken) (input : MailboxProcessor<Message>) : Async<unit> =
             async {
+                let particles = ref <| Cleanup particles
                 while not ct.IsCancellationRequested do
                     let! message    = input.Receive ()
-                    let rp          = TimeStep (1.F / 60.F) particles
+                    let ps,rp       = TimeStep (1.F / 60.F) !particles
+                    particles       := ps
                     message.Reply rp
             }
 

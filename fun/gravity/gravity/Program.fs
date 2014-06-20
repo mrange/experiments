@@ -14,20 +14,44 @@ open GravitySucks
 
 open Gravity
 
+open System
+
+// TODO: Draw persistent lines after particles, color and width depending on mass
+
+type Random with
+    member x.NextFloat (inclusiveFrom : float) (inclusiveTo : float) =
+        let n = x.NextDouble ()
+        inclusiveFrom + n * (inclusiveTo - inclusiveFrom)
+
 [<EntryPoint>]
 let main argv = 
 
-    let particles = 
+    let random  = Random (19740531)
+    
+    let center  = Particle.New 1000000.F (V2 0.F 0.F) (V2 0.F 0.F)
+
+
+    let particles =
         [|
-//            1000000.F   , 000.0F    , 000.0F    , 0.0F  , 000.F
-//            100000.F    , 300.0F    , 000.0F    , 0.0F  , 100.F
-//            100000.F    , 000.0F    , 300.0F    ,-102.F , 000.F
-//            100000.F    , 000.0F    ,-300.0F    , 149.F , 000.F
-//            100000.F    ,-300.0F    , 000.0F    , 0.0F  ,-148.F
-//            100000.F    , 000.0F    ,-300.0F    , 149.F , 000.F
-            100000.F    , 100.0F    , 000.0F    , 0.0F  , 0.0F
-            100000.F    ,-100.0F    , 000.0F    , 0.0F  , 0.0F
-        |] |> Array.map (fun (m,x,y,vx,vy) -> Particle.New m (V2 x y) (1.3F * (V2 vx vy)))
+            for i in 0..30 do
+                if i = 0 then yield center
+                else
+                    let cm  = center.Mass
+                    let m   = random.NextFloat 1000.  10000.
+                    let r   = random.NextFloat 200.   1000.
+                    let a   = random.NextFloat 0.     (2.0 * Math.PI)
+//                    let a   = Math.PI / 4.0
+                    let x   = float32 <| r * sin a
+                    let y   = float32 <| r * cos  a
+                    let p   = Particle.New (float32 m) (V2 x y) (V2 0.F 0.F)
+                    let gf  = float <| center.GravityForce p
+                    // cf = mv2 / r
+                    let v   = sqrt (r * gf / m)
+                    let vx  = float32 <| v * cos a 
+                    let vy  = float32 <| - v * sin a 
+                    p.Velocity <- V2 vx vy
+                    yield p
+        |]    
 
     Window.Show particles
     0
