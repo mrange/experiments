@@ -81,14 +81,20 @@ module Window =
 
             d.Draw <| fun d2dRenderTarget -> 
                 
-                use brush = new Direct2D1.SolidColorBrush (d2dRenderTarget, Color.Violet.ToColor4 ())
+                use brush = new Direct2D1.SolidColorBrush (d2dRenderTarget, Color.Azure.ToColor4 ())
 
-                d2dRenderTarget.Clear (Nullable<_> (Color.White.ToColor4 ()))
+                d2dRenderTarget.Clear (Nullable<_> (Color.Black.ToColor4 ()))
+
+                let ps      = !renderParticles
+
+                let max     = ps |> Array.maxBy (fun p -> p.Mass)
+                let pos     = max.Current
 
                 let transform = 
                     Matrix3x2.Identity 
 //                    <*> Matrix3x2.Rotation (Deg2Rad * 180.F)
                     <*> Matrix3x2.Translation (d.Width/2.F, d.Height/2.F) 
+                    <*> Matrix3x2.Translation (-pos.X, -pos.Y) 
                 d2dRenderTarget.Transform <- transform
 
                 let ps  = !renderParticles

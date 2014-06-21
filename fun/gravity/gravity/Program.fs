@@ -33,12 +33,12 @@ let main argv =
 
     let particles =
         [|
-            for i in 0..30 do
+            for i in 0..127 do
                 if i = 0 then yield center
                 else
                     let cm  = center.Mass
-                    let m   = random.NextFloat 1000.  10000.
-                    let r   = random.NextFloat 200.   1000.
+                    let m   = random.NextFloat 100.   200.
+                    let r   = random.NextFloat 150.   1000.
                     let a   = random.NextFloat 0.     (2.0 * Math.PI)
 //                    let a   = Math.PI / 4.0
                     let x   = float32 <| r * sin a

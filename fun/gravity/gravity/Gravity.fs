@@ -72,8 +72,9 @@ module Gravity =
             }
 
     [<Struct>]
-    type RenderParticle (radius : float32, current : Vector2) =
+    type RenderParticle (mass : float32, radius : float32, current : Vector2) =
 
+        member x.Mass       = mass
         member x.Radius     = radius
         member x.Current    = current
 
@@ -127,7 +128,7 @@ module Gravity =
 
     let ToRenderParticles (particles : Particle []) =
         [|
-            for p in particles -> RenderParticle(p.Radius, p.Current)
+            for p in particles -> RenderParticle(p.Mass, p.Radius, p.Current)
         |]
 
     let Cleanup (particles : Particle []) = 
