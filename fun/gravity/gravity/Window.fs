@@ -39,9 +39,8 @@ module Window =
                     particles       := ps
                     message.Reply rp
             }
-
-        let sw = Stopwatch ()
-        sw.Start ()
+        
+        let averageSpeed        = (particles |> Array.sumBy (fun p -> p.Velocity.Length ())) / (float32 particles.Length)
 
         use form                = new Windows.RenderForm ("Turtle Power")
 
@@ -79,11 +78,9 @@ module Window =
             
             let d = !device
 
-            d.Draw <| fun d2dRenderTarget -> 
+            d.Draw <| fun target persistentTarget -> 
                 
-                use brush = new Direct2D1.SolidColorBrush (d2dRenderTarget, Color.Azure.ToColor4 ())
-
-                d2dRenderTarget.Clear (Nullable<_> (Color.Black.ToColor4 ()))
+//                target.Clear (Nullable<_> (Color.Black.ToColor4 ()))
 
                 let ps      = !renderParticles
 
@@ -94,15 +91,23 @@ module Window =
                     Matrix3x2.Identity 
 //                    <*> Matrix3x2.Rotation (Deg2Rad * 180.F)
                     <*> Matrix3x2.Translation (d.Width/2.F, d.Height/2.F) 
-                    <*> Matrix3x2.Translation (-pos.X, -pos.Y) 
-                d2dRenderTarget.Transform <- transform
+//                    <*> Matrix3x2.Translation (-pos.X, -pos.Y) 
+                target.Transform <- transform
+                persistentTarget.Transform <- transform
 
                 let ps  = !renderParticles
                 let last= ps.Length - 1
                 for i in 0..last do
                     let p = ps.[i]
                     let ellipse = Direct2D1.Ellipse (p.Current, p.Radius, p.Radius)
-                    d2dRenderTarget.FillEllipse (ellipse, brush)
+                    let b = d.PlanetBrush
+                    b.Opacity <- 1.F
+                    target.FillEllipse (ellipse, b)
+                    if max = p then ()
+                    else
+                        let f,s = d.GetRainbowBrush p.Velocity averageSpeed
+                        persistentTarget.DrawEllipse (ellipse, f, 1.F)
+                        persistentTarget.DrawEllipse (ellipse, s, 1.F)
         )
 
 

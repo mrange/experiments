@@ -70,7 +70,23 @@ type Device (form : Windows.RenderForm) =
     let associateWithWindow = factory.MakeWindowAssociation (form.Handle, DXGI.WindowAssociationFlags.IgnoreAll)
 
     let backBuffer          = Direct3D11.Texture2D.FromSwapChain<Direct3D11.Texture2D> (swapChain, 0)
+//    let persistentBuffer    = new Direct3D11.Texture2D (backBuffer.Device, backBuffer.Description)
+    let persistentBuffer    = 
+        let mutable description         = Direct3D11.Texture2DDescription()
+        description.ArraySize           <- 1
+        description.BindFlags           <- Direct3D11.BindFlags.ShaderResource ||| Direct3D11.BindFlags.RenderTarget
+        description.CpuAccessFlags      <- Direct3D11.CpuAccessFlags.None
+        description.Format              <- DXGI.Format.R8G8B8A8_UNorm
+        description.Width               <- int <| width
+        description.Height              <- int <| height
+        description.MipLevels           <- 1
+        description.OptionFlags         <- Direct3D11.ResourceOptionFlags.None
+        description.SampleDescription   <- DXGI.SampleDescription(1,0)
+        description.Usage               <- Direct3D11.ResourceUsage.Default            
+        new Direct3D11.Texture2D (device, description)
+
     let surface             = backBuffer.QueryInterface<SharpDX.DXGI.Surface> ();
+    let persistentSurface   = persistentBuffer.QueryInterface<SharpDX.DXGI.Surface> ();
     let d2dRenderTarget     = new Direct2D1.RenderTarget (
                                 d2dFactory                          , 
                                 surface                             , 
@@ -81,43 +97,101 @@ type Device (form : Windows.RenderForm) =
                                         )
                                     )
                                 )
+    let d2dPersistentRenderTarget     
+                            = new Direct2D1.RenderTarget (
+                                d2dFactory                          , 
+                                persistentSurface                   , 
+                                Direct2D1.RenderTargetProperties (
+                                    Direct2D1.PixelFormat (
+                                        DXGI.Format.Unknown         , 
+                                        Direct2D1.AlphaMode.Premultiplied
+                                        )
+                                    )
+                                )
+    let bitmap              = 
+        let mutable format      = Direct2D1.PixelFormat()
+        format.AlphaMode        <- Direct2D1.AlphaMode.Premultiplied
+        format.Format           <- DXGI.Format.R8G8B8A8_UNorm
+        let mutable properties  = Direct2D1.BitmapProperties ()
+        properties.PixelFormat  <- format
+        new Direct2D1.Bitmap (d2dRenderTarget, persistentSurface, Nullable<_> (properties))
 
     let solid (c : Color)   = new Direct2D1.SolidColorBrush (d2dRenderTarget, c.ToColor4 ())                                    
 
-    let brownBrush              = solid Color.Brown
-    let limeGreenBrush          = solid Color.LimeGreen
-    let limeBrush               = solid Color.Lime
-    let mediumVioletRedBrush    = solid Color.MediumVioletRed
+
+    let rainbow                 = 
+        [|
+            0.00F     , Color.Red
+            0.30F     , Color.Orange
+            0.40F     , Color.Yellow
+            0.50F     , Color.Green
+            0.60F     , Color.Blue
+            0.70F     , Color.Indigo
+            1.00F     , Color.Violet
+        |]
+
+    let rainbowBrushes          = rainbow |> Array.map (fun (n,c) -> n,solid c)
+
+    let planetBrush             = solid Color.CornflowerBlue
+
+    member x.PlanetBrush        = planetBrush
+
+    member x.GetRainbowBrush (v : Vector2) (c : float32) = 
+        let v = v.Length ()
+        let r = v / (v + c)
+        let i = rainbowBrushes |> Array.findIndex (fun (n,_) -> n > r)
+        let fn,fb = rainbowBrushes.[i - 1]
+        let sn,sb = rainbowBrushes.[i]
+
+        let o   = (r - fn) / (sn - fn)
+        fb.Opacity <- 0.1F * (1.F - o)
+        sb.Opacity <- 0.1F * o
+        fb :> Direct2D1.Brush, sb :> Direct2D1.Brush
+
+
 
     member x.Width              = width
     member x.Height             = height
 
-    member x.BrownBrush             = brownBrush
-    member x.LimeGreenBrush         = limeGreenBrush 
-    member x.LimeBrush              = limeBrush      
-    member x.MediumVioletRedBrush   = mediumVioletRedBrush
-
-    member x.Draw (a : Direct2D1.RenderTarget->unit) =
+    member x.Draw (a : Direct2D1.RenderTarget->Direct2D1.RenderTarget->unit) =
         d2dRenderTarget.BeginDraw ()
+
+        d2dRenderTarget.Clear <| Nullable<_> (Color.Black.ToColor4())
+        let rect = RectangleF (-width / 2.F, -height / 2.F, width, height)
+        d2dRenderTarget.DrawBitmap (bitmap, rect, 1.F, Direct2D1.BitmapInterpolationMode.Linear)
+
+        d2dPersistentRenderTarget.BeginDraw ()
+
         try
-            a d2dRenderTarget
+            a d2dRenderTarget d2dPersistentRenderTarget
         finally
+            d2dPersistentRenderTarget.EndDraw ()
             d2dRenderTarget.EndDraw ()
             swapChain.Present (1, DXGI.PresentFlags.None)
 
 
     interface IDisposable with
         member x.Dispose () =
-            TryRun limeBrush.Dispose 
-            TryRun limeGreenBrush.Dispose 
-            TryRun brownBrush.Dispose 
-            TryRun d2dRenderTarget.Dispose 
-            TryRun surface.Dispose 
-            TryRun backBuffer.Dispose 
-            TryRun factory.Dispose 
-            TryRun swapChain.Dispose 
-            TryRun device.Dispose 
-            TryRun d2dFactory.Dispose
+            rainbowBrushes 
+            |> Array.map (fun (_,b) -> b) 
+            |> TryDisposeList
+
+            let resources : IDisposable list = 
+                [
+                    planetBrush
+                    bitmap
+                    d2dPersistentRenderTarget
+                    d2dRenderTarget
+                    persistentSurface
+                    surface
+                    persistentBuffer
+                    backBuffer
+                    factory
+                    swapChain
+                    device
+                    d2dFactory
+                ]
+            resources |> TryDisposeList
             
 
 

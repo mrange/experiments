@@ -34,6 +34,18 @@ module Utils =
         with
         | e -> printfn "Caught exception: %A" e
 
+    let TryDispose (d : #IDisposable) = 
+        if d <> null then
+            try
+                d.Dispose ()
+            with
+            | e -> printfn "Caught exception: %A" e
+
+    let TryDisposeList (ds : seq<#IDisposable>) =
+        for d in ds do
+            TryDispose d
+        
+
     type Disposer (action : unit->unit) = 
     
         interface IDisposable with
