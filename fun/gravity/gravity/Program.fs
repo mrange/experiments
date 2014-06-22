@@ -16,6 +16,12 @@ open Gravity
 
 open System
 
+// TODO:
+// 1. Implement spatial tree to be able to crank up particle count
+// 2. Keep largest particles from spatial tree as they are the ones most likely to affect the trajectory 
+//    and needs precision
+// 3. Implement concurrent algorithm
+
 type Random with
 
     member x.NextFloat (inclusiveFrom : float) (inclusiveTo : float) =
@@ -41,24 +47,26 @@ let main argv =
         p
     
     let center  = Particle.New 1000000.F (V2 0.F 0.F) (V2 0.F 0.F)
-    let jupiter = createParticle center 10000. 1000. (-Math.PI / 2.0) 1.
-    let moon    = createParticle jupiter 100. 50. (-Math.PI / 2.0) 1.
+    let jupiter = createParticle center 5000. 1000. (-Math.PI ) 1.
+    let moon1   = createParticle jupiter 100. 30. 0. 1.
+    let moon2   = createParticle jupiter 100. 30. Math.PI 1.
 
     let predefined = 
         [|
             center  
             jupiter
-            moon
+            moon1
+            moon2
         |]
 
     let particles =
         [|
-            for i in 0..99 do
+            for i in 0..199 do
                 if i < predefined.Length then yield predefined.[i]
                 else
                     let cm  = center.Mass
-                    let m   = random.NextFloat 50.    100.
-                    let r   = random.NextFloat 150.   700.
+                    let m   = random.NextFloat 10.    30.
+                    let r   = random.NextFloat 150.   800.
                     let a   = random.NextFloat 0.     (2.0 * Math.PI)
                     let s   = random.NextFloat 0.9    1.2
                     let p   = createParticle center m r a s
