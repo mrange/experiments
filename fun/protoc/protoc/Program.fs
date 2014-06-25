@@ -55,17 +55,7 @@ module Protobuf =
 
     type Enum           = string*EnumMember list
 
-    type Group          = Modifier*int*Message
-
-    type ExtendMember   =
-        | ExtendField   of Field
-        | ExtendGroup   of Group
-
-    type Extend         = UserType*ExtendMember list
-
-    type Message        = string*MessageMember list
-
-    and MessageMember   =
+    type MessageMember   =
         | MemberField       of Field
         | MemberEnum        of Enum
         | MemberMessage     of Message
@@ -73,6 +63,16 @@ module Protobuf =
         | MemberExtension   of Extension
         | MemberGroup       of Group
         | MemberOption      of Option
+
+    and Message        = string*MessageMember list
+
+    and Group          = Modifier*int*Message
+
+    and ExtendMember   =
+        | ExtendField   of Field
+        | ExtendGroup   of Group
+
+    and Extend         = UserType*ExtendMember list
 
     type Package        = string list
 
@@ -93,7 +93,7 @@ module Protobuf =
         let ws              = spaces
         let ws1             = spaces1
         let ch c            = skipChar c .>> ws
-        let str s           = skipString s .>> ws
+        let str s           = skipString s .>> ws1
         let strRet s v      = stringReturn s v .>> ws
 
         let stringChoices cs= cs |> List.map (fun (s,v) -> attempt <| strRet s v )            
@@ -103,11 +103,21 @@ module Protobuf =
         let tsemicolon      = ch ';'
         let tlbracket       = ch '['
         let trbracket       = ch ']'
+        let tlcbracket      = ch '{'
+        let trcbracket      = ch '}'
 
         let koption         = str "option" 
         let kdefault        = str "default"
         let kto             = str "to"
         let kextensions     = str "extensions"
+        let kmessage        = str "message"
+        let kgroup          = str "group"
+        let kextend         = str "extend"
+        let kenum           = str "enum" 
+        let kpackage        = str "package" 
+        let kimport         = str "import" 
+
+        let body  m         = between tlcbracket trcbracket (many m)
 
 
         let identifierChar  : Parser<char, unit>    = letter <|> anyOf "_"
@@ -157,10 +167,11 @@ module Protobuf =
         let intValue        : Parser<Value, unit>   = 
             intLiteral |>> Int
 
-//        let variableValue   = many1Chars2 upper identChar |>> VariableValue
-        
+        let camelIdentifierLiteral  : Parser<string, unit>  = 
+            many1Chars2 upper identifierChar .>> ws
+
         let identifierLiteral   : Parser<string, unit>  = 
-            many1Chars identifierChar
+            many1Chars identifierChar .>> ws
 
         let variableValue   : Parser<Value, unit>   = 
             identifierLiteral |>> Variable
@@ -226,7 +237,7 @@ module Protobuf =
             choice
                 [
                     attempt optionBody |>> FieldOptionOption
-                    kdefault >>. teq >>. value |>> FieldOptionDefault
+                    attempt (kdefault >>. teq >>. value) |>> FieldOptionDefault
                 ]
 
         let fieldOptions    : Parser<FieldOption list, unit> =
@@ -243,28 +254,94 @@ module Protobuf =
 
         let extensionMember : Parser<ExtensionMember, unit> =
             let part2 = kto >>. (intLiteral <|> strRet "max" System.Int32.MaxValue)
-            pipe2 (intLiteral .>> ws) (attempt part2) (fun i1 i2 -> i1, i2) .>> ws
+            pipe2 intLiteral (attempt part2) (fun i1 i2 -> i1, i2)
 
         let extension       : Parser<Extension, unit>   =
             kextensions
-            >>. sepBy1 (extensionMember .>> ws) tcomma
+            >>. sepBy1 extensionMember tcomma
             .>> tsemicolon 
-            .>> ws
 
         let enumMember      : Parser<EnumMember, unit>  =
             choice 
                 [
                     attempt option |>> EnumOption
-                    pipe3 (identifierLiteral .>> ws) (teq >>.intLiteral .>> ws) (tsemicolon >>. ws) (fun id i _ -> EnumField (id, i))
+                    attempt (pipe3 identifierLiteral (teq >>.intLiteral) tsemicolon (fun id i _ -> EnumField (id, i)))
                 ]
 
-//        let enum            : Parser<Enum, unit>        =
-//            pipe3 
-//                (str "enum" >>. ws >>. identifierLiteral .>> ws)
-//                (between (ch '{' .>> ws) (ch '}' .>> ws) )
+        let enumBody        : Parser<EnumMember list, unit> =
+            body enumMember
+
+        let enum            : Parser<Enum, unit>        =
+            pipe2
+                (kenum >>. identifierLiteral)
+                enumBody                            // TODO: support empty ';'
+                (fun id members -> id, members)
+
+        let rec messageMember   : Parser<MessageMember, unit>   =
+            choice  
+                [
+                    attempt field       |>> MemberField
+                    attempt enum        |>> MemberEnum
+                    attempt message     |>> MemberMessage
+                    attempt extend      |>> MemberExtend
+                    attempt extension   |>> MemberExtension
+                    attempt group       |>> MemberGroup
+                    attempt option      |>> MemberOption
+                    // TODO: support empty ';'
+                ]
+
+        and messageBody         : Parser<MessageMember list, unit>  =
+            body messageMember
+
+        and message             : Parser<Message, unit>             =
+            pipe2 
+                (kmessage >>. identifierLiteral) 
+                messageBody
+                (fun id body -> id, body)
+
+        and group               : Parser<Group, unit>               =
+            pipe4
+                modifier
+                (kgroup >>. camelIdentifierLiteral) 
+                (teq >>. intLiteral)
+                messageBody
+                (fun m id i body -> m, i, (id, body))
 
 
-        let proto           : Parser<_,unit> = value
+        let extendMember    : Parser<ExtendMember, unit >           =
+            choice 
+                [
+                    attempt field |>> ExtendField
+                    attempt group |>> ExtendGroup
+                ]
+        let extendBody      : Parser<ExtendMember list, unit>       =
+            body extendMember
+
+        let extend          : Parser<Extend, unit>                  =
+            pipe2
+                (kextend >>. userType)
+                extendBody
+                (fun ut b -> ut, b)
+
+        let package         : Parser<Package, unit>                 =
+            kpackage >>. userTypeLiteral .>> tsemicolon
+
+        let import          : Parser<Import, unit>                  =
+            kimport >>. stringLiteral .>> tsemicolon
+
+        let protomember     : Parser<ProtoMember, unit>             =
+            choice 
+                [
+                    attempt message |>> ProtoMessage
+                    attempt extend  |>> ProtoExtend
+                    attempt enum    |>> ProtoEnum
+                    attempt import  |>> ProtoImport
+                    attempt package |>> ProtoPackage
+                    attempt option  |>> ProtoOption
+                    // TODO: support empty ';'                
+                ]
+
+        let proto           : Parser<Proto,unit> = many protomember
 
     
     let Parse (s : string) = 

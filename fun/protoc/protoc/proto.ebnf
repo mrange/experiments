@@ -20,6 +20,8 @@ service ::= "service" ident "{" ( option | rpc | ";" )* "}"
 
 rpc ::= "rpc" ident "(" userType ")" "returns" "(" userType ")" ";"
 
+
+# ":"? Should be ";"?
 messageBody ::= "{" ( field | enum | message | extend | extensions | group | option | ":" )* "}"
 
 group ::= label "group" camelIdent "=" intLit messageBody
