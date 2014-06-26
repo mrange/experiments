@@ -1,9 +1,23 @@
-﻿
+﻿// ----------------------------------------------------------------------------------------------
+// Copyright (c) Mårten Rånge.
+// ----------------------------------------------------------------------------------------------
+// This source code is subject to terms and conditions of the Microsoft Public License. A
+// copy of the license can be found in the License.html file at the root of this distribution.
+// If you cannot locate the  Microsoft Public License, please send an email to
+// dlr@microsoft.com. By using this source code in any fashion, you are agreeing to be bound
+//  by the terms of the Microsoft Public License.
+// ----------------------------------------------------------------------------------------------
+// You must not remove this notice, or any other, from this software.
+// ----------------------------------------------------------------------------------------------
+
+open System
+open System.Diagnostics
+
 open FParsec
 open Primitives
 open CharParsers
 
-module Protobuf =
+module protobuf =
 
     type Value      = 
         | String    of string
@@ -90,13 +104,15 @@ module Protobuf =
     
     module Internal = 
 
+
         let ws              = spaces
         let ws1             = spaces1
         let ch c            = skipChar c .>> ws
         let str s           = skipString s .>> ws1
         let strRet s v      = stringReturn s v .>> ws
+        let strRet1 s v     = stringReturn s v .>> ws1
 
-        let stringChoices cs= cs |> List.map (fun (s,v) -> attempt <| strRet s v )            
+        let stringChoices cs= cs |> List.map (fun (s,v) -> attempt <| strRet1 s v )            
 
         let teq             = ch '='
         let tcomma          = ch ','
@@ -119,6 +135,12 @@ module Protobuf =
 
         let body  m         = between tlcbracket trcbracket (many m)
 
+
+        let debug (p : Parser<'T, 'S>)  : Parser<'T, 'S> = fun stream ->
+            
+            let r = p stream
+
+            r
 
         let identifierChar  : Parser<char, unit>    = letter <|> anyOf "_"
 
@@ -245,11 +267,11 @@ module Protobuf =
 
         let field           : Parser<Field, unit> =
             pipe5 
-                (modifier .>> ws1) 
-                (fieldType .>> ws1) 
+                modifier
+                fieldType
                 identifierLiteral
                 (teq >>. intLiteral) 
-                (opt fieldOptions)
+                (opt fieldOptions .>> tsemicolon)
                 (fun m ft id i fos -> m, ft, id, i, (defaultArg fos []))
 
         let extensionMember : Parser<ExtensionMember, unit> =
@@ -277,29 +299,19 @@ module Protobuf =
                 enumBody                            // TODO: support empty ';'
                 (fun id members -> id, members)
 
-        let rec messageMember   : Parser<MessageMember, unit>   =
-            choice  
-                [
-                    attempt field       |>> MemberField
-                    attempt enum        |>> MemberEnum
-                    attempt message     |>> MemberMessage
-                    attempt extend      |>> MemberExtend
-                    attempt extension   |>> MemberExtension
-                    attempt group       |>> MemberGroup
-                    attempt option      |>> MemberOption
-                    // TODO: support empty ';'
-                ]
 
-        and messageBody         : Parser<MessageMember list, unit>  =
+        let (messageMember : Parser<MessageMember, unit>, messageMemberRef) = createParserForwardedToRef()
+
+        let messageBody         : Parser<MessageMember list, unit>  =
             body messageMember
 
-        and message             : Parser<Message, unit>             =
+        let message             : Parser<Message, unit>             =
             pipe2 
-                (kmessage >>. identifierLiteral) 
+                (kmessage >>. identifierLiteral)
                 messageBody
                 (fun id body -> id, body)
 
-        and group               : Parser<Group, unit>               =
+        let group               : Parser<Group, unit>               =
             pipe4
                 modifier
                 (kgroup >>. camelIdentifierLiteral) 
@@ -323,6 +335,20 @@ module Protobuf =
                 extendBody
                 (fun ut b -> ut, b)
 
+        messageMemberRef :=
+            choice  
+                [
+                    attempt field       |>> MemberField
+                    attempt enum        |>> MemberEnum
+                    attempt message     |>> MemberMessage
+                    attempt extend      |>> MemberExtend
+                    attempt extension   |>> MemberExtension
+                    attempt group       |>> MemberGroup
+                    attempt option      |>> MemberOption
+                    // TODO: support empty ';'
+                ]
+ 
+
         let package         : Parser<Package, unit>                 =
             kpackage >>. userTypeLiteral .>> tsemicolon
 
@@ -341,22 +367,62 @@ module Protobuf =
                     // TODO: support empty ';'                
                 ]
 
-        let proto           : Parser<Proto,unit> = many protomember
+        let proto           : Parser<Proto,unit> = ws >>. many1 protomember
 
     
     let Parse (s : string) = 
         let result = run Internal.proto s
         result
     
+let mutable errors = 0
 
-let protoSpec1 = """
+let error (msg : string) = 
+    errors <- errors + 1
+
+    let cc = Console.ForegroundColor
+    Console.ForegroundColor <- ConsoleColor.Red
+    try
+        printfn "Error detected: %s" msg
+    finally
+        Console.ForegroundColor <- cc
+
+
+
+let runTestCases () =
+    
+    let testCases = 
+        [
+            """
+message Person {
+}
+"""
+            """
+message Person {
+  required int32 id = 1;
+}
+"""
+            """
 message Person {
   required int32 id = 1;
   required string name = 2;
   optional string email = 3;
 }
 """
+        ]
+
+    for testCase in testCases do
+        let result = protobuf.Parse testCase
+        match result with
+        | Success (v, _, _) -> printfn "Parse successful\n%A" v
+        | Failure (m, _, _) -> error <| sprintf "Parser failed\n%s" m
+        
+
 [<EntryPoint>]
 let main argv = 
-    0
+    
+    runTestCases ()
 
+    if errors = 0 then
+        0
+    else
+        101
