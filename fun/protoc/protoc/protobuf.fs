@@ -18,36 +18,36 @@ open CharParsers
 
 module protobuf =
 
-    type Value      = 
+    type Value      =
         | String    of string
         | Bool      of bool
         | Float     of float
         | Int       of int
         | Variable  of string
 
-    type Modifier   = 
+    type Modifier   =
         | Required
         | Optional
         | Repeated
 
     type UserType   = bool*string list
 
-    type FieldType  = 
-        | Double 
-        | Float 
-        | Int32 
-        | Int64 
-        | UInt32 
+    type FieldType  =
+        | Double
+        | Float
+        | Int32
+        | Int64
+        | UInt32
         | UInt64
-        | SInt32 
-        | SInt64 
-        | Fixed32 
-        | Fixed64 
-        | SFixed32 
+        | SInt32
+        | SInt64
+        | Fixed32
+        | Fixed64
+        | SFixed32
         | SFixed64
-        | Bool 
-        | String 
-        | Bytes 
+        | Bool
+        | String
+        | Bytes
         | UserType  of UserType
 
     type Option     = string list*Value
@@ -91,7 +91,7 @@ module protobuf =
 
     type Import         = string
 
-    type ProtoMember    = 
+    type ProtoMember    =
         | ProtoMessage  of Message
         | ProtoExtend   of Extend
         | ProtoEnum     of Enum
@@ -100,8 +100,8 @@ module protobuf =
         | ProtoOption   of Option
 
     type Proto          = ProtoMember list
-    
-    module Internal = 
+
+    module Internal =
 
 
         let ws              = spaces
@@ -111,7 +111,7 @@ module protobuf =
         let strRet s v      = stringReturn s v .>> ws
         let strRet1 s v     = stringReturn s v .>> ws1
 
-        let stringChoices cs= cs |> List.map (fun (s,v) -> attempt <| strRet1 s v )            
+        let stringChoices cs= cs |> List.map (fun (s,v) -> attempt <| strRet1 s v )
 
         let teq             = ch '='
         let tcomma          = ch ','
@@ -121,29 +121,30 @@ module protobuf =
         let tlcbracket      = ch '{'
         let trcbracket      = ch '}'
 
-        let koption         = str "option" 
+        let koption         = str "option"
         let kdefault        = str "default"
         let kto             = str "to"
         let kextensions     = str "extensions"
         let kmessage        = str "message"
         let kgroup          = str "group"
         let kextend         = str "extend"
-        let kenum           = str "enum" 
-        let kpackage        = str "package" 
-        let kimport         = str "import" 
+        let kenum           = str "enum"
+        let kpackage        = str "package"
+        let kimport         = str "import"
 
         let body  m         = between tlcbracket trcbracket (many m)
 
 
         let debug (p : Parser<'T, 'S>)  : Parser<'T, 'S> = fun stream ->
-            
+
             let r = p stream
 
             r
 
-        let identifierChar  : Parser<char, unit>    = letter <|> anyOf "_"
+        let identifierChar      : Parser<char, unit>                =
+            letter <|> anyOf "_"
 
-        let stringLiteral   : Parser<string, unit>  =
+        let stringLiteral       : Parser<string, unit>              =
             let quote       = skipAnyOf "'\""
             let char        = noneOf "\0\n'\"\\"
             let charEscape  = anyOf """abfnrtv\?"'"""
@@ -156,48 +157,48 @@ module protobuf =
                                   | 't' -> '\t'
                                   | 'v' -> '\v'
                                   | c   -> c
-            let escaped     = skipChar '\\' >>. 
-                              choice 
+            let escaped     = skipChar '\\' >>.
+                              choice
                                 [
                                     // TODO:
                                     // OctEscape
                                     // HexEscape
-                                    charEscape    
+                                    charEscape
                                 ]
             let chars   = manyChars (char <|> charEscape)
             between quote quote chars .>> ws
 
-        let stringValue     : Parser<Value, unit>   = 
+        let stringValue         : Parser<Value, unit>               =
             stringLiteral |>> Value.String
 
-        let boolValue       : Parser<Value, unit>   = 
+        let boolValue           : Parser<Value, unit>               =
             let trueLit     = strRet "true"     true
             let falseLit    = strRet "false"    false
             trueLit <|> falseLit |>> Value.Bool
 
-        let floatValue      : Parser<Value, unit>   = 
+        let floatValue          : Parser<Value, unit>               =
             pfloat .>> ws |>> Value.Float
 
-        let intLiteral      : Parser<int, unit>     =
+        let intLiteral          : Parser<int, unit>                 =
             let decInt      = pint32
             // TODO:
             // hexInt
             // octInt
             decInt .>> ws
 
-        let intValue        : Parser<Value, unit>   = 
+        let intValue            : Parser<Value, unit>               =
             intLiteral |>> Int
 
-        let camelIdentifierLiteral  : Parser<string, unit>  = 
+        let camelIdentifierLiteral  : Parser<string, unit>          =
             many1Chars2 upper identifierChar .>> ws
 
-        let identifierLiteral   : Parser<string, unit>  = 
+        let identifierLiteral   : Parser<string, unit>              =
             many1Chars identifierChar .>> ws
 
-        let variableValue   : Parser<Value, unit>   = 
+        let variableValue       : Parser<Value, unit>               =
             identifierLiteral |>> Variable
 
-        let value           : Parser<Value, unit>   = 
+        let value               : Parser<Value, unit>               =
             choice
                 [
                     boolValue
@@ -207,69 +208,69 @@ module protobuf =
                     stringValue
                 ]
 
-        let modifier        : Parser<Modifier, unit>=  
-            let choices = 
+        let modifier            : Parser<Modifier, unit>            =
+            let choices =
                 [
                     "optional", Optional
                     "required", Required
                     "repeated", Repeated
                 ] |> stringChoices
             choice choices
-    
-        let userTypeLiteral : Parser<string list, unit> = 
-            sepBy1 stringLiteral (skipChar '.') .>> ws
 
-        let userType        : Parser<UserType, unit>    = 
-            pipe2 (opt <| skipChar '.') userTypeLiteral (fun fq ids -> fq.IsSome,ids) 
-            
+        let userTypeLiteral     : Parser<string list, unit>         =
+            sepBy1 identifierLiteral (skipChar '.') .>> ws
 
-        let fieldType       : Parser<FieldType, unit>   = 
-            let choices = 
+        let userType            : Parser<UserType, unit>            =
+            pipe2 (opt <| skipChar '.') userTypeLiteral (fun fq ids -> fq.IsSome,ids)
+
+
+        let fieldType           : Parser<FieldType, unit>           =
+            let choices =
                 [
-                    "double"    , Double 
-                    "float"     , Float 
-                    "int32"     , Int32 
-                    "int64"     , Int64 
-                    "uint32"    , UInt32 
+                    "double"    , Double
+                    "float"     , Float
+                    "int32"     , Int32
+                    "int64"     , Int64
+                    "uint32"    , UInt32
                     "uint64"    , UInt64
-                    "sint32"    , SInt32 
-                    "sint64"    , SInt64 
-                    "fixed32"   , Fixed32 
-                    "fixed64"   , Fixed64 
-                    "sfixed32"  , SFixed32 
+                    "sint32"    , SInt32
+                    "sint64"    , SInt64
+                    "fixed32"   , Fixed32
+                    "fixed64"   , Fixed64
+                    "sfixed32"  , SFixed32
                     "sfixed64"  , SFixed64
-                    "bool"      , Bool 
-                    "string"    , String 
-                    "bytes"     , Bytes 
+                    "bool"      , Bool
+                    "string"    , String
+                    "bytes"     , Bytes
                 ] |> stringChoices
-            let extraChoices = 
+            let extraChoices =
                 [
-                    userType |>> UserType
+                    debug userType |>> UserType
                 ]
             choice (choices @ extraChoices)
 
-        let optionBody      : Parser<Option, unit>  = 
+        let optionBody          : Parser<Option, unit>              =
             pipe2 userTypeLiteral (teq >>. value) (fun id value -> id,value)
 
-        let option          : Parser<Option, unit>  = 
+        let option              : Parser<Option, unit>              =
             koption >>.optionBody .>> tsemicolon
 
-        let fieldOption     : Parser<FieldOption, unit> =
+        let fieldOption         : Parser<FieldOption, unit>         =
             choice
                 [
                     attempt optionBody |>> FieldOptionOption
                     attempt (kdefault >>. teq >>. value) |>> FieldOptionDefault
                 ]
 
-        let fieldOptions    : Parser<FieldOption list, unit> =
+        let fieldOptions        : Parser<FieldOption list, unit>    =
             between tlbracket trbracket (sepBy1 fieldOption tcomma)
 
-        let field           : Parser<Field, unit> =
-            pipe5 
+        let field               : Parser<Field, unit>               =
+            pipe5
                 modifier
                 fieldType
                 identifierLiteral
-                (teq >>. intLiteral) 
+                (teq >>. intLiteral)
                 (opt fieldOptions .>> tsemicolon)
                 (fun m ft id i fos -> m, ft, id, i, (defaultArg fos []))
 
@@ -277,35 +278,36 @@ module protobuf =
             let part2 = kto >>. (intLiteral <|> strRet "max" System.Int32.MaxValue)
             pipe2 intLiteral (attempt part2) (fun i1 i2 -> i1, i2)
 
-        let extension       : Parser<Extension, unit>   =
+        let extension           : Parser<Extension, unit>           =
             kextensions
             >>. sepBy1 extensionMember tcomma
-            .>> tsemicolon 
+            .>> tsemicolon
 
-        let enumMember      : Parser<EnumMember, unit>  =
-            choice 
+        let enumMember          : Parser<EnumMember, unit>          =
+            choice
                 [
                     attempt option |>> EnumOption
                     attempt (pipe3 identifierLiteral (teq >>.intLiteral) tsemicolon (fun id i _ -> EnumField (id, i)))
                 ]
 
-        let enumBody        : Parser<EnumMember list, unit> =
+        let enumBody            : Parser<EnumMember list, unit>     =
             body enumMember
 
-        let enum            : Parser<Enum, unit>        =
+        let enum                : Parser<Enum, unit>                =
             pipe2
                 (kenum >>. identifierLiteral)
                 enumBody                            // TODO: support empty ';'
                 (fun id members -> id, members)
 
 
-        let (messageMember : Parser<MessageMember, unit>, messageMemberRef) = createParserForwardedToRef()
+        let messageMember, messageMemberRef                         =
+            createParserForwardedToRef<MessageMember, unit> ()
 
         let messageBody         : Parser<MessageMember list, unit>  =
             body messageMember
 
         let message             : Parser<Message, unit>             =
-            pipe2 
+            pipe2
                 (kmessage >>. identifierLiteral)
                 messageBody
                 (fun id body -> id, body)
@@ -313,14 +315,14 @@ module protobuf =
         let group               : Parser<Group, unit>               =
             pipe4
                 modifier
-                (kgroup >>. camelIdentifierLiteral) 
+                (kgroup >>. camelIdentifierLiteral)
                 (teq >>. intLiteral)
                 messageBody
                 (fun m id i body -> m, i, (id, body))
 
 
         let extendMember    : Parser<ExtendMember, unit >           =
-            choice 
+            choice
                 [
                     attempt field |>> ExtendField
                     attempt group |>> ExtendGroup
@@ -335,7 +337,7 @@ module protobuf =
                 (fun ut b -> ut, b)
 
         messageMemberRef :=
-            choice  
+            choice
                 [
                     attempt field       |>> MemberField
                     attempt enum        |>> MemberEnum
@@ -346,7 +348,7 @@ module protobuf =
                     attempt option      |>> MemberOption
                     // TODO: support empty ';'
                 ]
- 
+
 
         let package         : Parser<Package, unit>                 =
             kpackage >>. userTypeLiteral .>> tsemicolon
@@ -355,7 +357,7 @@ module protobuf =
             kimport >>. stringLiteral .>> tsemicolon
 
         let protomember     : Parser<ProtoMember, unit>             =
-            choice 
+            choice
                 [
                     attempt message |>> ProtoMessage
                     attempt extend  |>> ProtoExtend
@@ -363,13 +365,14 @@ module protobuf =
                     attempt import  |>> ProtoImport
                     attempt package |>> ProtoPackage
                     attempt option  |>> ProtoOption
-                    // TODO: support empty ';'                
+                    // TODO: support empty ';'
                 ]
 
-        let proto           : Parser<Proto,unit> = ws >>. many1 protomember .>> eof
+        let proto           : Parser<Proto,unit>                    =
+            ws >>. many1 protomember .>> eof
 
-    
-    let Parse (s : string) = 
+
+    let Parse (s : string) =
         let result = run Internal.proto s
         result
-    
+

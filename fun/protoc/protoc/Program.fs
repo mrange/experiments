@@ -19,37 +19,80 @@ open FParsec
 
 let mutable errors = 0
 
-let error (msg : string) = 
-    errors <- errors + 1
-
+let print (color : ConsoleColor) (msg : string) = 
     let cc = Console.ForegroundColor
-    Console.ForegroundColor <- ConsoleColor.Red
+    Console.ForegroundColor <- color
     try
-        printfn "Error detected: %s" msg
+        printfn "%s" msg
     finally
         Console.ForegroundColor <- cc
 
+let info (msg : string) = 
+    print ConsoleColor.Gray msg
+
+let result (msg : string) = 
+    print ConsoleColor.White msg
+
+let success (msg : string) = 
+    print ConsoleColor.Green msg
+
+let error (msg : string) =
+    errors <- errors + 1
+    print ConsoleColor.Red msg
 
 
-let runTestCases () =
-    
-    let mutable iter = 0
+type RunTestCase =
+    | RunAll
+    | PrintResult
+    | RunOne        of int
+
+let runTestCases (rtc : RunTestCase) =
+
+    let mutable iter    = 0
+
+    let runOne =
+        match rtc with
+        | RunAll        -> None
+        | PrintResult   -> None
+        | RunOne i      -> Some i
 
     for testDescription, testCase in TestCases.PositiveTestCases do
         iter <- iter + 1
-        let result = protobuf.Parse testCase 
-        
-        match result with
-        | Success (v, _, _) -> ()
-        | Failure (m, _, _) -> error <| sprintf "Parser failed for test case #%d, %s" iter testDescription
-        
+
+        let runTest = defaultArg runOne -1
+
+        if runTest = -1 || runTest = iter then
+            let r = protobuf.Parse testCase
+
+            match r, rtc with
+            | Success _        , RunAll -> ()
+            | Success (v, _, _), _      -> result<| sprintf 
+                                                        "Parser successful for test case #%d, %s\nInput:\n%s\nResult:\n%A"
+                                                        iter 
+                                                        testDescription 
+                                                        testCase
+                                                        v
+            | Failure (m, _, _), RunAll -> error <| sprintf "Parser failed for test case #%d, %s" iter testDescription
+            | Failure (m, _, _), _      -> error <| sprintf 
+                                                        "Parser failed for test case #%d, %s\nInput:\n%s\nError:\n%s" 
+                                                        iter 
+                                                        testDescription 
+                                                        testCase
+                                                        m
+
 
 [<EntryPoint>]
-let main argv = 
+let main argv =
+
+    info "Running test cases"
     
-    runTestCases ()
+//    runTestCases PrintResult
+//    runTestCases <| RunOne 5
+    runTestCases RunAll
 
     if errors = 0 then
+        success "All tests passed"
         0
     else
+        error <| sprintf "%d errors were detected" errors
         101

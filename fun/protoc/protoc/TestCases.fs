@@ -51,6 +51,7 @@ message Person {
   required int32 id = 2;
   optional string email = 3;
   required string number = 4;
+  optional PhoneType type = 5;
 }
 """
             "Message with nested enum and message", """
