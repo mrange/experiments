@@ -5,14 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>6eef5b85-37aa-469b-9dda-12de764054f5</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>protoc</RootNamespace>
-    <AssemblyName>protoc</AssemblyName>
+    <ProjectGuid>3192daf2-2bf7-402b-a1de-e8ed0551279e</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>protobuf.tp</RootNamespace>
+    <AssemblyName>protobuf.tp</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>protoc</Name>
+    <Name>protobuf.tp</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,9 +21,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\protoc.XML</DocumentationFile>
-    <Prefer32Bit>true</Prefer32Bit>
+    <DocumentationFile>bin\Debug\protobuf.tp.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,11 +30,15 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\protoc.XML</DocumentationFile>
-    <Prefer32Bit>true</Prefer32Bit>
+    <DocumentationFile>bin\Release\protobuf.tp.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FParsec">
+      <HintPath>..\packages\FParsec.1.0.1\lib\net40-client\FParsec.dll</HintPath>
+    </Reference>
+    <Reference Include="FParsecCS">
+      <HintPath>..\packages\FParsec.1.0.1\lib\net40-client\FParsecCS.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -47,23 +48,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="TestCases.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="App.config" />
-    <None Include="packages.config" />
-    <None Include="proto.ebnf" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\protobuf.tp\protobuf.tp.fsproj">
-      <Name>protobuf.tp</Name>
-      <Project>{3192daf2-2bf7-402b-a1de-e8ed0551279e}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\protobuf\protobuf.fsproj">
-      <Name>protobuf</Name>
-      <Project>{2f7ea920-6896-4569-946a-dc7d07a4a49a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <Compile Include="protobuf.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -81,7 +66,7 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>

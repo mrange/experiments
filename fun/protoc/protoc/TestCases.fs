@@ -10,7 +10,7 @@
 // You must not remove this notice, or any other, from this software.
 // ----------------------------------------------------------------------------------------------
 
-namespace protoc
+namespace Protobuf.Tests
 
 module TestCases =
     let PositiveTestCases =

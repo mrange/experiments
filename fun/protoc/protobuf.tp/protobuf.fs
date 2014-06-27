@@ -10,13 +10,13 @@
 // You must not remove this notice, or any other, from this software.
 // ----------------------------------------------------------------------------------------------
 
-namespace protoc
+namespace Protobuf.TypeProvider
 
 open FParsec
 open Primitives
 open CharParsers
 
-module protobuf =
+module Parser =
 
     type Value      =
         | String    of string
@@ -101,7 +101,7 @@ module protobuf =
 
     type Proto          = ProtoMember list
 
-    module Internal =
+    module internal Internal =
 
 
         let ws              = spaces
@@ -372,7 +372,13 @@ module protobuf =
             ws >>. many1 protomember .>> eof
 
 
-    let Parse (s : string) =
+    type ParseResult =
+        | ParseSuccess  of Proto
+        | ParseFailure   of string
+
+    let ParseProtobuf (s : string) =
         let result = run Internal.proto s
-        result
+        match result with
+        | Success (v, _, _) -> ParseSuccess v
+        | Failure (m, _, _) -> ParseFailure m
 

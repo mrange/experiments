@@ -12,10 +12,8 @@
 
 open System
 
-open protoc
-open protobuf
-
-open FParsec
+open Protobuf.Tests
+open Protobuf.TypeProvider.Parser
 
 let mutable errors = 0
 
@@ -62,18 +60,18 @@ let runTestCases (rtc : RunTestCase) =
         let runTest = defaultArg runOne -1
 
         if runTest = -1 || runTest = iter then
-            let r = protobuf.Parse testCase
+            let r = ParseProtobuf testCase
 
             match r, rtc with
-            | Success _        , RunAll -> ()
-            | Success (v, _, _), _      -> result<| sprintf 
+            | ParseSuccess _    , RunAll -> ()
+            | ParseSuccess v    , _      -> result<| sprintf 
                                                         "Parser successful for test case #%d, %s\nInput:\n%s\nResult:\n%A"
                                                         iter 
                                                         testDescription 
                                                         testCase
                                                         v
-            | Failure (m, _, _), RunAll -> error <| sprintf "Parser failed for test case #%d, %s" iter testDescription
-            | Failure (m, _, _), _      -> error <| sprintf 
+            | ParseFailure _    , RunAll -> error <| sprintf "Parser failed for test case #%d, %s" iter testDescription
+            | ParseFailure m    , _      -> error <| sprintf 
                                                         "Parser failed for test case #%d, %s\nInput:\n%s\nError:\n%s" 
                                                         iter 
                                                         testDescription 
