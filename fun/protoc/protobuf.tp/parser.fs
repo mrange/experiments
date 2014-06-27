@@ -16,7 +16,7 @@ open FParsec
 open Primitives
 open CharParsers
 
-module Parser =
+module ProtobufParser =
 
     type Value      =
         | String    of string

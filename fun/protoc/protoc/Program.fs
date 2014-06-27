@@ -13,7 +13,7 @@
 open System
 
 open Protobuf.Tests
-open Protobuf.TypeProvider.Parser
+open Protobuf.TypeProvider.ProtobufParser
 
 let mutable errors = 0
 
