@@ -16,90 +16,10 @@ open FParsec
 open Primitives
 open CharParsers
 
+open Protobuf
+open ProtoSpecification
+
 module ProtobufParser =
-
-    type Value      =
-        | String    of string
-        | Bool      of bool
-        | Float     of float
-        | Int       of int
-        | Variable  of string
-
-    type Modifier   =
-        | Required
-        | Optional
-        | Repeated
-
-    type UserType   = bool*string list
-
-    type FieldType  =
-        | Double
-        | Float
-        | Int32
-        | Int64
-        | UInt32
-        | UInt64
-        | SInt32
-        | SInt64
-        | Fixed32
-        | Fixed64
-        | SFixed32
-        | SFixed64
-        | Bool
-        | String
-        | Bytes
-        | UserType  of UserType
-
-    type Option     = string list*Value
-
-    type FieldOption=
-        | FieldOptionDefault    of Value
-        | FieldOptionOption     of Option
-
-    type Field      = Modifier*FieldType*string*int*FieldOption list
-
-    type ExtensionMember= int*int
-
-    type Extension      = ExtensionMember list
-
-    type EnumMember     =
-        | EnumOption    of Option
-        | EnumField     of string*int
-
-    type Enum           = string*EnumMember list
-
-    type MessageMember   =
-        | MemberField       of Field
-        | MemberEnum        of Enum
-        | MemberMessage     of Message
-        | MemberExtend      of Extend
-        | MemberExtension   of Extension
-        | MemberGroup       of Group
-        | MemberOption      of Option
-
-    and Message        = string*MessageMember list
-
-    and Group          = Modifier*int*Message
-
-    and ExtendMember   =
-        | ExtendField   of Field
-        | ExtendGroup   of Group
-
-    and Extend         = UserType*ExtendMember list
-
-    type Package        = string list
-
-    type Import         = string
-
-    type ProtoMember    =
-        | ProtoMessage  of Message
-        | ProtoExtend   of Extend
-        | ProtoEnum     of Enum
-        | ProtoImport   of Import
-        | ProtoPackage  of Package
-        | ProtoOption   of Option
-
-    type Proto          = ProtoMember list
 
     module internal Internal =
 
@@ -135,17 +55,20 @@ module ProtobufParser =
         let body  m         = between tlcbracket trcbracket (many m)
 
 
-        let debug (p : Parser<'T, 'S>)  : Parser<'T, 'S> = fun stream ->
+        let debug (info : string) (p : Parser<'T, 'S>)  : Parser<'T, 'S> = fun stream ->
 
             let r = p stream
 
-            r
+            if r.Status = ReplyStatus.Ok then
+                r            
+            else
+                r
 
         let identifierChar      : Parser<char, unit>                =
             letter <|> anyOf "_"
 
         let stringLiteral       : Parser<string, unit>              =
-            let quote       = skipAnyOf "'\""
+            let quote       = anyOf "\"'"
             let char        = noneOf "\0\n'\"\\"
             let charEscape  = anyOf """abfnrtv\?"'"""
                               |>> function
@@ -165,19 +88,19 @@ module ProtobufParser =
                                     // HexEscape
                                     charEscape
                                 ]
-            let chars   = manyChars (char <|> charEscape)
+            let chars       = manyChars (char <|> escaped)
             between quote quote chars .>> ws
 
         let stringValue         : Parser<Value, unit>               =
-            stringLiteral |>> Value.String
+            stringLiteral |>> StringValue
 
         let boolValue           : Parser<Value, unit>               =
             let trueLit     = strRet "true"     true
             let falseLit    = strRet "false"    false
-            trueLit <|> falseLit |>> Value.Bool
+            trueLit <|> falseLit |>> BoolValue
 
         let floatValue          : Parser<Value, unit>               =
-            pfloat .>> ws |>> Value.Float
+            pfloat .>> ws |>> FloatValue
 
         let intLiteral          : Parser<int, unit>                 =
             let decInt      = pint32
@@ -187,7 +110,7 @@ module ProtobufParser =
             decInt .>> ws
 
         let intValue            : Parser<Value, unit>               =
-            intLiteral |>> Int
+            intLiteral |>> IntValue
 
         let camelIdentifierLiteral  : Parser<string, unit>          =
             many1Chars2 upper identifierChar .>> ws
@@ -196,7 +119,7 @@ module ProtobufParser =
             many1Chars identifierChar .>> ws
 
         let variableValue       : Parser<Value, unit>               =
-            identifierLiteral |>> Variable
+            identifierLiteral |>> VariableValue
 
         let value               : Parser<Value, unit>               =
             choice
@@ -245,7 +168,7 @@ module ProtobufParser =
                 ] |> stringChoices
             let extraChoices =
                 [
-                    debug userType |>> UserType
+                    userType |>> UserType
                 ]
             choice (choices @ extraChoices)
 
@@ -258,8 +181,8 @@ module ProtobufParser =
         let fieldOption         : Parser<FieldOption, unit>         =
             choice
                 [
-                    attempt optionBody |>> FieldOptionOption
-                    attempt (kdefault >>. teq >>. value) |>> FieldOptionDefault
+                    attempt (kdefault >>. teq >>. value) |>> FieldDefaultValue
+                    attempt optionBody |>> FieldValue
                 ]
 
         let fieldOptions        : Parser<FieldOption list, unit>    =
@@ -287,7 +210,7 @@ module ProtobufParser =
             choice
                 [
                     attempt option |>> EnumOption
-                    attempt (pipe3 identifierLiteral (teq >>.intLiteral) tsemicolon (fun id i _ -> EnumField (id, i)))
+                    attempt (pipe3 identifierLiteral (teq >>.intLiteral) tsemicolon (fun id i _ -> EnumValue (id, i)))
                 ]
 
         let enumBody            : Parser<EnumMember list, unit>     =

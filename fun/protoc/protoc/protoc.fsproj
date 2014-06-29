@@ -52,6 +52,7 @@
     <None Include="App.config" />
     <None Include="packages.config" />
     <None Include="proto.ebnf" />
+    <None Include="test.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\protobuf.tp\protobuf.tp.fsproj">

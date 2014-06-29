@@ -32,6 +32,13 @@ message Person {
   optional string email = 3;
 }
 """
+            "Message with three fields and default values", """
+message Person {
+  required int32 id     = 1 [default = -1]          ;
+  required string name  = 2 [default = "a"]   ;
+  optional string email = 3;
+}
+"""
             "Enumeration", """
 enum PhoneType {
     MOBILE = 0;

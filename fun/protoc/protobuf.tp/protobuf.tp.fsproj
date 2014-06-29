@@ -48,8 +48,17 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ProvidedTypes.fs" />
     <Compile Include="parser.fs" />
     <Compile Include="typeprovider.fs" />
+    <Compile Include="assembly.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\protobuf\protobuf.fsproj">
+      <Name>protobuf</Name>
+      <Project>{2f7ea920-6896-4569-946a-dc7d07a4a49a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

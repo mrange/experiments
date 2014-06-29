@@ -13,7 +13,8 @@
 open System
 
 open Protobuf.Tests
-open Protobuf.TypeProvider.ProtobufParser
+open Protobuf.TypeProvider
+open ProtobufParser
 
 let mutable errors = 0
 
@@ -44,7 +45,7 @@ type RunTestCase =
     | PrintResult
     | RunOne        of int
 
-let runTestCases (rtc : RunTestCase) =
+let testParser (rtc : RunTestCase) =
 
     let mutable iter    = 0
 
@@ -78,15 +79,15 @@ let runTestCases (rtc : RunTestCase) =
                                                         testCase
                                                         m
 
-
 [<EntryPoint>]
 let main argv =
 
     info "Running test cases"
     
-//    runTestCases PrintResult
-//    runTestCases <| RunOne 5
-    runTestCases RunAll
+//    testParser PrintResult
+//    testParser <| RunOne 4
+    testParser RunAll
+
 
     if errors = 0 then
         success "All tests passed"
