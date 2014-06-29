@@ -98,3 +98,26 @@ module ProtoSpecification =
 
     type Proto          = ProtoMember list
 
+    module Serializer = 
+
+        open System.Globalization
+        open System.Xml.Linq
+(*
+        let AsXDocument (p : Proto) = 
+            let xdoc = XDocument()
+            
+            let children =
+                [
+                    for pm in p do
+                        match pm with
+                        | ProtoMessage  message -> yield serializeMessage   message 
+                        | ProtoExtend   extend  -> yield serializeExtend    extend
+                        | ProtoEnum     enum    -> yield serializeEnum      enum
+                        | ProtoImport   import  -> yield serializeImport    import
+                        | ProtoPackage  package -> yield serializePackage   package
+                        | ProtoOption   option  -> yield serializeOption    option
+                ]
+
+            xdoc
+            
+*)

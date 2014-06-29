@@ -32,8 +32,7 @@ message Person {
   optional string email = 3;
 }
 """
-            "Message with three fields and default values", """
-message Person {
+            "Message with three fields and default values", """message Person {
   required int32 id     = 1 [default = -1]          ;
   required string name  = 2 [default = "a"]   ;
   optional string email = 3;
@@ -111,3 +110,21 @@ message Result {
 """
         ]
 
+
+    let SerializeTestCase = """
+message SearchRequest {
+  required string query = 1;
+  optional int32 page_number = 2;
+  optional int32 result_per_page = 3 [default = 10];
+  enum Corpus {
+    UNIVERSAL = 0;
+    WEB = 1;
+    IMAGES = 2;
+    LOCAL = 3;
+    NEWS = 4;
+    PRODUCTS = 5;
+    VIDEO = 6;
+  }
+  optional Corpus corpus = 4 [default = UNIVERSAL];
+}
+"""

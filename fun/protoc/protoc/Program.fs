@@ -12,8 +12,10 @@
 
 open System
 
+open Protobuf
 open Protobuf.Tests
 open Protobuf.TypeProvider
+
 open ProtobufParser
 
 let mutable errors = 0
@@ -25,6 +27,7 @@ let print (color : ConsoleColor) (msg : string) =
         printfn "%s" msg
     finally
         Console.ForegroundColor <- cc
+    Unchecked.defaultof<_>
 
 let info (msg : string) = 
     print ConsoleColor.Gray msg
@@ -78,7 +81,15 @@ let testParser (rtc : RunTestCase) =
                                                         testDescription 
                                                         testCase
                                                         m
-
+(*
+let testSerialize () =
+    let p = ParseProtobuf TestCases.SerializeTestCase
+    let xml = 
+        match p with
+        | ParseSuccess v -> ProtoSpecification.Serializer.AsXDocument v
+        | ParseFailure m -> error <| sprintf "Parser failed for test\n%s" m
+    ()
+*)
 [<EntryPoint>]
 let main argv =
 
