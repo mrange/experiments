@@ -140,11 +140,11 @@ module ProtobufParser =
                 ] |> stringChoices
             choice choices
 
-        let userTypeLiteral     : Parser<string list, unit>         =
+        let reference           : Parser<string list, unit>         =
             sepBy1 identifierLiteral (skipChar '.') .>> ws
 
         let userType            : Parser<UserType, unit>            =
-            pipe2 (opt <| skipChar '.') userTypeLiteral (fun fq ids -> fq.IsSome,ids)
+            pipe2 (opt <| skipChar '.') reference (fun fq ids -> fq.IsSome,ids)
 
 
         let fieldType           : Parser<FieldType, unit>           =
@@ -173,7 +173,7 @@ module ProtobufParser =
             choice (choices @ extraChoices)
 
         let optionBody          : Parser<Option, unit>              =
-            pipe2 userTypeLiteral (teq >>. value) (fun id value -> id,value)
+            pipe2 reference (teq >>. value) (fun id value -> id,value)
 
         let option              : Parser<Option, unit>              =
             koption >>.optionBody .>> tsemicolon
@@ -274,7 +274,7 @@ module ProtobufParser =
 
 
         let package         : Parser<Package, unit>                 =
-            kpackage >>. userTypeLiteral .>> tsemicolon
+            kpackage >>. reference .>> tsemicolon
 
         let import          : Parser<Import, unit>                  =
             kimport >>. stringLiteral .>> tsemicolon

@@ -81,15 +81,16 @@ let testParser (rtc : RunTestCase) =
                                                         testDescription 
                                                         testCase
                                                         m
-(*
 let testSerialize () =
     let p = ParseProtobuf TestCases.SerializeTestCase
-    let xml = 
+    let xdoc = 
         match p with
         | ParseSuccess v -> ProtoSpecification.Serializer.AsXDocument v
         | ParseFailure m -> error <| sprintf "Parser failed for test\n%s" m
+    let xml = xdoc.ToString ()
+
     ()
-*)
+
 [<EntryPoint>]
 let main argv =
 
@@ -98,6 +99,8 @@ let main argv =
 //    testParser PrintResult
 //    testParser <| RunOne 4
     testParser RunAll
+
+    testSerialize ()
 
 
     if errors = 0 then

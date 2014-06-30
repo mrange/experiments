@@ -102,22 +102,137 @@ module ProtoSpecification =
 
         open System.Globalization
         open System.Xml.Linq
-(*
+
         let AsXDocument (p : Proto) = 
-            let xdoc = XDocument()
             
-            let children =
-                [
+            // TODO: UserType doesn't serialize properly
+
+            let culture = CultureInfo.InvariantCulture
+            let inline format v = sprintf "%A" v
+            let formatReference (ss : string list) = String.concat "." ss
+            let formatUserType (ut : UserType) = 
+                let fq, ref = ut
+                sprintf "[%s]" <| formatReference ((if fq then "." else "")::ref)
+            let formatFieldType (ft : FieldType) = 
+                match ft with
+                | UserType ut   -> formatUserType ut
+                | _             -> format ft
+
+            let inline xname n = XName.Get n
+
+            let inline attr (n : string) (v : string) = 
+                XAttribute (xname n, v)
+
+            let ele (n : string) (attrs : seq<XAttribute>) (els : seq<XElement>) =
+                let a : seq<obj>    = attrs |> Seq.cast
+                let e : seq<obj>    = els |> Seq.cast
+                let all             = Seq.concat [a;e] |> Seq.toArray
+                XElement (xname n, all)
+
+            let serializePackage (e : Package) : XElement = 
+                ele "Package" [| attr "ref" (formatReference e)|] [||]
+
+            let serializeExtensionMember (m : ExtensionMember) : XElement = 
+                let f,t = m
+                ele "ExtensionMember" 
+                    [|
+                        attr "from" (f.ToString culture)
+                        attr "to"   (t.ToString culture)
+                    |] [||]
+                    
+            let serializeExtension (e : Extension) : XElement = 
+                ele "Extension" [||] (e |> List.map serializeExtensionMember)
+                    
+            let serializeImport (i : Import) : XElement = 
+                ele "Import" [|attr "file" i|] [||]
+
+            let serializeValue (v : Value) : XElement = 
+                let tp, v = 
+                    match v with
+                    | StringValue   v -> "string"   , v
+                    | BoolValue     v -> "bool"     , if v then "true" else "false"
+                    | FloatValue    v -> "float"    , (v.ToString culture)
+                    | IntValue      v -> "int"      , (v.ToString culture)
+                    | VariableValue v -> "variable" , v
+
+                ele "Value" [|attr "type" tp; attr "value" v|] [||]
+
+            let serializeOption (o : Option) : XElement = 
+                let ref, v = o
+                ele "Option" [|attr "ref" (formatReference ref)|] [|serializeValue v|]
+
+            let serializeEnum (e : Enum) : XElement = 
+                let name, members = e
+                ele "Enum" [||] 
+                    [|
+                        for m in members do
+                        match m with
+                        | EnumValue (n,v)   -> yield ele "EnumValue" [| attr "name" n; attr "value" (v.ToString culture) |] [||]
+                        | EnumOption e      -> yield serializeOption e
+                    |]
+
+            let serializeField (f : Field) : XElement = 
+                let m, ft, name, idx, options = f
+                ele "Field" 
+                    [|
+                        attr "modifier"     (format m)
+                        attr "fieldType"    (formatFieldType ft)
+                        attr "name"         name
+                        attr "id"           (idx.ToString culture)  
+                    |]
+                    [||]
+
+            let rec serializeGroup (g : Group) : XElement = 
+                let m, idx, message = g
+                ele "Group" 
+                    [| 
+                        attr "modifier" (format m) 
+                        attr "id"       (idx.ToString culture)  
+                    |]
+                    [|
+                        serializeMessage message
+                    |]
+
+            and serializeExtend (e : Extend) : XElement = 
+                let ref, members = e
+                ele "Extend" 
+                    [| attr "userType" (formatUserType ref) |]
+                    [|
+                        for m in members do
+                        match m with
+                        | ExtendField   f -> yield serializeField f
+                        | ExtendGroup   g -> yield serializeGroup g
+                    |]
+
+            and serializeMessage (m : Message) : XElement = 
+                let name, members = m
+                ele "Message"
+                    [|
+                        attr "name" name  
+                    |]
+                    [|
+                        for m in members do
+                        match m with
+                        | MemberField       f       -> yield serializeField     f
+                        | MemberEnum        e       -> yield serializeEnum      e
+                        | MemberMessage     m       -> yield serializeMessage   m
+                        | MemberExtend      e       -> yield serializeExtend    e
+                        | MemberExtension   e       -> yield serializeExtension e
+                        | MemberGroup       g       -> yield serializeGroup     g
+                        | MemberOption      o       -> yield serializeOption    o
+                    |]
+                
+
+
+            XDocument (
+                [|
                     for pm in p do
                         match pm with
-                        | ProtoMessage  message -> yield serializeMessage   message 
-                        | ProtoExtend   extend  -> yield serializeExtend    extend
-                        | ProtoEnum     enum    -> yield serializeEnum      enum
-                        | ProtoImport   import  -> yield serializeImport    import
-                        | ProtoPackage  package -> yield serializePackage   package
-                        | ProtoOption   option  -> yield serializeOption    option
-                ]
-
-            xdoc
+                        | ProtoMessage  m   -> yield serializeMessage   m 
+                        | ProtoExtend   e   -> yield serializeExtend    e
+                        | ProtoEnum     e   -> yield serializeEnum      e
+                        | ProtoImport   i   -> yield serializeImport    i
+                        | ProtoPackage  p   -> yield serializePackage   p
+                        | ProtoOption   o -> yield serializeOption      o
+                |])
             
-*)
