@@ -1,0 +1,3 @@
+﻿1. Implement protobuf serializer functions
+2. Finalize typeprovider
+3. 
