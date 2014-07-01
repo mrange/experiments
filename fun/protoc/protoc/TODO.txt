@@ -1,3 +1,5 @@
-﻿1. Implement protobuf serializer functions
+1. Implement protobuf serializer functions
 2. Finalize typeprovider
-3. 
+3. Add preprocessor (to handle comments)
+4. Implement TODOs in parser.
+
