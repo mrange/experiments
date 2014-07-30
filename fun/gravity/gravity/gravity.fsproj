@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="Spatial.fs" />
     <Compile Include="Gravity.fs" />
     <Compile Include="Device.fs" />
     <Compile Include="Window.fs" />
