@@ -12,16 +12,16 @@
 
 namespace GravitySucks
 
-open System
-open System.Diagnostics
-open System.Threading
-open System.Collections.Generic
-
-open SharpDX
-
-open Gravity
 
 module Window = 
+
+    open System
+    open System.Diagnostics
+    open System.Threading
+    open System.Collections.Generic
+
+    open SharpDX
+    open Gravity
 
     type Message = 
         {

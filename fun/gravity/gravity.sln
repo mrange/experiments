@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.30501.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "gravity", "gravity\gravity.fsproj", "{4E07F729-CB5D-4E70-8C42-BBB8EABB2D39}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "spatial", "spatial\spatial.fsproj", "{17978977-BAB4-4C71-82D5-2797B084466F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{4E07F729-CB5D-4E70-8C42-BBB8EABB2D39}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E07F729-CB5D-4E70-8C42-BBB8EABB2D39}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E07F729-CB5D-4E70-8C42-BBB8EABB2D39}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17978977-BAB4-4C71-82D5-2797B084466F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17978977-BAB4-4C71-82D5-2797B084466F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17978977-BAB4-4C71-82D5-2797B084466F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17978977-BAB4-4C71-82D5-2797B084466F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

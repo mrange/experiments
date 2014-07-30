@@ -12,12 +12,10 @@
 
 namespace GravitySucks
 
-open SharpDX
-
-open System
-
 module Gravity =
-    
+    open SharpDX
+    open System
+
     let M = 10.F
 
 (* Elastic

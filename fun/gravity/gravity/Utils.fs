@@ -12,13 +12,14 @@
 
 namespace GravitySucks
 
-open SharpDX
-
-open System
+exception TodoException
 
 [<AutoOpen>]
 module Utils =
     
+    open SharpDX
+    open System
+
     let Deg2Rad = float32 Math.PI/180.F
     let Rad2Deg = 1.F / Deg2Rad
 
