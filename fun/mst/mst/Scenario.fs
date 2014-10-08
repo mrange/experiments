@@ -61,9 +61,6 @@ module Scenario =
 
     let ReturnFrom (l : Scenario<'T>) : Scenario<'T> = l
 
-    let Yield       = Return
-    let YieldFrom   = ReturnFrom
-
     let Delay (l : unit -> Scenario<'T>) : Scenario<'T> = 
         Scenario<_>.New <| (fun ss ->   
             l().Run ss
@@ -113,7 +110,7 @@ module Scenario =
             |   _           -> ScenarioRun<_>.New lr.State None
             )
 
-    let For (s : seq<'T>) (r : 'T -> Scenario<'U>) : Scenario<'U> =
+    let For (s : seq<'T>) (r : 'T -> Scenario<unit>) : Scenario<unit> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
             let mutable result  = DefaultOf<_>
@@ -125,11 +122,11 @@ module Scenario =
                 match rr.Result with
                 |   Some r      -> result <- r
                 |   _           -> cont := false
-            if !cont then ScenarioRun<_>.Success state result
+            if !cont then ScenarioRun<_>.Success state ()
             else ScenarioRun<_>.New state None
             )
 
-    let While (e : unit -> bool) (r : Scenario<'T>) : Scenario<'T> =
+    let While (e : unit -> bool) (r : Scenario<unit>) : Scenario<unit> =
         Scenario<_>.New <| (fun ss ->   
             let mutable state   = ss
             let mutable result  = DefaultOf<_>
@@ -246,8 +243,8 @@ module ScenarioBuilder =
         member x.Return(value)                  = Scenario.Return value
         member x.Zero()                         = Scenario.Zero
         member x.ReturnFrom(value)              = Scenario.ReturnFrom value
-        member x.Yield(value)                   = Scenario.Yield value
-        member x.YieldFrom(value)               = Scenario.YieldFrom value
+//        member x.Yield(value)                   = Scenario.Yield value
+//        member x.YieldFrom(value)               = Scenario.YieldFrom value
         member x.Delay(func)                    = Scenario.Delay func
         member x.Run(func)                      = Scenario.Run func
         member x.Bind(func, comp)               = Scenario.Bind func comp
