@@ -279,9 +279,9 @@ module QCompiler =
         and toLinqExpression (vars : VariableExpressions) (expr : Expr) : Expression = 
             match expr with
             | AndAlso               (f_e,s_e)           ->
-                let f_e     = toLinqExpression vars f_e
-                let s_e     = toLinqExpression vars s_e
-                let aa_q    = Expression.AndAlso (f_e, s_e)
+                let f_q     = toLinqExpression vars f_e
+                let s_q     = toLinqExpression vars s_e
+                let aa_q    = Expression.AndAlso (f_q, s_q)
                 aa_q :> Expression
             | Application           (f_e,_)             ->
                 let rec buildExpression (f : Expression) (ess : Expression list list) = 
@@ -388,6 +388,11 @@ module QCompiler =
                 let qs      = Seq.append a_qs [|in_q|] |> Seq.toArray
                 let b_q     = Expression.Block (v_qs.ToArray (), qs)
                 b_q :> Expression
+            | OrElse                (f_e,s_e)           ->
+                let f_q     = toLinqExpression vars f_e
+                let s_q     = toLinqExpression vars s_e
+                let aa_q    = Expression.OrElse (f_q, s_q)
+                aa_q :> Expression
             | NewArray              (t, a_es)           ->
                 let a_qs    = toLinqExpression_Many vars a_es
                 let n_q     = Expression.NewArrayInit (t, a_qs)
