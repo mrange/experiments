@@ -3,6 +3,7 @@
 #include <functional>
 #include <stdio.h>
 #include <string>
+#include <type_traits>
 
 struct empty
 {
@@ -32,27 +33,69 @@ using async             = std::function<void (
     on_cancelled        const & )>;
 
 
+template<typename TA, typename TB>
+using binder    = std::function<async<TB> (TA &&)>;
+
+namespace details
+{
+    template<typename T>
+    struct deduce_async_type;
+    
+    template<typename T>
+    struct deduce_async_type<async<T>>
+    {
+        using type = T;
+    };
+
+
+    template<typename T>
+    struct is_async
+    {
+        enum
+        {
+            value   = false ,
+        };
+    };
+    
+    template<typename T>
+    struct is_async<async<T>>
+    {
+        enum
+        {
+            value   = true ,
+        };
+    };
+
+
+    template<typename TA, typename TBinder>
+    struct deduce_binder_return_type
+    {
+        static TA       get_a ();
+        static TBinder  get_binder ();
+
+        using type          = decltype (get_binder () (get_a ())) ;
+        static_assert (is_async<type>::value, "Return type must be async");
+//        using async_type    = typename std::remove_reference<deduce_async_type<type>>::type       ;
+    };
+}
+
 template<typename TValue>
 async<TValue> async_return (TValue && value)
 {
     return
         [iv = std::forward<TValue> (value)]
-        (auto ctx, auto ov, auto oe, auto oc) mutable
+        (async_context & ctx, on_value<TValue> const & ov, on_error const & oe, on_cancelled const & oc) mutable
         {
             ov (std::move (iv));
         };
 }
 
-template<typename TA, typename TB>
-using binder    = std::function<async<TB> (TA &&)>;
-
-
-template<typename TA, typename TB>
-async<TB> async_bind (async<TA> a, binder<TA, TB> binder)
+template<typename TA, typename TBinder>
+typename details::deduce_binder_return_type<TA, TBinder>::type async_bind (async<TA> a, TBinder && binder)
 {
     return
-        [ia = std::move (a), ibinder = std::move (binder)]
-        (auto ctx, auto ov, auto oe, auto oc) mutable
+        [ia = std::move (a), ibinder = std::forward<TBinder> (binder)]
+        (async_context & ctx, on_value<TA> const & ov, on_error const & oe, on_cancelled const & oc) mutable
         {
             auto fov = [&ctx, &ov, &oe, &oc, iibinder = std::move (ibinder)] (TA && v)
             {
@@ -67,7 +110,7 @@ async<TB> async_bind (async<TA> a, binder<TA, TB> binder)
 int main ()
 {
     auto a = async_return (std::string ("Test"));
-    auto b = async_bind<std::string, std::string> (a, [] (std::string && a) { return async_return ("Testing_" + a); });
+    auto b = async_bind (a, [] (auto a) { return async_return ("Testing_" + a); });
 
     async_context ctx;
 
@@ -86,7 +129,7 @@ int main ()
         printf ("Cancelled: %d\n", cr);
     };
 
-    a (ctx, on_string, on_error, on_cancelled);
+    b (ctx, on_string, on_error, on_cancelled);
 
     return 0;
 }

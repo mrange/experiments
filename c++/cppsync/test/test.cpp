@@ -5,38 +5,21 @@
 
 #include <functional>
 
-template<typename T>
-using func = std::function<T ()>;
-
-template<typename T>
-func<T> make1 (T && v)
+template<typename TA>
+std::function<std::function<void (TA &&)> (int x)> make ()
 {
-    return [i = std::forward<T> (v)] () mutable
+    return [] (int x)
     {
-        return std::move (i);
-    };
-}
-
-template<typename T>
-func<func<T>> make2 (func<T> f)
-{
-    return [i = std::move (f)] () mutable
-    {
-        T v = i ();
-        return [ii = std::move (v)] () mutable
+        return [] (TA && v) 
         {
-            return std::move (ii);
+            printf ("Hi there");
         };
     };
 }
 
 int main()
 {
-    auto f1 = make1 (1);
-    auto v1 = f1 ();
-
-    auto f2 = make2 (f1);
-    auto v2 = f2 () ();
+    auto f1 = make<int> ();
 
 	return 0;
 }
