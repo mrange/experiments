@@ -1,0 +1,52 @@
+﻿{
+
+module Lexer
+
+open System
+open Microsoft.FSharp.Text.Lexing
+
+let newline (lexbuf: LexBuffer<_>) = 
+  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+
+}
+
+let letter = '\Lu' | '\Ll' | '\Lt' | '\Lm' | '\Lo' | '\Nl'
+let digit = '\Nd'
+let connecting_char = '\Pc'
+let combining_char = '\Mn' | '\Mc'
+let formatting_char = '\Cf' 
+
+let ident_start_char = 
+    letter | '_'
+
+let ident_char = 
+    letter
+  | connecting_char 
+  | combining_char 
+  | formatting_char 
+  | digit 
+  | ['\'']
+  
+let ident   = ident_start_char ident_char*
+let whitespace = [' ' '\t' ]
+
+rule tokenstream = parse
+// --------------------------
+| "#if"         { Parser.PRELUDE }
+| "#elif"       { Parser.PRELUDE }
+| "true"        { Parser.FORBIDDEN_ID(String(lexbuf.Lexeme)) }
+| "false"       { Parser.FORBIDDEN_ID(String(lexbuf.Lexeme)) }
+| ident         { Parser.ID(String(lexbuf.Lexeme)) }
+// --------------------------
+| "!"           { Parser.OP_NOT }
+| "&&"          { Parser.OP_AND }
+| "||"          { Parser.OP_OR  }
+| "("           { Parser.LPAREN }
+| ")"           { Parser.RPAREN }
+// --------------------------
+| whitespace    { tokenstream lexbuf }
+// --------------------------
+| "//"          { Parser.EOF }
+| _             { failwith ("ParseError" + LexBuffer<_>.LexemeString lexbuf) }
+| eof           { Parser.EOF }
+// --------------------------

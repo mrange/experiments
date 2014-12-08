@@ -1,0 +1,34 @@
+﻿%{
+open AST
+%}
+
+%start start
+
+%token <string> ID FORBIDDEN_ID
+%token OP_NOT OP_AND OP_OR LPAREN RPAREN PRELUDE EOF
+
+%nonassoc RPAREN
+%nonassoc PRELUDE
+%left OP_OR
+%left OP_AND
+%left OP_NOT
+%nonassoc LPAREN
+%nonassoc FORBIDDEN_ID
+%nonassoc ID
+
+%type < AST.Expr > start
+
+%%
+
+start: Full { $1 }
+
+Full:
+    | PRELUDE Expr          { $2                                        }
+
+Expr:
+    | LPAREN Expr RPAREN    { $2                                        }
+    | FORBIDDEN_ID          { failwithf "Forbidden identifier: %s" $1   }
+    | ID                    { Id($1)                                    }
+    | OP_NOT Expr           { Not($2)                                   } 
+    | Expr OP_AND Expr      { And($1,$3)                                }
+    | Expr OP_OR Expr       { Or($1,$3)                                 }
