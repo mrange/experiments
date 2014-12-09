@@ -23,7 +23,7 @@ open AST
 start: Full { $1 }
 
 Full:
-    | PRELUDE Expr          { $2                                        }
+    | PRELUDE Expr EOF      { $2                                        }
 
 Expr:
     | LPAREN Expr RPAREN    { $2                                        }

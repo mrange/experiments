@@ -5,7 +5,6 @@ open Microsoft.FSharp.Text.Lexing
 open System
 open System.IO
 
-
 let parseExpression text = 
     let lexbuf      = LexBuffer<char>.FromString text
     let tokenStream = Lexer.tokenstream
@@ -48,6 +47,8 @@ let main argv =
     let ONE     = Id "ONE"
     let TWO     = Id "TWO"
     let THREE   = Id "THREE"
+    let TrueId  = Id "true"
+    let FalseId = Id "false"
 
     let inline (!!)  e   = Not(e)
     let inline (&&&) l r = And(l,r)
@@ -60,6 +61,7 @@ let main argv =
     let positiveTests = 
         [|
             "ONE"                       , ONE
+            "ONE//"                     , ONE
             "ONE // Comment"            , ONE
             "!ONE"                      , !!ONE
             "!!ONE"                     , !! (!!ONE)
@@ -79,6 +81,8 @@ let main argv =
             "!ONE || TWO && THREE"      , (!!ONE) ||| (TWO &&& THREE)
             "ONE && !TWO || THREE"      , (ONE &&& (!!TWO)) ||| THREE
             "ONE || !(TWO && THREE)"    , ONE ||| (!!(TWO &&& THREE))
+            "true"                      , TrueId
+            "false"                     , FalseId
         |]
 
     for test,expected in positiveTests do
@@ -100,8 +104,6 @@ let main argv =
             ""   
             "!"   
             "@"
-            "true"   
-            "false"   
             "&&" 
             "||" 
             "ONE@"

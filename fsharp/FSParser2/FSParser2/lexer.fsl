@@ -34,8 +34,6 @@ rule tokenstream = parse
 // --------------------------
 | "#if"         { Parser.PRELUDE }
 | "#elif"       { Parser.PRELUDE }
-| "true"        { Parser.FORBIDDEN_ID(String(lexbuf.Lexeme)) }
-| "false"       { Parser.FORBIDDEN_ID(String(lexbuf.Lexeme)) }
 | ident         { Parser.ID(String(lexbuf.Lexeme)) }
 // --------------------------
 | "!"           { Parser.OP_NOT }
