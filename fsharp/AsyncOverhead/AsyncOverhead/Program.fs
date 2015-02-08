@@ -15,6 +15,171 @@
 
         result, sw.ElapsedMilliseconds
 
+[<AutoOpen>]
+module Common =
+    let Limit = 20L
+
+module Async2Test =
+    open System
+    open System.Collections.Generic
+    open System.Threading
+
+    type AsyncContext(token : CancellationToken) =
+        
+        let stack = Stack<_>()
+
+        member x.PushExceptionHandler (handler : exn -> unit) : unit =
+            stack.Push handler
+        
+
+    [<NoEquality>]
+    [<NoComparison>]
+    [<AbstractClass>]
+    type Continuation<'T>() =
+        abstract Continue   : 'T                            -> unit
+
+    [<NoEquality>]
+    [<NoComparison>]
+    [<AbstractClass>]
+    type Async<'T>() =
+        abstract Build      : AsyncContext*Continuation<'T> -> unit
+
+
+    module AsyncSupport =
+        let inline Delay (ft : unit -> Async<'T>) : Async<'T> = 
+            { 
+                new Async<'T>() with
+                    member x.Build (ctx, c) = 
+                        let t = ft ()
+                        t.Build (ctx, c)
+            }
+
+        let inline Return (v : 'T) : Async<'T> = 
+            { 
+                new Async<'T>() with
+                    member x.Build (ctx, c) = c.Continue v
+            }
+
+        
+        let inline Bind (t : Async<'T>) (fu : 'T -> Async<'U>) : Async<'U> = 
+            let inline tc ctx c = 
+                {
+                    new Continuation<'T>() with
+                        member x.Continue v =
+                            let u = fu v
+                            u.Build (ctx, c)
+                }
+            { 
+                new Async<'U>() with
+                    member x.Build (ctx, c) = 
+                        let ic = tc ctx c
+                        t.Build (ctx, ic)
+            }
+
+    [<Sealed>]
+    type AsyncBuilder() =
+        member x.Delay(f)       = AsyncSupport.Delay f
+        member x.Return(v)      = AsyncSupport.Return v
+        member x.Bind(t, fu)    = AsyncSupport.Bind t fu
+
+    module Async =
+        let RunSynchronously (t : Async<'T>) : 'T = 
+            use cts     = new CancellationTokenSource()
+            let ct      = cts.Token
+            let result  = ref Unchecked.defaultof<'T>
+            let ctx     = AsyncContext ct
+            let c       =
+                {
+                    new Continuation<'T>() with
+                        member x.Continue v =
+                            result := v
+                }
+
+            t.Build (ctx,c)
+
+            !result
+
+    let async2 = AsyncBuilder()        
+
+    let rec fib n =
+        async2 {
+          if n < 2L then
+            return n
+          else
+            let! n1 = fib (n-1L)
+            let! n2 = fib (n-2L)
+            return n1 + n2
+        }
+
+    let test () = Async.RunSynchronously (fib Limit)
+    
+module Async3Test =
+    open System
+    open System.Collections.Generic
+    open System.Threading
+
+    type AsyncContext(token : CancellationToken) =
+        
+        let stack = Stack<_>()
+
+        member x.PushExceptionHandler (handler : exn -> unit) : unit =
+            stack.Push handler
+        
+
+    type Continuation<'T>   = 'T -> unit
+    type Async<'T>          = AsyncContext*Continuation<'T> -> unit
+
+    module AsyncSupport =
+        let inline Delay (ft : unit -> Async<'T>) : Async<'T> = 
+            fun (ctx, c) ->
+                let t = ft ()
+                t (ctx, c)
+
+        let inline Return (v : 'T) : Async<'T> = 
+            fun (ctx, c) ->
+                c v
+
+        
+        let inline Bind (t : Async<'T>) (fu : 'T -> Async<'U>) : Async<'U> = 
+            fun (ctx, c) ->
+                let ic v = 
+                    let u = fu v
+                    u (ctx, c)
+
+                t (ctx, ic)
+
+    [<Sealed>]
+    type AsyncBuilder() =
+        member x.Delay(f)       = AsyncSupport.Delay f
+        member x.Return(v)      = AsyncSupport.Return v
+        member x.Bind(t, fu)    = AsyncSupport.Bind t fu
+
+    module Async =
+        let RunSynchronously (t : Async<'T>) : 'T = 
+            use cts     = new CancellationTokenSource()
+            let ct      = cts.Token
+            let result  = ref Unchecked.defaultof<'T>
+            let ctx     = AsyncContext ct
+            let c v     = result := v
+
+            t (ctx,c)
+
+            !result
+
+    let async2 = AsyncBuilder()        
+
+    let rec fib n =
+        async2 {
+          if n < 2L then
+            return n
+          else
+            let! n1 = fib (n-1L)
+            let! n2 = fib (n-2L)
+            return n1 + n2
+        }
+
+    let test () = Async.RunSynchronously (fib Limit)
+
 module AsyncTest = 
     let rec fib n =
         async {
@@ -26,7 +191,7 @@ module AsyncTest =
             return n1 + n2
         }
 
-    let test () = Async.RunSynchronously (fib 23L)
+    let test () = Async.RunSynchronously (fib Limit)
 
 module OverheadAsyncTest = 
 
@@ -42,7 +207,7 @@ module OverheadAsyncTest =
             return n1 + n2
         }
 
-    let test () = Overhead.Microsoft.FSharp.Control.Async.RunSynchronously (fib 23L)
+    let test () = Overhead.Microsoft.FSharp.Control.Async.RunSynchronously (fib Limit)
 
 module ControlTest = 
 
@@ -55,7 +220,7 @@ module ControlTest =
             let n2 = fib (n-2L)
             n1 + n2
 
-    let test () = fib 23L
+    let test () = fib Limit
 
 [<EntryPoint>]
 let main argv = 
@@ -64,11 +229,13 @@ let main argv =
         [|
             "control"   , ControlTest.test
             "async"     , AsyncTest.test
-            "async2"    , OverheadAsyncTest.test
+            "asynco"    , OverheadAsyncTest.test
+            "async2"    , Async2Test.test
+            "async3"    , Async3Test.test
         |]
 
     for name, action in tests do
-        let v, ms = PerfTest.measurePerformance 10 action
+        let v, ms = PerfTest.measurePerformance 100 action
 
         printfn "%A, result: %A, elapsed: %A" name v ms
 
