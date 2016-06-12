@@ -12,8 +12,6 @@
 
 #pragma once
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "targetver.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -22,6 +20,8 @@
 #include <windowsx.h>
 
 #include <cassert>
+#include <cstdio>
+#include <cwchar>
 #include <chrono>
 #include <memory>
 #include <vector>
@@ -33,9 +33,5 @@
 #include <ppltasks.h>
 
 #include <d3d11_2.h>
-#include <d2d1_2.h>
-#include <d2d1effects_1.h>
-#include <dwrite_2.h>
-#include <wincodec.h>
 #include <directxmath.h>
 #include <directxcolors.h>

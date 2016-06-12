@@ -214,6 +214,11 @@ namespace
             return reinterpret_cast<void**> (&m_ptr);
         }
 
+        operator IUnknown** () noexcept
+        {
+            return reinterpret_cast<IUnknown**> (&m_ptr);
+        }
+
     private:
         com_out_ptr (com_out_ptr const & cop)             = delete;
         com_out_ptr & operator= (com_out_ptr const & cop) = delete;
@@ -400,9 +405,9 @@ namespace
     {
         using ptr = std::unique_ptr<device_independent_resources>;
 
-        HINSTANCE                                       hinst   ;
-        HWND                                            hwnd    ;
-        std::chrono::high_resolution_clock::time_point  then    ;
+        HINSTANCE                                       hinst         ;
+        HWND                                            hwnd          ;
+        std::chrono::high_resolution_clock::time_point  then          ;
     };
 
     struct device_dependent_resources
@@ -458,13 +463,14 @@ namespace
     using mtype     = float  ;
     using mtype_2   = float_2;
 
+    constexpr mtype     munit             {1    };
     mtype_2             mandelbrot_center {     };
     mtype               mandelbrot_zoom   {0.25 };
-    unsigned int const  mandelbrot_iter   {256  };
+    unsigned int const  mandelbrot_iter   {512  };
 
     mtype_2             julia_center      {     };
     mtype               julia_zoom        {0.25 };
-    unsigned int const  julia_iter        {256  };
+    unsigned int const  julia_iter        {512  };
 
 
     inline int mandelbrot2 (mtype_2 coord, mtype_2 center, int iter) restrict(amp)
@@ -612,17 +618,43 @@ namespace
                 texv.set(idx,color);
             });
     }
+
+    std::tuple<UINT, UINT> client_rect ()
+    {
+        RECT rc {};
+        GetClientRect (dir->hwnd, &rc);
+        return std::tuple<UINT, UINT> (rc.right - rc.left, rc.bottom - rc.top);
+    }
+
+    mtype_2 screen_to_plane (int x, int y)
+    {
+        UINT iwidth                 = 0;
+        UINT iheight                = 0;
+        std::tie (iwidth, iheight)  = client_rect ();
+
+        mtype width   = static_cast<mtype> (iwidth );
+        mtype height  = static_cast<mtype> (iheight);
+
+        mtype aspect  = width / height;
+
+        mtype ax      = clamp (x / width - munit/4 , -munit/4, munit/4) * aspect / mandelbrot_zoom + mandelbrot_center.x;
+        mtype ay      = clamp (y / height- munit/2 , -munit/2, munit/2) / mandelbrot_zoom + mandelbrot_center.y;
+
+        return mtype_2 (ax, ay);
+    }
+
 }
 
 //--------------------------------------------------------------------------------------
 // Forward declarations
 //--------------------------------------------------------------------------------------
-HRESULT             init_window (HINSTANCE hInstance, int nCmdShow);
-HRESULT             init_device ();
-HRESULT             mouse_move  (int x, int y);
-HRESULT             mouse_wheel (int delta, int x, int y);
-LRESULT CALLBACK    wnd_proc    (HWND, UINT, WPARAM, LPARAM);
-void                render      ();
+HRESULT             init_window     (HINSTANCE hInstance, int nCmdShow);
+HRESULT             init_device     ();
+HRESULT             mouse_rbuttonup ();
+HRESULT             mouse_move      (int x, int y);
+HRESULT             mouse_wheel     (int delta);
+LRESULT CALLBACK    wnd_proc        (HWND, UINT, WPARAM, LPARAM);
+void                render          ();
 
 //--------------------------------------------------------------------------------------
 // Entry point to the program. Initializes everything and goes into a message processing
@@ -637,8 +669,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 
     try
     {
-        dir = std::make_unique<device_independent_resources> ();
-
+        dir       = std::make_unique<device_independent_resources> ();
         dir->then = std::chrono::high_resolution_clock::now ();
 
         TEST_HR init_window (hInstance, nCmdShow);
@@ -741,11 +772,9 @@ HRESULT init_device ()
     ddr = std::make_unique<device_dependent_resources> ();
     sdr = std::make_unique<size_dependent_resources> ();
 
-    RECT rc {};
-    GetClientRect (dir->hwnd, &rc);
-
-    UINT width = rc.right - rc.left;
-    UINT height = rc.bottom - rc.top;
+    UINT width   = 0;
+    UINT height  = 0;
+    std::tie (width, height) = client_rect ();
 
     {
         UINT createDeviceFlags = 0;
@@ -1038,26 +1067,28 @@ HRESULT init_device ()
 }
 
 //--------------------------------------------------------------------------------------
+// Called when right mouse button is released
+//--------------------------------------------------------------------------------------
+HRESULT             mouse_rbuttonup ()
+{
+    mandelbrot_center = {};
+    mandelbrot_zoom   = 0.25;
+    return S_OK;
+}
+
+//--------------------------------------------------------------------------------------
 // Called every time mouse position changes
 //--------------------------------------------------------------------------------------
 HRESULT mouse_move (int x, int y)
 {
-    RECT rc {};
-    GetClientRect (dir->hwnd, &rc);
-
-    auto width  = static_cast<mtype> (rc.right - rc.left);
-    auto height = static_cast<mtype> (rc.bottom - rc.top);
-    auto aspect = width / height              ;
-
-    auto ax = (clamp (x / width, 0.0, 0.5) - 0.25) * aspect / mandelbrot_zoom;
-    auto ay = (clamp (y / height, 0.0, 1.0) - 0.5 ) / mandelbrot_zoom;
+    auto coord = screen_to_plane (x, y);
 
     wchar_t buffer[256] {};
-    _swprintf (buffer, L"X:%f, Y:%f", ax, ay);
+    swprintf_s (buffer, L"X:%f, Y:%f", coord.x, coord.y);
     SetWindowText (dir->hwnd, buffer);
 
-    julia_center.x = ax;
-    julia_center.y = ay;
+    julia_center.x = coord.x;
+    julia_center.y = coord.y;
 
     return S_OK;
 }
@@ -1065,10 +1096,13 @@ HRESULT mouse_move (int x, int y)
 //--------------------------------------------------------------------------------------
 // Called every time mouse wheel is used
 //--------------------------------------------------------------------------------------
-HRESULT mouse_wheel (int delta, int x, int y)
+HRESULT mouse_wheel (int delta)
 {
-    RECT rc {};
-    GetClientRect (dir->hwnd, &rc);
+    auto scale        =  static_cast<mtype> (std::pow (1.1, delta / 120.0));
+    auto coord        =  julia_center;
+    auto diff         =  mandelbrot_center - coord;
+    mandelbrot_center =  coord + diff / scale;
+    mandelbrot_zoom   *= scale;
 
     return S_OK;
 }
@@ -1092,12 +1126,17 @@ LRESULT CALLBACK wnd_proc (HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
             init_device ();
             break;
 
+        case WM_RBUTTONUP:
+            mouse_rbuttonup ();
+            break;
+
         case WM_MOUSEMOVE:
             mouse_move (GET_X_LPARAM (lParam), GET_Y_LPARAM (lParam));
             break;
 
+        case 0x20A:
         case WM_MOUSEHWHEEL:
-            mouse_wheel (HIWORD (wParam), GET_X_LPARAM (lParam), GET_Y_LPARAM (lParam));
+            mouse_wheel (GET_WHEEL_DELTA_WPARAM (wParam));
             break;
 
         case WM_DESTROY:
@@ -1127,7 +1166,6 @@ void render ()
     }
 
     auto diff = std::chrono::high_resolution_clock::now () - dir->then;
-
     auto diff_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count ();
 
     XMStoreFloat4x4 (
