@@ -793,12 +793,20 @@ HRESULT init_window (HINSTANCE hInstance, int nCmdShow)
 //--------------------------------------------------------------------------------------
 HRESULT init_device ()
 {
-    ddr = std::make_unique<device_dependent_resources> ();
-    sdr = std::make_unique<size_dependent_resources> ();
-
     UINT width   = 0;
     UINT height  = 0;
     std::tie (width, height) = client_rect ();
+
+    ddr.reset ();
+    sdr.reset ();
+
+    if (width < 16 || height < 16)
+    {
+      return S_OK;
+    }
+
+    ddr = std::make_unique<device_dependent_resources> ();
+    sdr = std::make_unique<size_dependent_resources> ();
 
     {
         UINT createDeviceFlags = 0;
