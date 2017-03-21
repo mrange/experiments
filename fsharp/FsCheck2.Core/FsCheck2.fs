@@ -5,6 +5,8 @@ open FSharp.Reflection
 open System
 open System.Collections.Concurrent
 open System.Linq.Expressions
+open System.Reflection
+open System.Reflection.Emit
   
 type Receiver<'T>     = 'T -> bool
 type Stream<'T>       = Receiver<'T> -> unit
@@ -30,10 +32,20 @@ and [<AbstractClass>]  Shrinker () =
     abstract Shrinks : Type
   end
 
-and [<Sealed>] Assembler (assembles : Type, lambda : LambdaExpression) =
+and [<RequireQualifiedAccess>] AssembleUsing =
+  | Constructor   of ConstructorInfo
+  | StaticMethod  of MethodInfo
+
+  member x.InputTypes =
+    match x with
+    | Constructor   ctor  -> ctor.GetParameters()
+    | StaticMethod  mi    -> mi.GetParameters()
+    |> Array.map (fun p -> p.ParameterType)
+
+and [<Sealed>] Assembler (assembles : Type, assembleUsing : AssembleUsing) =
   class 
-    member x.Assembles  = assembles
-    member x.Lambda     = lambda
+    member x.Assembles      = assembles
+    member x.AssembleUsing  = assembleUsing
   end
 
 and [<Sealed>] Disassembler (disassembles : Type) =
@@ -52,6 +64,8 @@ and [<Sealed>] Arbitrary () =
     static let rGeneratorResult   t = rGeneratorResult_.MakeGenericType [|t|]
     static let rBreak               = typeof<Diagnostics.Debugger>.GetMethod "Break"
 
+    static let getFirstCtor     (t : Type) = t.GetConstructors().[0] // TODO:
+    static let getFirstTypeArg  (t : Type) = t.GenericTypeArguments.[0] // TODO:
 
     let generators    = ConcurrentDictionary<Type, Generator    > ()
     let shrinkers     = ConcurrentDictionary<Type, Shrinker     > ()
@@ -60,15 +74,12 @@ and [<Sealed>] Arbitrary () =
 
     let raisea  e msg = raise (ArbritraryException (msg, e))
     let raiseaf e fmt = kprintf (raisea e) fmt
+
  
     let createAssembler = Func<Type, Assembler> (fun t ->
       if FSharpType.IsRecord t || FSharpType.IsTuple t then
-        let ctor  = (t.GetConstructors ()).[0]  // TODO: 
-        let ps    = ctor.GetParameters ()
-        let lps   = ps |> Array.map (fun p -> Expression.Parameter (p.ParameterType, p.Name))
-        let ne    = Expression.New (ctor, lps |> Array.map (fun p -> p :> Expression))
-        let le    = Expression.Lambda (ne, lps)
-        Assembler (t, le)
+        let ctor  = getFirstCtor t
+        Assembler (t, AssembleUsing.Constructor ctor)
       else
         raiseaf None "Couldn't find find assembler for type: %s" t.FullName 
       )
@@ -83,12 +94,12 @@ and [<Sealed>] Arbitrary () =
           failwith "TODO:"
         else
           let assembler = assembler t
-          let le        = assembler.Lambda
-          let ps        = le.Parameters |> Seq.toArray
+          let au        = assembler.AssembleUsing
+          let its       = au.InputTypes
           let nts       = t.FullName::ts
-          let gps       = ps |> Array.map (fun p -> generator nts p.Type)
+          let gps       = its |> Array.map (fun t -> t, generator nts t)
           let mi        = rFromLambda.MakeGenericMethod [|t|]
-          mi.Invoke (null, [|le; gps|]) :?> Generator
+          mi.Invoke (null, [|au; gps|]) :?> Generator
       with
       | e ->
         raiseaf (Some e) "Could not create generator for type %s (%A)" t.FullName ts
@@ -99,46 +110,138 @@ and [<Sealed>] Arbitrary () =
       | true  , generator -> generator  // This avoid unnecessary creation of createGenerator ts
       | false , _         -> generators.GetOrAdd (t, createGenerator ts)
 
-    static member FromLambda<'T> (le : LambdaExpression) (gps : Generator []) =
-      let parb        = Expression.Parameter (typeof<Arbitrary>       , "arb" )
-      let psize       = Expression.Parameter (typeof<int>             , "size")
-      let prg         = Expression.Parameter (typeof<RandomGenerator> , "rg"  )
-      let vgrs        = gps |> Array.mapi (fun i gp -> Expression.Variable (rGeneratorResult gp.Generates, sprintf "gr%d" i))
-      let rt          = rGeneratorResult le.ReturnType
-      let rtc         = rt.GetConstructors().[0]  // TODO: 
-      let e           = gps.Length - 1
-      let breake      = Expression.Call (rBreak) :> Expression
-      let expressions =
-        [|
-          for i = 0 to e do
-            let rg = 
-              if i = 0 then 
-                prg :> Expression
-              else 
-                Expression.Property (vgrs.[i - 1], "RandomGenerator") :> Expression
-            let g  = Expression.Constant (gps.[i], rGenerator gps.[i].Generates) :> Expression
-            let mi = g.Type.GetMethod "Generate"  // TODO: 
-            let ps = [|parb :> Expression; psize :> Expression; rg|]
-//            yield breake
-            yield Expression.Assign (vgrs.[i], Expression.Call (g, mi, ps)) :> Expression
-          let rg = 
-            if vgrs.Length = 0 then 
-              prg :> Expression
-            else 
-              Expression.Property (vgrs.[e], "RandomGenerator") :> Expression
-          let ve = Expression.Invoke(le, vgrs |> Array.map (fun vgr -> Expression.Property (vgr, "Value") :> Expression))
-          yield Expression.New (rtc, rg, ve) :> Expression
-        |]
-      let block   = Expression.Block (
-                        rt
-                      , vgrs
-                      , expressions
-                      )
-      let l       = Expression.Lambda<Func<Arbitrary, int, RandomGenerator, GeneratorResult<'T>>> (block, [|parb; psize; prg|])
-      let f       = l.Compile ()
-      { new Generator<'T>() with
-        override x.Generate arb size rg = f.Invoke (arb, size, rg)
-      }
+    static let an = AssemblyName "DynamicFsCheck2"
+    static let ab = AppDomain.CurrentDomain.DefineDynamicAssembly (an, AssemblyBuilderAccess.RunAndSave)
+    static let fn = sprintf "%s.dll" an.Name
+    static let mb = ab.DefineDynamicModule (an.Name, fn)
+
+    static member FromLambda<'T> (au : AssembleUsing) (gs : (Type*Generator) []) =
+      let t   = typeof<'T>
+      let gt  = rGenerator t
+      let grt = rGeneratorResult t
+      let tn  = sprintf "GeneratorFor_%s_%A" t.Name (Guid.NewGuid ())
+      let tb  = mb.DefineType ( tn
+                              , TypeAttributes.Sealed ||| TypeAttributes.Class ||| TypeAttributes.Public
+                              , gt
+                              )
+      let fs  = 
+        gs 
+        |> Array.mapi (fun i g -> tb.DefineField  ( sprintf "m_gen_%d" i
+                                                  , (fst g) |> rGenerator
+                                                  , FieldAttributes.Private)
+                                                  )
+
+      do  
+        // Create .ctor
+        let bc    = getFirstCtor gt
+        let bmt   = mb.GetConstructorToken bc
+        let cb    = tb.DefineConstructor  ( MethodAttributes.Public
+                                          , CallingConventions.Standard
+                                          , fs |> Array.map (fun f -> f.FieldType)
+                                          )
+        let cbil  = cb.GetILGenerator ()
+
+        // Call base .ctor
+        cbil.Emit OpCodes.Ldarg_0
+        cbil.Emit (OpCodes.Callvirt, bmt.Token)
+
+        // Call store all parameters in fields
+        for i = 0 to (fs.Length - 1) do
+          let f = fs.[i]
+          cbil.Emit OpCodes.Ldarg_0
+          cbil.Emit (OpCodes.Ldarg, i + 1)
+          cbil.Emit (OpCodes.Stfld, f)
+
+        // Done
+        cbil.Emit OpCodes.Ret
+
+      do
+        // Create Generate
+        let arbt  = typeof<Arbitrary>
+        let intt  = typeof<int>
+        let rgt   = typeof<RandomGenerator>
+        let argt  = [|arbt; intt; rgt|]
+        let mb    = tb.DefineMethod ( "Generate"
+                                    , MethodAttributes.Public ||| MethodAttributes.Virtual ||| MethodAttributes.Final
+                                    , grt
+                                    , argt
+                                    )
+        let mbil  = mb.GetILGenerator ()
+
+        let rec generateLoop frg i =
+          if i < fs.Length then
+            // Generate all results
+            let f   = fs.[i]
+            let fgm = f.FieldType.GetMethod "Generate"
+            let lt  = fgm.ReturnType
+            let l   = mbil.DeclareLocal lt
+//            l.SetLocalSymInfo (sprintf "gr_%d" i) 
+
+            mbil.Emit OpCodes.Ldarg_0
+            mbil.Emit (OpCodes.Ldfld, f)
+            mbil.Emit OpCodes.Ldarg_1
+            mbil.Emit OpCodes.Ldarg_2
+
+            frg ()
+            
+            mbil.EmitCall (OpCodes.Callvirt, fgm, null)
+            mbil.Emit (OpCodes.Stloc, i)
+            
+            let frg () =
+              // For other use random generator from previous generation
+              let grp = lt.GetProperty "RandomGenerator"
+              let grm = grp.GetMethod
+              mbil.Emit (OpCodes.Ldloca_S, i)
+              mbil.EmitCall (OpCodes.Call, grm, null)
+
+            generateLoop frg (i + 1)
+          else
+            frg
+        let frg = generateLoop (fun () -> mbil.Emit OpCodes.Ldarg_3) 0
+
+        let rec loadLoop i =           
+          if i < gs.Length then
+            // Load all values on stack
+            let grt   = rGeneratorResult (fst gs.[i])
+            let grvp  = grt.GetProperty "Value"
+            let grvm  = grvp.GetMethod
+            mbil.Emit (OpCodes.Ldloca_S, i)
+            mbil.EmitCall (OpCodes.Call, grvm, null)
+            loadLoop (i + 1)
+        loadLoop 0
+        
+        let lr = 
+          match au with
+          | AssembleUsing.Constructor ctor ->
+            let lt  = ctor.DeclaringType
+            let l   = mbil.DeclareLocal lt
+//            l.SetLocalSymInfo "r"
+            mbil.Emit (OpCodes.Newobj, ctor)
+            mbil.Emit (OpCodes.Stloc, l)
+            l
+          | AssembleUsing.StaticMethod mi ->
+            let lt  = mi.ReturnType
+            let l   = mbil.DeclareLocal lt
+//            l.SetLocalSymInfo "r"
+            mbil.EmitCall (OpCodes.Call, mi, null)
+            mbil.Emit (OpCodes.Stloc, l)  // TODO: Value types?
+            l
+
+        let grc = getFirstCtor grt
+
+        frg ()                          // Load RandomGenerator
+        mbil.Emit (OpCodes.Ldloc, lr)   // TODO: Value types?
+        mbil.Emit (OpCodes.Newobj, grc)
+
+        mbil.Emit OpCodes.Ret
+
+      let t   = tb.CreateType ()
+      let c   = getFirstCtor t
+      let vs  = gs |> Array.map (snd >> box)
+      let g   = c.Invoke vs :?> Generator<'T>
+//      ab.Save fn
+
+      g
 
     member x.Register (g : Generator    ) : unit = generators.[g.Generates]       <- g
     member x.Register (s : Shrinker     ) : unit = shrinkers.[s.Shrinks]          <- s

@@ -288,18 +288,18 @@ let time repeat action =
 let run () =
   let testCases =
     [|
-      "Generator.Alternative1"          , 100 , GeneratorAlternatives.Alternative1.testRun
-      "Generator.Alternative2"          , 100 , GeneratorAlternatives.Alternative2.testRun
-      "Generator.Alternative3"          , 100 , GeneratorAlternatives.Alternative3.testRun
-      "Generator.Alternative4"          , 100 , GeneratorAlternatives.Alternative4.testRun
-      "System.Random.Next"              , 100 , RandomGenerators.testRandomNext
-      "RandomGenerator.next"            , 100 , RandomGenerators.testRandomGeneratorNext
-      "RandomGenerator.split"           , 100 , RandomGenerators.testRandomGeneratorSplit
-      "Generator.Simple"                , 10  , Generators.Simple.run
-      "Generator.Tuple"                 , 10  , Generators.Tuple.run
+      //"Generator.Alternative1"          , 100 , GeneratorAlternatives.Alternative1.testRun
+      //"Generator.Alternative2"          , 100 , GeneratorAlternatives.Alternative2.testRun
+      //"Generator.Alternative3"          , 100 , GeneratorAlternatives.Alternative3.testRun
+      //"Generator.Alternative4"          , 100 , GeneratorAlternatives.Alternative4.testRun
+      //"System.Random.Next"              , 100 , RandomGenerators.testRandomNext
+      //"RandomGenerator.next"            , 100 , RandomGenerators.testRandomGeneratorNext
+      //"RandomGenerator.split"           , 100 , RandomGenerators.testRandomGeneratorSplit
+      //"Generator.Simple"                , 10  , Generators.Simple.run
+      //"Generator.Tuple"                 , 10  , Generators.Tuple.run
       "Generator.Record"                , 10  , Generators.Record.run
-      "Generator.SingleElementRecord"   , 10  , Generators.SingleElementRecord.run
-      "Generator.Applicative"           , 10  , Generators.Applicative.run
+      //"Generator.SingleElementRecord"   , 10  , Generators.SingleElementRecord.run
+      //"Generator.Applicative"           , 10  , Generators.Applicative.run
       "Generator.HandCrafted"           , 10  , Generators.HandCrafted.run
     |]
     
