@@ -1,7 +1,8 @@
-﻿open SharpDX
-
-open System
+﻿open System
+open System.Drawing
 open System.Threading
+
+open SharpDX
 
 module Common =
   open SharpDX.Mathematics.Interop
@@ -35,6 +36,9 @@ module Common =
     with
     | e -> printfn "Failed to dispose %s" nm
 
+
+  let minDelay      = 30.F
+  let delayVar      = 10.F
 
   let rtrue         = RawBool true
   let rfalse        = RawBool false
@@ -287,6 +291,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
       v  1.0F  1.0F  1.0F 0.0F 1.0F 1.0F 1.0F
     |]
 
+#if ddd
   let instanceVertices  =
     let count   = 100
     let tau     = 2.0*Math.PI
@@ -312,6 +317,32 @@ type DeviceDependent (rf : Windows.RenderForm) =
       |]
 
     vs
+#else
+  let instanceVertices  =
+    use bmp = new Bitmap ("img.png")
+
+    let h   = bmp.Height
+    let w   = bmp.Width
+
+    let min = Vector3 30.F
+
+    let v x y z = InstanceVertex  ( Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z)
+                                  , randomVector3 ()
+                                  , randomVector3 ()
+                                  , (min + Vector3.Multiply (randomVector3 (), delayVar))
+                                  )
+    let vs =
+      [|
+        for y = 0 to h - 1 do
+          for x = 0 to w - 1 do
+            let c = bmp.GetPixel (x, y)
+            if (c.A > 0uy) then
+              yield v x y 0.F
+      |]
+
+    vs
+
+#endif
 
   let viewPort          = Viewport  (Width = width, Height = height, MaxDepth = 1.0F, MinDepth = -1.0F)
   let scissorRect       = Rectangle (Width = width, Height = height)
@@ -511,10 +542,10 @@ type DeviceDependent (rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let distance      = 50.0F;
-    let view          = Matrix.LookAtLH (Vector3 (distance*2.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.UnitY)
+    let distance      = 100.0F;
+    let view          = Matrix.LookAtLH (Vector3 (distance*2.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 1000.0F)
-    let worldViewProj = Matrix.RotationY (timestamp / 10.0F) * view * proj
+    let worldViewProj = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F) * view * proj
 
     viewState.Data <- ViewState (worldViewProj, Vector4 timestamp)
 
