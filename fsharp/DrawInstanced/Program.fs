@@ -102,7 +102,7 @@ type CommandList(device : Direct3D12.Device, pipelineState : Direct3D12.Pipeline
 
   member x.Queue = queue
 
-type ConstantBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, initial : 'T) =
+type UploadConstantBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, initial : 'T) =
   let mutable data = initial
   let size = Utilities.SizeOf<'T> ()
 
@@ -116,7 +116,7 @@ type ConstantBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> Va
 
 
   let resource =
-    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload // TODO: Fix
+    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload
     let hf  = Direct3D12.HeapFlags.None
     let rd  = Direct3D12.ResourceDescription.Buffer (int64 size)
     let rs  = Direct3D12.ResourceStates.GenericRead
@@ -152,13 +152,13 @@ type ConstantBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> Va
     with  get ()  = data
     and   set v   = data <- v; updateConstantBuffer ()
 
-type VertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, initial : 'T []) =
+type UploadVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, initial : 'T []) =
   let data = initial
 
   let size = Utilities.SizeOf data
 
   let resource =
-    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload // TODO: Fix
+    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload
     let hf  = Direct3D12.HeapFlags.None
     let rd  = Direct3D12.ResourceDescription.Buffer (int64 size)
     let rs  = Direct3D12.ResourceStates.GenericRead
@@ -188,17 +188,46 @@ type VertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> Valu
     member x.Dispose () =
       dispose "resource"  resource
 
-  member x.Data = 
-    data
+  member x.Data                   = data
+  member x.Length                 = data.Length
+  member x.Resource               = resource
+  member x.Size                   = size
+  member x.UpdateVertexBuffer ()  = updateVertexBuffer ()
+  member x.View                   = view
 
-  member x.Length =
-    data.Length
+type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, commandList: CommandList, initial : UploadVertexBuffer<'T>) =
+  let length  = initial.Length
+  let size    = initial.Size
 
-  member x.UpdateVertexBuffer () = 
-    updateVertexBuffer ()
+  let resource =
+    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Default
+    let hf  = Direct3D12.HeapFlags.None
+    let rd  = Direct3D12.ResourceDescription.Buffer (int64 size)
+    let rs  = Direct3D12.ResourceStates.GenericRead
 
-  member x.View = 
-    view
+    let d   = device.CreateCommittedResource (hp, hf, rd, rs)
+
+    commandList.Execute <| fun commandList ->
+      commandList.CopyResource (d, initial.Resource)
+
+    d
+
+
+  let view =
+    let vbv = Direct3D12.VertexBufferView ( BufferLocation  = resource.GPUVirtualAddress
+                                          , StrideInBytes   = Utilities.SizeOf<'T> ()
+                                          , SizeInBytes     = size
+                                          )
+
+    vbv
+
+  interface IDisposable with
+    member x.Dispose () =
+      dispose "resource"  resource
+
+  member x.Length = length
+  member x.Size   = size
+  member x.View   = view
 
 [<AllowNullLiteral>]
 type DeviceDependent (rf : Windows.RenderForm) =
@@ -406,7 +435,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
   let depthHeap         = createHeap 1 Direct3D12.DescriptorHeapType.DepthStencilView
 
   let depthBuffer       =
-    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Default // TODO: Fix
+    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Default
     let hf  = Direct3D12.HeapFlags.None
     let rd  = Direct3D12.ResourceDescription.Texture2D (DXGI.Format.D32_Float, int64 width, height, int16 1, int16 0, 1, 0, Direct3D12.ResourceFlags.AllowDepthStencil)
     let rs  = Direct3D12.ResourceStates.DepthWrite
@@ -424,10 +453,13 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
     dsv
 
-  let viewState         = new ConstantBuffer<_> (device, ViewState ())
+  let viewState         = new UploadConstantBuffer<_> (device, ViewState ())
 
-  let boxVertexBuffer       = new VertexBuffer<_> (device, boxVertices)
-  let instanceVertexBuffer  = new VertexBuffer<_> (device, instanceVertices)
+  let uploadBox         = new UploadVertexBuffer<_> (device, boxVertices)
+  let uploadInstance    = new UploadVertexBuffer<_> (device, instanceVertices)
+
+  let defaultBox        = new DefaultVertexBuffer<_> (device, commandList, uploadBox)
+  let defaultInstance   = new DefaultVertexBuffer<_> (device, commandList, uploadInstance)
   
   let populateCommandList (commandList : Direct3D12.GraphicsCommandList) =
     commandList.SetGraphicsRootSignature  rootSignature
@@ -450,8 +482,8 @@ type DeviceDependent (rf : Windows.RenderForm) =
     commandList.ClearDepthStencilView (depthOffset, Direct3D12.ClearFlags.FlagsDepth, 1.0F, 0uy, 0, null)
 
     commandList.PrimitiveTopology <- Direct3D.PrimitiveTopology.TriangleList
-    commandList.SetVertexBuffers (0, [|boxVertexBuffer.View; instanceVertexBuffer.View|], 2)
-    commandList.DrawInstanced (boxVertexBuffer.Length, instanceVertexBuffer.Length, 0, 0)
+    commandList.SetVertexBuffers (0, [|defaultBox.View; defaultInstance.View|], 2)
+    commandList.DrawInstanced (defaultBox.Length, defaultInstance.Length, 0, 0)
 
     commandList.ResourceBarrierTransition (renderTargets.[frameIndex], Direct3D12.ResourceStates.RenderTarget, Direct3D12.ResourceStates.Present)
 
@@ -488,7 +520,10 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   interface IDisposable with
     member x.Dispose () =
-      dispose "boxVertexBuffer"     boxVertexBuffer
+      dispose "defaultInstance"     defaultInstance
+      dispose "defaultBox"          defaultBox
+      dispose "uploadInstance"      uploadInstance
+      dispose "uploadBox"           uploadBox
       dispose "viewState"           viewState
       dispose "depthBuffer"         depthBuffer
       dispose "depthHeap"           depthHeap
