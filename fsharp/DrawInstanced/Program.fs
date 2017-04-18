@@ -14,7 +14,7 @@ module Common =
 
   let random        = Random 19740531
 
-  let randomVector3 () = 
+  let randomVector3 () =
     let v = Vector3 ( random.NextFloat (-1.F, 1.F)
                     , random.NextFloat (-1.F, 1.F)
                     , random.NextFloat (-1.F, 1.F)
@@ -286,7 +286,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
       v -1.0F -1.0F -1.0F 0.75F
       v -1.0F  1.0F  1.0F 0.75F
       v -1.0F  1.0F -1.0F 0.75F
-                            
+
       v  1.0F -1.0F -1.0F 0.75F // Right
       v  1.0F  1.0F  1.0F 0.75F
       v  1.0F -1.0F  1.0F 0.75F
@@ -309,13 +309,13 @@ type DeviceDependent (rf : Windows.RenderForm) =
                                   , randomVector3 ()
                                   , (minDelay + Vector3.Multiply (randomVector3 (), delayVar))
                                   )
-    let vs = 
+    let vs =
       [|
         for o = 0 to (count - 1) do
           let y = 3.0F*float32 (o - count / 2)
           for i = 0 to (count - 1) do
             let a = tau * float i / float count
-    //              x               y z    
+    //              x               y z
             yield v y (10.F * cosf a) (10.F * sinf a)
       |]
 
@@ -333,7 +333,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
     let s   = Vector3 2.F
 
-    let v x y z (c : System.Drawing.Color) = 
+    let v x y z (c : System.Drawing.Color) =
       InstanceVertex  ( s * Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z |> float32)
                       , randomVector3 ()
                       , randomVector3 ()
@@ -402,7 +402,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   let pipelineState     =
     let aligned = Direct3D12.InputElement.AppendAligned
-    let ie name index format offset slot slotClass stepRate = 
+    let ie name index format offset slot slotClass stepRate =
       Direct3D12.InputElement (name, index, format, offset, slot, slotClass, stepRate)
     let ies =
       [|
@@ -505,7 +505,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   let defaultBox        = new DefaultVertexBuffer<_> (device, commandList, uploadBox)
   let defaultInstance   = new DefaultVertexBuffer<_> (device, commandList, uploadInstance)
-  
+
   let populateCommandList (commandList : Direct3D12.GraphicsCommandList) =
     commandList.SetGraphicsRootSignature  rootSignature
     commandList.SetViewport               (rviewPortf viewPort)
