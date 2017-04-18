@@ -1,6 +1,7 @@
 ﻿open System
 open System.Drawing
 open System.Threading
+open System.Windows.Forms
 
 open SharpDX
 
@@ -61,18 +62,21 @@ type Vertex (position : Vector3, color : Vector4) =
   struct
     member x.Position = position
     member x.Color    = color
+
+    override x.ToString () =
+      sprintf "V: %A, %A" position color
   end
 
-type InstanceVertex (position : Vector3, direction : Vector3, rotation : Vector3, delay : Vector3) =
+type InstanceVertex (position : Vector3, direction : Vector3, rotation : Vector3, delay : Vector3, color : Vector4) =
   struct
     member x.Position   = position
     member x.Direction  = direction
     member x.Rotation   = rotation
     member x.Delay      = delay
+    member x.Color      = color
 
     override x.ToString () =
-      sprintf "IV: %A, %A, %A, %A" position direction rotation delay
-
+      sprintf "IV: %A, %A, %A, %A, %A" position direction rotation delay color
   end
 
 type CommandList(device : Direct3D12.Device, pipelineState : Direct3D12.PipelineState) =
@@ -236,7 +240,7 @@ type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T 
 [<AllowNullLiteral>]
 type DeviceDependent (rf : Windows.RenderForm) =
 
-  let background        = Color4(0.F, 0.2F, 0.4F, 1.F) |> rcolor4
+  let background        = Color4(0.1F, 0.1F, 0.1F, 1.F) |> rcolor4
   let size              = rf.ClientSize
   let width             = size.Width
   let height            = size.Height
@@ -245,50 +249,50 @@ type DeviceDependent (rf : Windows.RenderForm) =
   let aspectRatio       = widthf / heightf
 
   let boxVertices  =
-    let v x y z r g b a = Vertex (Vector3 (x, y, z), Vector4 (r, g, b, a))
+    let v x y z i = Vertex (Vector3 (x, y, z), Vector4 (i, i, i, 1.F))
     [|
-//       x     y     z    r    g    b    a
-      v -1.0F -1.0F -1.0F 1.0F 0.0F 0.0F 1.0F // Front
-      v -1.0F  1.0F -1.0F 1.0F 0.0F 0.0F 1.0F
-      v  1.0F  1.0F -1.0F 1.0F 0.0F 0.0F 1.0F
-      v -1.0F -1.0F -1.0F 1.0F 0.0F 0.0F 1.0F
-      v  1.0F  1.0F -1.0F 1.0F 0.0F 0.0F 1.0F
-      v  1.0F -1.0F -1.0F 1.0F 0.0F 0.0F 1.0F
+//       x     y     z    i
+      v -1.0F -1.0F -1.0F 1.0F // Front
+      v -1.0F  1.0F -1.0F 1.0F
+      v  1.0F  1.0F -1.0F 1.0F
+      v -1.0F -1.0F -1.0F 1.0F
+      v  1.0F  1.0F -1.0F 1.0F
+      v  1.0F -1.0F -1.0F 1.0F
 
-      v -1.0F -1.0F  1.0F 0.0F 1.0F 0.0F 1.0F // BACK
-      v  1.0F  1.0F  1.0F 0.0F 1.0F 0.0F 1.0F
-      v -1.0F  1.0F  1.0F 0.0F 1.0F 0.0F 1.0F
-      v -1.0F -1.0F  1.0F 0.0F 1.0F 0.0F 1.0F
-      v  1.0F -1.0F  1.0F 0.0F 1.0F 0.0F 1.0F
-      v  1.0F  1.0F  1.0F 0.0F 1.0F 0.0F 1.0F
+      v -1.0F -1.0F  1.0F 1.0F // Back
+      v  1.0F  1.0F  1.0F 1.0F
+      v -1.0F  1.0F  1.0F 1.0F
+      v -1.0F -1.0F  1.0F 1.0F
+      v  1.0F -1.0F  1.0F 1.0F
+      v  1.0F  1.0F  1.0F 1.0F
 
-      v -1.0F  1.0F -1.0F 0.0F 0.0F 1.0F 1.0F // Top
-      v -1.0F  1.0F  1.0F 0.0F 0.0F 1.0F 1.0F
-      v  1.0F  1.0F  1.0F 0.0F 0.0F 1.0F 1.0F
-      v -1.0F  1.0F -1.0F 0.0F 0.0F 1.0F 1.0F
-      v  1.0F  1.0F  1.0F 0.0F 0.0F 1.0F 1.0F
-      v  1.0F  1.0F -1.0F 0.0F 0.0F 1.0F 1.0F
+      v -1.0F  1.0F -1.0F 0.5F // Top
+      v -1.0F  1.0F  1.0F 0.5F
+      v  1.0F  1.0F  1.0F 0.5F
+      v -1.0F  1.0F -1.0F 0.5F
+      v  1.0F  1.0F  1.0F 0.5F
+      v  1.0F  1.0F -1.0F 0.5F
 
-      v -1.0F -1.0F -1.0F 1.0F 1.0F 0.0F 1.0F // Bottom
-      v  1.0F -1.0F  1.0F 1.0F 1.0F 0.0F 1.0F
-      v -1.0F -1.0F  1.0F 1.0F 1.0F 0.0F 1.0F
-      v -1.0F -1.0F -1.0F 1.0F 1.0F 0.0F 1.0F
-      v  1.0F -1.0F -1.0F 1.0F 1.0F 0.0F 1.0F
-      v  1.0F -1.0F  1.0F 1.0F 1.0F 0.0F 1.0F
+      v -1.0F -1.0F -1.0F 0.5F // Bottom
+      v  1.0F -1.0F  1.0F 0.5F
+      v -1.0F -1.0F  1.0F 0.5F
+      v -1.0F -1.0F -1.0F 0.5F
+      v  1.0F -1.0F -1.0F 0.5F
+      v  1.0F -1.0F  1.0F 0.5F
 
-      v -1.0F -1.0F -1.0F 1.0F 0.0F 1.0F 1.0F // LeFt
-      v -1.0F -1.0F  1.0F 1.0F 0.0F 1.0F 1.0F
-      v -1.0F  1.0F  1.0F 1.0F 0.0F 1.0F 1.0F
-      v -1.0F -1.0F -1.0F 1.0F 0.0F 1.0F 1.0F
-      v -1.0F  1.0F  1.0F 1.0F 0.0F 1.0F 1.0F
-      v -1.0F  1.0F -1.0F 1.0F 0.0F 1.0F 1.0F
-
-      v  1.0F -1.0F -1.0F 0.0F 1.0F 1.0F 1.0F // Right
-      v  1.0F  1.0F  1.0F 0.0F 1.0F 1.0F 1.0F
-      v  1.0F -1.0F  1.0F 0.0F 1.0F 1.0F 1.0F
-      v  1.0F -1.0F -1.0F 0.0F 1.0F 1.0F 1.0F
-      v  1.0F  1.0F -1.0F 0.0F 1.0F 1.0F 1.0F
-      v  1.0F  1.0F  1.0F 0.0F 1.0F 1.0F 1.0F
+      v -1.0F -1.0F -1.0F 0.75F // LeFt
+      v -1.0F -1.0F  1.0F 0.75F
+      v -1.0F  1.0F  1.0F 0.75F
+      v -1.0F -1.0F -1.0F 0.75F
+      v -1.0F  1.0F  1.0F 0.75F
+      v -1.0F  1.0F -1.0F 0.75F
+                            
+      v  1.0F -1.0F -1.0F 0.75F // Right
+      v  1.0F  1.0F  1.0F 0.75F
+      v  1.0F -1.0F  1.0F 0.75F
+      v  1.0F -1.0F -1.0F 0.75F
+      v  1.0F  1.0F -1.0F 0.75F
+      v  1.0F  1.0F  1.0F 0.75F
     |]
 
 #if ddd
@@ -298,8 +302,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
     let cosf a  = cos a |> float32
     let sinf a  = sin a |> float32
 
-    let minDelay= Vector3 30.F
-    let delayVar= 10.0F
+    let minDelay= Vector3 minDelay
 
     let v x y z = InstanceVertex  ( Vector3 (x, y, z)
                                   , randomVector3 ()
@@ -324,21 +327,30 @@ type DeviceDependent (rf : Windows.RenderForm) =
     let h   = bmp.Height
     let w   = bmp.Width
 
-    let min = Vector3 30.F
+    let min = Vector3 minDelay
 
-    let v x y z = InstanceVertex  ( Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z)
-                                  , randomVector3 ()
-                                  , randomVector3 ()
-                                  , (min + Vector3.Multiply (randomVector3 (), delayVar))
-                                  )
+    let m c = float32 c / 255.0F
+
+    let s   = Vector3 2.F
+
+    let v x y z (c : System.Drawing.Color) = 
+      InstanceVertex  ( s * Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z |> float32)
+                      , randomVector3 ()
+                      , randomVector3 ()
+                      , (min + Vector3.Multiply (randomVector3 (), delayVar))
+                      , Vector4 (m c.R, m c.G, m c.B, m c.A)
+                      )
     let vs =
       [|
         for y = 0 to h - 1 do
           for x = 0 to w - 1 do
-            let c = bmp.GetPixel (x, y)
-            if (c.A > 0uy) then
-              yield v x y 0.F
+            for z = -2 to 2 do
+              let c = bmp.GetPixel (x, y)
+              if (c.A > 0uy) then
+                yield v x y z c
       |]
+
+    printfn "No of instances: %d" vs.Length
 
     vs
 
@@ -396,10 +408,11 @@ type DeviceDependent (rf : Windows.RenderForm) =
       [|
         ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
         ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
-        ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         ie "TEXCOORD"   2 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         ie "TEXCOORD"   3 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-        ie "TEXCOORD"   4 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
       |]
     let gpsd = Direct3D12.GraphicsPipelineStateDescription( InputLayout           = Direct3D12.InputLayoutDescription ies
                                                           , RootSignature         = rootSignature
@@ -486,6 +499,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   let viewState         = new UploadConstantBuffer<_> (device, ViewState ())
 
+  // TODO: Dispose these resources after transferred
   let uploadBox         = new UploadVertexBuffer<_> (device, boxVertices)
   let uploadInstance    = new UploadVertexBuffer<_> (device, instanceVertices)
 
@@ -542,9 +556,9 @@ type DeviceDependent (rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let distance      = 100.0F;
+    let distance      = 200.0F
     let view          = Matrix.LookAtLH (Vector3 (distance*2.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
-    let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 1000.0F)
+    let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)
     let worldViewProj = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F) * view * proj
 
     viewState.Data <- ViewState (worldViewProj, Vector4 timestamp)
@@ -618,7 +632,7 @@ let main argv =
 #endif
 
 
-    use rf  = new Windows.RenderForm (Width = 1280, Height = 800)
+    use rf  = new Windows.RenderForm (Width = 1600, Height = 1200)
     use app = new App (rf)
 
     rf.Show ()

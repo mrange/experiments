@@ -2,10 +2,11 @@
 {
 	float4 position		: POSITION0		;
 	float4 color		: COLOR0		;
-	float4 iposition	: TEXCOORD1		;
-	float4 idirection	: TEXCOORD2		;
-	float4 irotation	: TEXCOORD3		;
-	float4 idelay		: TEXCOORD4		;
+	float4 iposition	: TEXCOORD0		;
+	float4 idirection	: TEXCOORD1		;
+	float4 irotation	: TEXCOORD2		;
+	float4 idelay		: TEXCOORD3		;
+	float4 icolor		: COLOR1		;
 	uint   instanceId	: SV_INSTANCEID	;
 };
 
@@ -69,7 +70,7 @@ PSInput VSMain (VSInput input)
 	float4		pos	= 1;
 	pos.xyz			= box.xyz + input.iposition.xyz + dts*dir.xyz;
 	result.position = mul (pos, worldViewProj);
-	result.color	= input.color;
+	result.color	= input.color * input.icolor;
 
 	return result;
 }
