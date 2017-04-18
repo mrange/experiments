@@ -71,6 +71,37 @@ type InstanceVertex (position : Vector3, direction : Vector3, rotation : Vector3
 
   end
 
+type CommandList(device : Direct3D12.Device, pipelineState : Direct3D12.PipelineState) =
+  let listType   = Direct3D12.CommandListType.Direct
+  let allocator  = device.CreateCommandAllocator listType
+  let queue      = device.CreateCommandQueue (Direct3D12.CommandQueueDescription listType)
+  let list       =
+    let cl = device.CreateCommandList (listType, allocator, pipelineState)
+    cl.Close () // Opened in recording state, close it.
+    cl
+
+  interface IDisposable with
+    member x.Dispose () =
+      dispose "queue"     queue
+      dispose "allocator" allocator
+
+  member x.Execute (a : Direct3D12.GraphicsCommandList -> 'T) : 'T =
+    allocator.Reset ()
+
+    list.Reset (allocator, pipelineState)
+
+    let v =
+      try
+        a list
+      finally
+        list.Close ()
+
+    queue.ExecuteCommandList list
+
+    v
+
+  member x.Queue = queue
+
 type ConstantBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :> ValueType> (device : Direct3D12.Device, initial : 'T) =
   let mutable data = initial
   let size = Utilities.SizeOf<'T> ()
@@ -258,76 +289,9 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   let device            = new Direct3D12.Device (null, Direct3D.FeatureLevel.Level_11_0)
 
-  let commandListType   = Direct3D12.CommandListType.Direct
-  let commandAllocator  = device.CreateCommandAllocator commandListType
-  let commandQueue      = device.CreateCommandQueue (Direct3D12.CommandQueueDescription commandListType)
-
   let fence             = device.CreateFence (0L, Direct3D12.FenceFlags.None)
   let fenceEvent        = new AutoResetEvent false
   let mutable fenceGen  = 0L
-
-  let swapChain         =
-    use f   = new DXGI.Factory4 ()
-    let scd = DXGI.SwapChainDescription ( BufferCount       = frameCount
-                                        , ModeDescription   = DXGI.ModeDescription (width, height, DXGI.Rational (60, 1), DXGI.Format.R8G8B8A8_UNorm)
-                                        , Usage             = DXGI.Usage.RenderTargetOutput
-                                        , SwapEffect        = DXGI.SwapEffect.FlipDiscard
-                                        , OutputHandle      = rf.Handle
-                                        // , Flags          = DXGI.SwapChainsFlags.None
-                                        , SampleDescription = DXGI.SampleDescription (1, 0)
-                                        , IsWindowed        = rtrue
-                                        )
-
-    use sw  = new DXGI.SwapChain (f, commandQueue, scd)
-    let sw3 = sw.QueryInterface<DXGI.SwapChain3> ()
-
-    sw3
-
-  let createHeap dc tp=
-    let dhd = Direct3D12.DescriptorHeapDescription  ( DescriptorCount = dc
-                                                    , Flags           = Direct3D12.DescriptorHeapFlags.None
-                                                    , Type            = tp
-                                                    )
-
-    device.CreateDescriptorHeap dhd
-
-  let renderTargetHeap  = createHeap frameCount  Direct3D12.DescriptorHeapType.RenderTargetView
-
-  let renderTargets     =
-    let ds  = device.GetDescriptorHandleIncrementSize Direct3D12.DescriptorHeapType.RenderTargetView
-    let rts = Array.zeroCreate frameCount
-
-    let rec loop offset i =
-      if i < frameCount then
-        rts.[i] <- swapChain.GetBackBuffer<Direct3D12.Resource> i
-        device.CreateRenderTargetView (rts.[i], Nullable(), offset)
-        loop (offset + ds) (i + 1)
-    loop renderTargetHeap.CPUDescriptorHandleForHeapStart 0
-
-    rts
-
-  let depthHeap         = createHeap 1 Direct3D12.DescriptorHeapType.DepthStencilView
-
-  let depthBuffer       =
-    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Default // TODO: Fix
-    let hf  = Direct3D12.HeapFlags.None
-    let rd  = Direct3D12.ResourceDescription.Texture2D (DXGI.Format.D32_Float, int64 width, height, int16 1, int16 0, 1, 0, Direct3D12.ResourceFlags.AllowDepthStencil)
-    let rs  = Direct3D12.ResourceStates.DepthWrite
-    let db  = device.CreateCommittedResource (hp, hf, rd, rs)
-
-    db
-
-  let depthStencilView  =
-    let dsvd  = Direct3D12.DepthStencilViewDescription  ( Format    = DXGI.Format.D32_Float
-                                                        , Dimension = Direct3D12.DepthStencilViewDimension.Texture2D
-                                                        , Flags     = Direct3D12.DepthStencilViewFlags.None
-                                                        )
-
-    let dsv   = device.CreateDepthStencilView (depthBuffer, Nullable dsvd, depthHeap.CPUDescriptorHandleForHeapStart)
-
-    dsv
-
-  let viewState         = new ConstantBuffer<_> (device, ViewState ())
 
   let rootSignature     =
     let rps =
@@ -397,21 +361,75 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
     device.CreateGraphicsPipelineState gpsd
 
-  let commandList       =
-    let cl = device.CreateCommandList (commandListType, commandAllocator, pipelineState)
+  let commandList       = new CommandList (device, pipelineState)
 
-    cl.Close () // Opened in recording state, close it.
+  let swapChain         =
+    use f   = new DXGI.Factory4 ()
+    let scd = DXGI.SwapChainDescription ( BufferCount       = frameCount
+                                        , ModeDescription   = DXGI.ModeDescription (width, height, DXGI.Rational (60, 1), DXGI.Format.R8G8B8A8_UNorm)
+                                        , Usage             = DXGI.Usage.RenderTargetOutput
+                                        , SwapEffect        = DXGI.SwapEffect.FlipDiscard
+                                        , OutputHandle      = rf.Handle
+                                        // , Flags          = DXGI.SwapChainsFlags.None
+                                        , SampleDescription = DXGI.SampleDescription (1, 0)
+                                        , IsWindowed        = rtrue
+                                        )
 
-    cl
+    use sw  = new DXGI.SwapChain (f, commandList.Queue, scd)
+    let sw3 = sw.QueryInterface<DXGI.SwapChain3> ()
+
+    sw3
+
+  let createHeap dc tp=
+    let dhd = Direct3D12.DescriptorHeapDescription  ( DescriptorCount = dc
+                                                    , Flags           = Direct3D12.DescriptorHeapFlags.None
+                                                    , Type            = tp
+                                                    )
+
+    device.CreateDescriptorHeap dhd
+
+  let renderTargetHeap  = createHeap frameCount  Direct3D12.DescriptorHeapType.RenderTargetView
+
+  let renderTargets     =
+    let ds  = device.GetDescriptorHandleIncrementSize Direct3D12.DescriptorHeapType.RenderTargetView
+    let rts = Array.zeroCreate frameCount
+
+    let rec loop offset i =
+      if i < frameCount then
+        rts.[i] <- swapChain.GetBackBuffer<Direct3D12.Resource> i
+        device.CreateRenderTargetView (rts.[i], Nullable(), offset)
+        loop (offset + ds) (i + 1)
+    loop renderTargetHeap.CPUDescriptorHandleForHeapStart 0
+
+    rts
+
+  let depthHeap         = createHeap 1 Direct3D12.DescriptorHeapType.DepthStencilView
+
+  let depthBuffer       =
+    let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Default // TODO: Fix
+    let hf  = Direct3D12.HeapFlags.None
+    let rd  = Direct3D12.ResourceDescription.Texture2D (DXGI.Format.D32_Float, int64 width, height, int16 1, int16 0, 1, 0, Direct3D12.ResourceFlags.AllowDepthStencil)
+    let rs  = Direct3D12.ResourceStates.DepthWrite
+    let db  = device.CreateCommittedResource (hp, hf, rd, rs)
+
+    db
+
+  let depthStencilView  =
+    let dsvd  = Direct3D12.DepthStencilViewDescription  ( Format    = DXGI.Format.D32_Float
+                                                        , Dimension = Direct3D12.DepthStencilViewDimension.Texture2D
+                                                        , Flags     = Direct3D12.DepthStencilViewFlags.None
+                                                        )
+
+    let dsv   = device.CreateDepthStencilView (depthBuffer, Nullable dsvd, depthHeap.CPUDescriptorHandleForHeapStart)
+
+    dsv
+
+  let viewState         = new ConstantBuffer<_> (device, ViewState ())
 
   let boxVertexBuffer       = new VertexBuffer<_> (device, boxVertices)
   let instanceVertexBuffer  = new VertexBuffer<_> (device, instanceVertices)
   
-  let populateCommandList () =
-    commandAllocator.Reset ()
-
-    commandList.Reset (commandAllocator, pipelineState)
-
+  let populateCommandList (commandList : Direct3D12.GraphicsCommandList) =
     commandList.SetGraphicsRootSignature  rootSignature
     commandList.SetViewport               (rviewPortf viewPort)
     commandList.SetScissorRectangles      [|rrectangle scissorRect|]
@@ -437,14 +455,11 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
     commandList.ResourceBarrierTransition (renderTargets.[frameIndex], Direct3D12.ResourceStates.RenderTarget, Direct3D12.ResourceStates.Present)
 
-    commandList.Close ()
-
-
   let waitForPreviousFrame () =
     // TODO: Find other way to await frame
     let localFenceGen = fenceGen
     fenceGen          <-fenceGen + 1L
-    commandQueue.Signal (fence, localFenceGen)
+    commandList.Queue.Signal (fence, localFenceGen)
 
     while (fence.CompletedValue < localFenceGen) do
       fence.SetEventOnCompletion (localFenceGen, fenceEvent.SafeWaitHandle.DangerousGetHandle ())
@@ -452,9 +467,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
   member x.Render () =
     try
-      populateCommandList ()
-
-      commandQueue.ExecuteCommandList commandList
+      commandList.Execute populateCommandList
 
       swapChain.Present (1, DXGI.PresentFlags.None) |> ignore
 
@@ -476,9 +489,6 @@ type DeviceDependent (rf : Windows.RenderForm) =
   interface IDisposable with
     member x.Dispose () =
       dispose "boxVertexBuffer"     boxVertexBuffer
-      dispose "commandList"         commandList
-      dispose "pipelineState"       pipelineState
-      dispose "rootSignature"       rootSignature
       dispose "viewState"           viewState
       dispose "depthBuffer"         depthBuffer
       dispose "depthHeap"           depthHeap
@@ -488,8 +498,9 @@ type DeviceDependent (rf : Windows.RenderForm) =
       dispose "swapChain"           swapChain
       dispose "fenceEvent"          fenceEvent
       dispose "fence"               fence
-      dispose "commandQueue"        commandQueue
-      dispose "commandAllocator"    commandAllocator
+      dispose "commandList"         commandList
+      dispose "pipelineState"       pipelineState
+      dispose "rootSignature"       rootSignature
       dispose "device"              device
 
 type App (rf : Windows.RenderForm) =
