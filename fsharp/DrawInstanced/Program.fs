@@ -10,7 +10,6 @@ module Common =
   open System.Diagnostics
 
   let frameCount    = 2
-//  let instanceCount = 200*200
 
   let random        = Random 19740531
 
@@ -237,16 +236,8 @@ type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T 
   member x.Size   = size
   member x.View   = view
 
-[<AllowNullLiteral>]
-type DeviceDependent (rf : Windows.RenderForm) =
-
-  let background        = Color4(0.1F, 0.1F, 0.1F, 1.F) |> rcolor4
-  let size              = rf.ClientSize
-  let width             = size.Width
-  let height            = size.Height
-  let widthf            = width  |> float32
-  let heightf           = height |> float32
-  let aspectRatio       = widthf / heightf
+type DeviceIndependent () =
+  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F) |> rcolor4
 
   let boxVertices  =
     let v x y z i = Vertex (Vector3 (x, y, z), Vector4 (i, i, i, 1.F))
@@ -335,7 +326,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
 
     let v x y z (c : System.Drawing.Color) =
       InstanceVertex  ( s * Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z |> float32)
-                      , randomVector3 ()
+                      , s * s * randomVector3 ()
                       , randomVector3 ()
                       , (min + Vector3.Multiply (randomVector3 (), delayVar))
                       , Vector4 (m c.R, m c.G, m c.B, m c.A)
@@ -355,6 +346,21 @@ type DeviceDependent (rf : Windows.RenderForm) =
     vs
 
 #endif
+
+  member x.Background       = background
+  member x.BoxVertices      = boxVertices
+  member x.InstanceVertices = instanceVertices
+
+
+[<AllowNullLiteral>]
+type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
+
+  let size              = rf.ClientSize
+  let width             = size.Width
+  let height            = size.Height
+  let widthf            = width  |> float32
+  let heightf           = height |> float32
+  let aspectRatio       = widthf / heightf
 
   let viewPort          = Viewport  (Width = width, Height = height, MaxDepth = 1.0F, MinDepth = -1.0F)
   let scissorRect       = Rectangle (Width = width, Height = height)
@@ -500,8 +506,8 @@ type DeviceDependent (rf : Windows.RenderForm) =
   let viewState         = new UploadConstantBuffer<_> (device, ViewState ())
 
   // TODO: Dispose these resources after transferred
-  let uploadBox         = new UploadVertexBuffer<_> (device, boxVertices)
-  let uploadInstance    = new UploadVertexBuffer<_> (device, instanceVertices)
+  let uploadBox         = new UploadVertexBuffer<_> (device, dd.BoxVertices)
+  let uploadInstance    = new UploadVertexBuffer<_> (device, dd.InstanceVertices)
 
   let defaultBox        = new DefaultVertexBuffer<_> (device, commandList, uploadBox)
   let defaultInstance   = new DefaultVertexBuffer<_> (device, commandList, uploadInstance)
@@ -523,7 +529,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
     let depthOffset = depthHeap.CPUDescriptorHandleForHeapStart
 
     commandList.SetRenderTargets (Nullable rtvOffset, Nullable depthOffset)
-    commandList.ClearRenderTargetView (rtvOffset, background, 0, null)
+    commandList.ClearRenderTargetView (rtvOffset, dd.Background, 0, null)
     commandList.ClearDepthStencilView (depthOffset, Direct3D12.ClearFlags.FlagsDepth, 1.0F, 0uy, 0, null)
 
     commandList.PrimitiveTopology <- Direct3D.PrimitiveTopology.TriangleList
@@ -584,6 +590,7 @@ type DeviceDependent (rf : Windows.RenderForm) =
       dispose "device"              device
 
 type App (rf : Windows.RenderForm) =
+  let deviceIndependent       = DeviceIndependent ()
   let mutable deviceDependent = null : DeviceDependent
 
   let uninitialize _ =
@@ -595,7 +602,7 @@ type App (rf : Windows.RenderForm) =
     printfn "reinitialize"
     dispose "deviceDependent" deviceDependent
     deviceDependent <- null
-    deviceDependent <- new DeviceDependent (rf)
+    deviceDependent <- new DeviceDependent (deviceIndependent, rf)
 
   do
     rf.SizeChanged.Add      reinitialize
@@ -632,7 +639,8 @@ let main argv =
 #endif
 
 
-    use rf  = new Windows.RenderForm (Width = 1600, Height = 1200)
+    use rf  = new Windows.RenderForm (Width = 1920, Height = 1200, StartPosition = FormStartPosition.CenterScreen)
+
     use app = new App (rf)
 
     rf.Show ()
