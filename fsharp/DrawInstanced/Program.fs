@@ -38,7 +38,7 @@ module Common =
 
 
   let minDelay      = 20.F
-  let delayVar      = 20.F
+  let delayVar      = 10.F
 
   let rtrue         = RawBool true
   let rfalse        = RawBool false
@@ -51,20 +51,28 @@ module Common =
 
 open Common
 
-type ViewState (world : Matrix, worldViewProj : Matrix, timestamp : Vector4) =
+type ViewState  ( viewPos       : Vector4
+                , lightningPos  : Vector4
+                , world         : Matrix
+                , worldViewProj : Matrix
+                , timestamp     : Vector4
+                ) =
   struct
+    member x.ViewPos        = viewPos
+    member x.LightningPos   = lightningPos
     member x.World          = world
     member x.WorldViewProj  = worldViewProj
     member x.Timestamp      = timestamp
   end
 
-type Vertex (position : Vector3, color : Vector4) =
+type Vertex (position : Vector3, normal : Vector3, color : Vector4) =
   struct
     member x.Position = position
+    member x.Normal   = normal
     member x.Color    = color
 
     override x.ToString () =
-      sprintf "V: %A, %A" position color
+      sprintf "V: %A, %A, %A" position normal color
   end
 
 type InstanceVertex (position : Vector3, direction : Vector3, rotation : Vector3, delay : Vector3, color : Vector4) =
@@ -241,50 +249,56 @@ type DeviceIndependent () =
   let background    = Color4(0.1F, 0.1F, 0.1F, 1.F) |> rcolor4
 
   let boxVertices  =
-    let v x y z i = Vertex (Vector3 (x, y, z), Vector4 (i, i, i, 1.F))
+    let fn = -Vector3.UnitZ
+    let bn = Vector3.UnitZ
+    let tn = -Vector3.UnitY
+    let on = Vector3.UnitY
+    let ln = -Vector3.UnitX
+    let rn = Vector3.UnitX
+    let v x y z n i = Vertex (Vector3 (x, y, z), n, Vector4 (i, i, i, 1.F))
     [|
-//       x     y     z    i
-      v -1.0F -1.0F -1.0F 1.0F // Front
-      v -1.0F  1.0F -1.0F 1.0F
-      v  1.0F  1.0F -1.0F 1.0F
-      v -1.0F -1.0F -1.0F 1.0F
-      v  1.0F  1.0F -1.0F 1.0F
-      v  1.0F -1.0F -1.0F 1.0F
+//       x     y     z    n   i
+      v -1.0F -1.0F -1.0F fn  1.0F // Front
+      v -1.0F  1.0F -1.0F fn  1.0F
+      v  1.0F  1.0F -1.0F fn  1.0F
+      v -1.0F -1.0F -1.0F fn  1.0F
+      v  1.0F  1.0F -1.0F fn  1.0F
+      v  1.0F -1.0F -1.0F fn  1.0F
 
-      v -1.0F -1.0F  1.0F 1.0F // Back
-      v  1.0F  1.0F  1.0F 1.0F
-      v -1.0F  1.0F  1.0F 1.0F
-      v -1.0F -1.0F  1.0F 1.0F
-      v  1.0F -1.0F  1.0F 1.0F
-      v  1.0F  1.0F  1.0F 1.0F
+      v -1.0F -1.0F  1.0F bn 1.0F // Back
+      v  1.0F  1.0F  1.0F bn 1.0F
+      v -1.0F  1.0F  1.0F bn 1.0F
+      v -1.0F -1.0F  1.0F bn 1.0F
+      v  1.0F -1.0F  1.0F bn 1.0F
+      v  1.0F  1.0F  1.0F bn 1.0F
 
-      v -1.0F  1.0F -1.0F 0.5F // Top
-      v -1.0F  1.0F  1.0F 0.5F
-      v  1.0F  1.0F  1.0F 0.5F
-      v -1.0F  1.0F -1.0F 0.5F
-      v  1.0F  1.0F  1.0F 0.5F
-      v  1.0F  1.0F -1.0F 0.5F
+      v -1.0F -1.0F -1.0F tn 0.5F // Top
+      v  1.0F -1.0F  1.0F tn 0.5F
+      v -1.0F -1.0F  1.0F tn 0.5F
+      v -1.0F -1.0F -1.0F tn 0.5F
+      v  1.0F -1.0F -1.0F tn 0.5F
+      v  1.0F -1.0F  1.0F tn 0.5F
 
-      v -1.0F -1.0F -1.0F 0.5F // Bottom
-      v  1.0F -1.0F  1.0F 0.5F
-      v -1.0F -1.0F  1.0F 0.5F
-      v -1.0F -1.0F -1.0F 0.5F
-      v  1.0F -1.0F -1.0F 0.5F
-      v  1.0F -1.0F  1.0F 0.5F
+      v -1.0F  1.0F -1.0F on 0.5F // Bottom
+      v -1.0F  1.0F  1.0F on 0.5F
+      v  1.0F  1.0F  1.0F on 0.5F
+      v -1.0F  1.0F -1.0F on 0.5F
+      v  1.0F  1.0F  1.0F on 0.5F
+      v  1.0F  1.0F -1.0F on 0.5F
 
-      v -1.0F -1.0F -1.0F 0.75F // LeFt
-      v -1.0F -1.0F  1.0F 0.75F
-      v -1.0F  1.0F  1.0F 0.75F
-      v -1.0F -1.0F -1.0F 0.75F
-      v -1.0F  1.0F  1.0F 0.75F
-      v -1.0F  1.0F -1.0F 0.75F
+      v -1.0F -1.0F -1.0F ln 0.75F // Left
+      v -1.0F -1.0F  1.0F ln 0.75F
+      v -1.0F  1.0F  1.0F ln 0.75F
+      v -1.0F -1.0F -1.0F ln 0.75F
+      v -1.0F  1.0F  1.0F ln 0.75F
+      v -1.0F  1.0F -1.0F ln 0.75F
 
-      v  1.0F -1.0F -1.0F 0.75F // Right
-      v  1.0F  1.0F  1.0F 0.75F
-      v  1.0F -1.0F  1.0F 0.75F
-      v  1.0F -1.0F -1.0F 0.75F
-      v  1.0F  1.0F -1.0F 0.75F
-      v  1.0F  1.0F  1.0F 0.75F
+      v  1.0F -1.0F -1.0F rn 0.75F // Right
+      v  1.0F  1.0F  1.0F rn 0.75F
+      v  1.0F -1.0F  1.0F rn 0.75F
+      v  1.0F -1.0F -1.0F rn 0.75F
+      v  1.0F  1.0F -1.0F rn 0.75F
+      v  1.0F  1.0F  1.0F rn 0.75F
     |]
 
 #if ddd
@@ -331,7 +345,7 @@ type DeviceIndependent () =
       |]
 
     let maxDist =
-      pixels 
+      pixels
       |> Seq.map (fun struct (x, y, _) -> sqrt (x*x + y*y))
       |> Seq.max
 
@@ -431,6 +445,7 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
     let ies =
       [|
         ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
+        ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
         ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
         ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
         ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
@@ -581,13 +596,16 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
 
   member x.Update (timestamp : float32) =
     let distance      = 200.0F
-    let view          = Matrix.LookAtLH (Vector3 (0.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
+    let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
+    let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)
     let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F)
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
 
-    viewState.Data <- ViewState (world, worldViewProj, Vector4 timestamp)
+    let lightningPos  = Vector4 (-1.F*distance, -1.F*distance, 1.F*distance, 1.F)
+
+    viewState.Data <- ViewState (viewPos, lightningPos, world, worldViewProj, Vector4 timestamp)
 
   interface IDisposable with
     member x.Dispose () =
