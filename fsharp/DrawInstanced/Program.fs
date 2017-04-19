@@ -37,8 +37,8 @@ module Common =
     | e -> printfn "Failed to dispose %s" nm
 
 
-  let minDelay      = 30.F
-  let delayVar      = 10.F
+  let minDelay      = 20.F
+  let delayVar      = 20.F
 
   let rtrue         = RawBool true
   let rfalse        = RawBool false
@@ -51,8 +51,9 @@ module Common =
 
 open Common
 
-type ViewState (worldViewProj : Matrix, timestamp : Vector4) =
+type ViewState (world : Matrix, worldViewProj : Matrix, timestamp : Vector4) =
   struct
+    member x.World          = world
     member x.WorldViewProj  = worldViewProj
     member x.Timestamp      = timestamp
   end
@@ -318,6 +319,22 @@ type DeviceIndependent () =
     let h   = bmp.Height
     let w   = bmp.Width
 
+    let pixels =
+      [|
+        for y = 0 to h - 1 do
+          for x = 0 to w - 1 do
+            let c = bmp.GetPixel (x, y)
+            if (c.A > 0uy) then
+              let x = x - w / 2 |> float32
+              let y = y - h / 2 |> float32
+              yield struct (x, y, c)
+      |]
+
+    let maxDist =
+      pixels 
+      |> Seq.map (fun struct (x, y, _) -> sqrt (x*x + y*y))
+      |> Seq.max
+
     let min = Vector3 minDelay
 
     let m c = float32 c / 255.0F
@@ -325,20 +342,21 @@ type DeviceIndependent () =
     let s   = Vector3 2.F
 
     let v x y z (c : System.Drawing.Color) =
-      InstanceVertex  ( s * Vector3 (x - w / 2 |> float32, y - h / 2 |> float32, z |> float32)
+      let z = z         |> float32
+      let ratio = sqrt (x*x + y*y) / maxDist
+      let delay = min + random.NextFloat(0.F, 1.F) * ratio * delayVar
+      InstanceVertex  ( s * Vector3 (x, y, z)
                       , s * s * randomVector3 ()
                       , randomVector3 ()
-                      , (min + Vector3.Multiply (randomVector3 (), delayVar))
+                      , delay * Vector3.UnitX
                       , Vector4 (m c.R, m c.G, m c.B, m c.A)
                       )
+
     let vs =
       [|
-        for y = 0 to h - 1 do
-          for x = 0 to w - 1 do
-            for z = -2 to 2 do
-              let c = bmp.GetPixel (x, y)
-              if (c.A > 0uy) then
-                yield v x y z c
+        for z = -2 to 2 do
+          for struct (x, y, c) in pixels do
+            yield v x y z c
       |]
 
     printfn "No of instances: %d" vs.Length
@@ -563,11 +581,13 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
 
   member x.Update (timestamp : float32) =
     let distance      = 200.0F
-    let view          = Matrix.LookAtLH (Vector3 (distance*2.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
+    let view          = Matrix.LookAtLH (Vector3 (0.F, distance*1.5F, distance*4.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)
-    let worldViewProj = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F) * view * proj
+    let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F)
+//    let world         = Matrix.Identity
+    let worldViewProj = world * view * proj
 
-    viewState.Data <- ViewState (worldViewProj, Vector4 timestamp)
+    viewState.Data <- ViewState (world, worldViewProj, Vector4 timestamp)
 
   interface IDisposable with
     member x.Dispose () =

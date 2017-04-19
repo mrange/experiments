@@ -18,6 +18,7 @@ struct PSInput
 
 cbuffer ConstantBuffer
 {
+	row_major float4x4	world			= 0.0;
 	row_major float4x4	worldViewProj	= 0.0;
 	float4				timestamp		= 0.0;
 };
