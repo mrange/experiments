@@ -37,8 +37,8 @@ module Common =
     | e -> printfn "Failed to dispose %s" nm
 
 
-  let minDelay      = 20.F
-  let delayVar      = 10.F
+  let minDelay      = 15.F
+  let delayVar      = 15.F
 
   let rtrue         = RawBool true
   let rfalse        = RawBool false
@@ -366,10 +366,17 @@ type DeviceIndependent () =
                       , Vector4 (m c.R, m c.G, m c.B, m c.A)
                       )
 
+
+    let minl  = -3
+    let maxl  = 3
+    
     let vs =
       [|
-        for z = -2 to 2 do
-          for struct (x, y, c) in pixels do
+        for struct (x, y, c) in pixels do
+          let i   = max (max c.R c.G) c.B
+          let ls  = float (maxl - minl) * float i / 255.0 |> round |> int
+          let l   = ls + minl
+          for z = minl to l do
             yield v x y z c
       |]
 
@@ -595,11 +602,11 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let distance      = 200.0F
+    let distance      = 220.0F
     let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)
-    let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 10.0F)
+    let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 12.F)
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
 
