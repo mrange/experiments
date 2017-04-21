@@ -338,7 +338,7 @@ type DeviceIndependent () =
         for y = 0 to h - 1 do
           for x = 0 to w - 1 do
             let c = bmp.GetPixel (x, y)
-            if (c.A > 0uy) then
+            if (c.A = 255uy) then
               let x = x - w / 2 |> float32
               let y = y - h / 2 |> float32
               yield struct (x, y, c)
