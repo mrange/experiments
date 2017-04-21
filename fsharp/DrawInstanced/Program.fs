@@ -693,7 +693,7 @@ type App (rf : Windows.RenderForm) =
       uninitialize ()
 
   member x.Initialize () =
-    reinitialize ()
+    ()
 
   member x.Update () =
     let timestamp = clock ()
