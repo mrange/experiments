@@ -328,25 +328,67 @@ type DeviceIndependent () =
     vs
 #else
   let instanceVertices  =
-    use bmp = new Bitmap ("img.png")
+    use bmp   = new Bitmap ("img.png")
 
-    let h   = bmp.Height
-    let w   = bmp.Width
+    let h     = bmp.Height
+    let w     = bmp.Width
+    let minz  = -3
+    let maxz  = 3
+    let d     = maxz - minz + 1
+
+    let trs   = Drawing.Color.FromArgb (0,0,0,0)
+    let ins   = Drawing.Color.FromArgb (1,0,0,0)
+
+    let pixels3 = Array3D.init w h d (fun x y z ->
+      let c   = bmp.GetPixel (x, y)
+      let i   = max (max c.R c.G) c.B
+      let rz  = float d * float i / 255.0 |> round |> int
+      let tz  = rz
+      if z <= tz && c.A = 255uy then
+        c
+      else
+        trs
+      )
+
+    let isVisible x y z =
+      let c = pixels3.[x,y,z]
+      c.A > 0uy
+
+    for x = 1 to (w - 2) do
+      for y = 1 to (h - 2) do
+        for z = 1 to (d - 2) do
+          let c = pixels3.[x,y,z]
+          let nc= 
+            if c.A > 0uy then
+              let isInside =
+                true
+                &&  isVisible (x - 1) y z
+                &&  isVisible (x + 1) y z
+                &&  isVisible x (y - 1) z
+                &&  isVisible x (y + 1) z
+                &&  isVisible x y (z - 1)
+                &&  isVisible x y (z + 1)
+              if isInside then
+                ins
+              else
+                c
+            else
+              c
+          pixels3.[x,y,z] <- nc
 
     let pixels =
       [|
-        for y = 0 to h - 1 do
-          for x = 0 to w - 1 do
-            let c = bmp.GetPixel (x, y)
-            if (c.A = 255uy) then
-              let x = x - w / 2 |> float32
-              let y = y - h / 2 |> float32
-              yield struct (x, y, c)
+        for x = 0 to w - 1 do
+          for y = 0 to h - 1 do
+            for z = 0 to (d - 1) do
+              let c = pixels3.[x,y,z]
+              if (c.A = 255uy) then
+                yield struct (x - w / 2 |> float32, y - h / 2 |> float32, z + minz |> float32, c)
       |]
 
     let maxDist =
       pixels
-      |> Seq.map (fun struct (x, y, _) -> sqrt (x*x + y*y))
+      |> Seq.map (fun struct (x, y, _, _) -> sqrt (x*x + y*y))
       |> Seq.max
 
     let min = Vector3 minDelay
@@ -355,8 +397,7 @@ type DeviceIndependent () =
 
     let s   = Vector3 2.F
 
-    let v x y z (c : System.Drawing.Color) =
-      let z = z         |> float32
+    let v x y z (c : Drawing.Color) =
       let ratio = sqrt (x*x + y*y) / maxDist
       let delay = min + random.NextFloat(0.F, 1.F) * ratio * delayVar
       InstanceVertex  ( s * Vector3 (x, y, z)
@@ -367,16 +408,9 @@ type DeviceIndependent () =
                       )
 
 
-    let minl  = -3
-    let maxl  = 3
-    
     let vs =
       [|
-        for struct (x, y, c) in pixels do
-          let i   = max (max c.R c.G) c.B
-          let ls  = float (maxl - minl) * float i / 255.0 |> round |> int
-          let l   = ls + minl
-          for z = minl to l do
+        for struct (x, y, z, c) in pixels do
             yield v x y z c
       |]
 
