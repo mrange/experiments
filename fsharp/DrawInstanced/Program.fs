@@ -11,6 +11,18 @@ module Common =
 
   let frameCount    = 2
 
+  let minz          = -3
+  let maxz          = 3
+  let alphaz        = false
+
+  let minDelay      = 15.F
+  let delayVar      = 15.F
+
+  let distance      = 150.0F
+
+//  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
+  let background    = Color4(1.F, 1.F, 1.F, 1.F)
+
   let random        = Random 19740531
 
   let randomVector3 () =
@@ -36,9 +48,6 @@ module Common =
     with
     | e -> printfn "Failed to dispose %s" nm
 
-
-  let minDelay      = 15.F
-  let delayVar      = 15.F
 
   let rtrue         = RawBool true
   let rfalse        = RawBool false
@@ -246,7 +255,7 @@ type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T 
   member x.View   = view
 
 type DeviceIndependent () =
-  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F) |> rcolor4
+  let background   = background |> rcolor4
 
   let boxVertices  =
     let fn = -Vector3.UnitZ
@@ -332,8 +341,6 @@ type DeviceIndependent () =
 
     let h     = bmp.Height
     let w     = bmp.Width
-    let minz  = -3
-    let maxz  = 3
     let d     = maxz - minz + 1
 
     let trs   = Drawing.Color.FromArgb (0,0,0,0)
@@ -344,7 +351,7 @@ type DeviceIndependent () =
       let i   = max (max c.R c.G) c.B
       let rz  = float d * float i / 255.0 |> round |> int
       let tz  = rz
-      if z <= tz && c.A = 255uy then
+      if (not alphaz || z <= tz) && c.A = 255uy then
         c
       else
         trs
@@ -358,7 +365,7 @@ type DeviceIndependent () =
       for y = 1 to (h - 2) do
         for z = 1 to (d - 2) do
           let c = pixels3.[x,y,z]
-          let nc= 
+          let nc=
             if c.A > 0uy then
               let isInside =
                 true
@@ -419,6 +426,9 @@ type DeviceIndependent () =
     vs
 
 #endif
+
+  do
+    GC.Collect (2, GCCollectionMode.Forced)
 
   member x.Background       = background
   member x.BoxVertices      = boxVertices
@@ -636,7 +646,6 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let distance      = 220.0F
     let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)

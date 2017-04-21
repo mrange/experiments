@@ -68,7 +68,8 @@ PSInput VSMain (VSInput input)
 	float		ts	= max (0, input.idelay.x - timestamp.x);
 	float		rts	= sqrt (ts);
 	float		dts	= ts*ts;
-	float4x4	rot	= mul (rotx (rts*input.irotation.x), mul (roty (rts*input.irotation.y), rotz (rts*input.irotation.z)));
+	float4		rota= rts*input.irotation;
+	float4x4	rot	= mul (rotx (rota.x), mul (roty (rota.y), rotz (rota.z)));
 	float4		dir	= mul (rot, input.idirection);
 	float4		box = mul (rot, input.position);
 	float4		pos	= 1;
