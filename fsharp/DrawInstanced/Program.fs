@@ -11,17 +11,20 @@ module Common =
 
   let frameCount    = 2
 
-  let minz          = -3
-  let maxz          = 3
-  let alphaz        = false
+  let minz          = -7
+  let maxz          = 7
+  let alphaz        = true
 
-  let minDelay      = 15.F
+  let minDelay      = 25.F
   let delayVar      = 15.F
 
-  let distance      = 150.0F
+  let distance      = 300.0F
 
-//  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
-  let background    = Color4(1.F, 1.F, 1.F, 1.F)
+  let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
+  let lightningPos  = Vector4 (-1.F*distance, -1.F*distance, 3.F*distance, 1.F)
+
+  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
+//  let background    = Color4(1.F, 1.F, 1.F, 1.F)
 
   let random        = Random 19740531
 
@@ -310,29 +313,52 @@ type DeviceIndependent () =
       v  1.0F  1.0F  1.0F rn 0.75F
     |]
 
-#if ddd
-  let instanceVertices  =
-    let count   = 100
-    let tau     = 2.0*Math.PI
-    let cosf a  = cos a |> float32
-    let sinf a  = sin a |> float32
+#if DD
+  let instanceVertices =
+    let depth     = 4
+    let boxCount  = pown 20 depth
+    let maxSide   = (pown 3.F depth)
+    let maxDist   = sqrt (3.F * (pown (maxSide / 2.F) 2))
 
-    let minDelay= Vector3 minDelay
+    let v x y z c =
+      let v     = Vector3 (x, y, z)
+      let s     = Vector3 2.F
+      let ratio = v.Length () / maxDist
+      let delay = minDelay + random.NextFloat(0.F, 1.F) * ratio * delayVar
+      InstanceVertex  ( s * Vector3 (x, y, z)
+                      , s * s * randomVector3 ()
+                      , randomVector3 ()
+                      , delay * Vector3.UnitX
+                      , c
+                      )
 
-    let v x y z = InstanceVertex  ( Vector3 (x, y, z)
-                                  , randomVector3 ()
-                                  , randomVector3 ()
-                                  , (minDelay + Vector3.Multiply (randomVector3 (), delayVar))
-                                  )
-    let vs =
-      [|
-        for o = 0 to (count - 1) do
-          let y = 3.0F*float32 (o - count / 2)
-          for i = 0 to (count - 1) do
-            let a = tau * float i / float count
-    //              x               y z
-            yield v y (10.F * cosf a) (10.F * sinf a)
-      |]
+    let ra = ResizeArray<InstanceVertex> boxCount
+
+    let rec menger_cube x y z i =
+      if i > 0 then
+        let d = pown 3.F (i - 1)
+        let i = i - 1
+        for xx = -1 to 1 do
+          for yy = -1 to 1 do
+            for zz = -1 to 1 do
+              let a = abs xx + abs yy + abs zz
+              if a > 1 then
+                let xx = x + d*float32 xx
+                let yy = y + d*float32 yy
+                let zz = z + d*float32 zz
+                menger_cube xx yy zz i
+      else
+        let c c = 
+          let c = abs c / (maxSide / 2.F)
+          c*c*c
+        let cc = Vector4 (c x, c y, c z, 1.F)
+        ra.Add (v x y z cc)
+
+    menger_cube 0.F 0.F 0.F depth
+
+    let vs = ra.ToArray ()
+
+    printfn "Instance count: %d" vs.Length
 
     vs
 #else
@@ -424,9 +450,7 @@ type DeviceIndependent () =
     printfn "No of instances: %d" vs.Length
 
     vs
-
 #endif
-
   do
     GC.Collect (2, GCCollectionMode.Forced)
 
@@ -646,14 +670,13 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
+    let viewPosDist   = viewPos.Length ()
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
-    let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 10000.0F)
+    let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 2.F*viewPosDist)
     let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 12.F)
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
 
-    let lightningPos  = Vector4 (-1.F*distance, -1.F*distance, 1.F*distance, 1.F)
 
     viewState.Data <- ViewState (viewPos, lightningPos, world, worldViewProj, Vector4 timestamp)
 
