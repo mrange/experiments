@@ -1,5 +1,6 @@
 ﻿open System
 open System.Drawing
+open System.Reflection
 open System.Threading
 open System.Windows.Forms
 
@@ -228,6 +229,40 @@ type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T 
   member x.Size   = size
   member x.View   = view
 
+[<RequireQualifiedAccess>]
+type Trie<'Key, 'Value when 'Key : comparison> =
+  | Node  of 'Value list*Map<'Key, Trie<'Key, 'Value>>
+
+  static member Empty = Node (List.empty, Map.empty)
+
+  member x.Update (ks : _ []) u =
+    let e = Trie<'Key, 'Value>.Empty
+    let rec loop t i =
+      let (Node (vs, m)) = t
+      if i < ks.Length then
+        let k = ks.[i]
+        let nt = 
+          match Map.tryFind k m with
+          | Some nt -> loop nt (i + 1)
+          | None    -> loop e  (i + 1)
+        let nm = Map.add k nt m
+        Node (vs, nm)
+      else
+        Node (u vs, m)
+    loop x 0
+
+  member x.Lookup (ks : _ []) =
+    let rec loop t i =
+      let (Node (vs, m)) = t
+      if i < ks.Length then
+        let k = ks.[0]
+        match Map.tryFind k m with
+        | Some nt -> loop nt (i + 1)
+        | None    -> List.empty
+      else
+        vs
+    loop x 0
+
 type DeviceIndependent () =
   let background   = background |> rcolor4
 
@@ -254,8 +289,55 @@ type DeviceIndependent () =
     |]
 
   let instanceVertices =
-    let v x y i = InstanceVertex (Vector2 (x, y), Vector4 (i, i, i, 1.F))
+    let split s = if s <> null then (s : string).Split '.' else [||]
+    let types = 
+      AppDomain.CurrentDomain.GetAssemblies ()
+      |> Array.collect  (fun a -> a.GetTypes ())
+      |> Array.filter   (fun t -> t.IsNested |> not)
+      |> Array.map      (fun t -> split t.Namespace, t )
+   
+    printfn "Types: %d" types.Length
 
+    let trie = 
+      let folder (s : Trie<_, _>) (ns, t) = s.Update ns (fun ts -> t::ts)
+      types |> Array.fold folder Trie<_, _>.Empty
+
+//    printfn "%A" trie
+
+    let fromPolar r a = Vector2 (r * cos a |> float32, r * sin a |> float32)
+
+    let tau = 2. * Math.PI
+
+    let v x y i =
+      let i   = i % 6 + 1
+      let c b = if i &&& (1 <<< b) <> 0 then 1.F else 0.F
+      InstanceVertex (Vector2 (x, y), Vector4 (c 2, c 1, c 0, 1.F))
+
+    let ra = ResizeArray 16
+
+    let generateTree md trie =
+      let rec oloop f t r d (Trie.Node (vs, cs)) =
+        let cs  = cs |> Seq.toArray
+        let aa  = (t - f) / float cs.Length
+        let m   = sqrt 2.
+        let ir  = max m (m * float cs.Length / (t - f) - r)
+        let r   = r + ir
+//        let r  = r + 2.
+        let rec iloop i =
+          if i < cs.Length then
+            let kv  = cs.[i]
+            let c   = kv.Value
+            let ff  = f + aa * float i
+            let tt  = ff + aa
+            let c   = fromPolar r (ff + (tt - ff) / 2.)
+            ra.Add <| v c.X c.Y d
+            oloop ff tt r (d + 1) kv.Value
+            iloop (i + 1)
+        if d < md then iloop 0
+      oloop 0. tau 0. 0 trie
+
+    generateTree 1000 trie
+(*
     let c = 20
 
     let vs = 
@@ -265,7 +347,9 @@ type DeviceIndependent () =
             let s = if (x + y) % 2 = 0 then 1.F else 0.5F
             yield v (float32 x*1.25F) (float32 y*1.25F) s
       |]
+*)
 
+    let vs = ra.ToArray ()
     printfn "Instance count: %d" vs.Length
 
     vs
@@ -470,6 +554,8 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       fence.SetEventOnCompletion (localFenceGen, fenceEvent.SafeWaitHandle.DangerousGetHandle ())
       fenceEvent.WaitOne () |> ignore
 
+  member val Offset = Vector2.Zero with get, set
+
   member x.Render () =
     try
       commandList.Execute populateCommandList
@@ -491,12 +577,9 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
 //    let worldViewProj = Matrix.Identity
     let worldViewProj = proj
 
-    let a = timestamp
-    let r = 5.F
-    let x = r*cos a
-    let y = r*sin a
+    let offset        = Vector4 (x.Offset.X, x.Offset.Y, 0.F, 1.F)
 
-    viewState.Data <- ViewState (Vector4 (x, y, 0.F, 0.F), world, worldViewProj, Vector4 timestamp)
+    viewState.Data <- ViewState (offset, world, worldViewProj, Vector4 timestamp)
 
   interface IDisposable with
     member x.Dispose () =
@@ -533,10 +616,31 @@ type App (rf : Windows.RenderForm) =
     deviceDependent <- null
     deviceDependent <- new DeviceDependent (deviceIndependent, rf)
 
+  let mutable speed   = Vector2.Zero
+  let mutable offset  = Vector2.Zero
+
+  let mutable before  = clock ()
+
+  let keyUp (a : KeyEventArgs)  =
+    let ns =
+      match a.KeyCode with
+      | Keys.Left   -> speed + Vector2.UnitX  |> Some
+      | Keys.Right  -> speed - Vector2.UnitX  |> Some
+      | Keys.Up     -> speed - Vector2.UnitY  |> Some
+      | Keys.Down   -> speed + Vector2.UnitY  |> Some
+      | Keys.Space  -> Vector2.Zero           |> Some
+      | _           -> None
+
+    match ns with
+    | Some ns -> speed <- ns
+    | None    -> ()
+    
+
   do
     rf.SizeChanged.Add      reinitialize
     rf.HandleCreated.Add    reinitialize
     rf.HandleDestroyed.Add  uninitialize
+    rf.KeyUp.Add            keyUp
 
   interface IDisposable with
     member x.Dispose () =
@@ -546,9 +650,12 @@ type App (rf : Windows.RenderForm) =
     ()
 
   member x.Update () =
-    let timestamp = clock ()
+    let timestamp           = clock ()
+    let diff                = timestamp - before
+    offset                  <- offset + diff*speed
+    deviceDependent.Offset  <- offset
     deviceDependent.Update timestamp
-    ()
+    before <- timestamp
 
   member x.Render () =
     deviceDependent.Render ()
