@@ -1,10 +1,11 @@
 ﻿struct VSInput
 {
-	float2 position		: TEXCOORD0		;
+	float3 position		: POSITION0		;
 
 	float4 icolor		: COLOR1		;
 	float2 iposition	: TEXCOORD1		;
-	float2 isize		: TEXCOORD2		;
+	float2 iparent		: TEXCOORD2		;
+	float3 isize		: TEXCOORD3		;
 
 	uint   instanceId	: SV_INSTANCEID	;
 };
@@ -80,16 +81,35 @@ PSInput VSMain (VSInput input)
 {
 	PSInput result;
 
-	float2		v	= input.isize.xy*input.position.xy + input.iposition.xy + offset.xy;
-	float2		tv	= transform(v);
-
 	float4		col	= input.icolor;
-	float4		pos	= { 0, 0, 0, 1 };
-	
-	pos.xy = tv;
+	float2		v	= 0;
 
-	result.position = mul (pos, worldViewProj);
+	if (input.position.z == 0)
+	{
+		v = input.isize.xy*input.position.xy + input.iposition.xy + offset.xy;
+	} 
+	else 
+	{
+		float2		diff	= input.iposition.xy - input.iparent.xy;
+		float2		ndiff	= normalize(diff);
+		float2x2	rot		=
+		{
+			-ndiff.x	,	-ndiff.y	,
+			ndiff.y		,	-ndiff.x	,
+		};
+		float		l		= length(diff);
+		float2		sz		= {l, input.isize.z};
+		float2		p		= sz*input.position.xy;
+		float2		tp		= mul(p, rot);
+		v					= tp.xy + input.iposition.xy + offset.xy;
+	}
+
+	float4		pos	= { 0, 0, 0, 1 };
+
+	float2		tv	= transform(v);
+	pos.xy			= tv;
 	result.color	= col;
+	result.position = mul (pos, worldViewProj);
 
 	return result;
 }

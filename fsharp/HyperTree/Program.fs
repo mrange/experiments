@@ -54,7 +54,7 @@ type ViewState  ( offset        : Vector4
     member x.Timestamp      = timestamp
   end
 
-type Vertex (position : Vector2) =
+type Vertex (position : Vector3) =
   struct
     member x.Position = position
 
@@ -62,10 +62,11 @@ type Vertex (position : Vector2) =
       sprintf "V: %A" position
   end
 
-type InstanceVertex (color : Vector4, position : Vector2, size : Vector2) =
+type InstanceVertex (color : Vector4, position : Vector2, parent : Vector2, size : Vector3) =
   struct
     member x.Color      = color
     member x.Position   = position
+    member x.Parent     = parent
     member x.Size       = size
 
     override x.ToString () =
@@ -268,16 +269,39 @@ type DeviceIndependent () =
   let background   = background |> rcolor4
 
   let boxVertices  =
-    let w   = 4
-    let h   = 4
-    let dx  = 1.F / float32 w
-    let dy  = 1.F / float32 h
-    let v x y = Vertex (Vector2 (x, y))
     [|
+      // The box
+      let w   = 4
+      let h   = 4
+      let dx  = 1.F / float32 w
+      let dy  = 1.F / float32 h
+
+      let v x y = Vertex (Vector3 (x, y, 0.F))
       for y = 0 to (h - 1) do
         for x = 0 to (w - 1) do
 //          x     y    
           let l = -0.5F + float32 x*dx
+          let t = -0.5F + float32 y*dy
+          let r = l + dx
+          let b = t + dy
+          yield v l t
+          yield v l b
+          yield v r b
+          yield v l t
+          yield v r b
+          yield v r t
+
+      // The line
+      let w   = 20
+      let h   = 1
+      let dx  = 1.F / float32 w
+      let dy  = 1.F / float32 h
+
+      let v x y = Vertex (Vector3 (x, y, 1.F))
+      for y = 0 to (h - 1) do
+        for x = 0 to (w - 1) do
+//          x     y    
+          let l = 0.F + float32 x*dx
           let t = -0.5F + float32 y*dy
           let r = l + dx
           let b = t + dy
@@ -311,21 +335,24 @@ type DeviceIndependent () =
 
     let size  = 0.04
 
-    let v x y i =
+    let v x y px py i =
       let i   = i % 6 + 1
       let c b = if i &&& (1 <<< b) <> 0 then 1.F else 0.F
-      InstanceVertex (Vector4 (c 2, c 1, c 0, 1.F), Vector2 (x, y), Vector2 (size |> float32, size |> float32))
+      InstanceVertex  ( Vector4 (c 2, c 1, c 0, 1.F)
+                      , Vector2 (x, y)
+                      , Vector2 (px, py)
+                      , Vector3 (size |> float32, size |> float32, size / 4. |> float32)
+                      )
 
     let ra = ResizeArray 16
 
     let generateTree md trie =
-      let rec oloop f t r d (Trie.Node (vs, cs)) =
+      let rec oloop f t r px py d (Trie.Node (vs, cs)) =
         let cs  = cs |> Seq.toArray
         let aa  = (t - f) / float cs.Length
         let m   = size * sqrt 2.
         let ir  = max m (m * float cs.Length / (t - f) - r)
         let r   = r + ir
-//        let r  = r + 2.
         let rec iloop i =
           if i < cs.Length then
             let kv  = cs.[i]
@@ -333,24 +360,13 @@ type DeviceIndependent () =
             let ff  = f + aa * float i
             let tt  = ff + aa
             let c   = fromPolar r (ff + (tt - ff) / 2.)
-            ra.Add <| v c.X c.Y d
-            oloop ff tt r (d + 1) kv.Value
+            ra.Add <| v c.X c.Y px py d
+            oloop ff tt r c.X c.Y (d + 1) kv.Value
             iloop (i + 1)
         if d < md then iloop 0
-      oloop 0. tau 0. 0 trie
+      oloop 0. tau 0. 0.F 0.F 0 trie
 
     generateTree 1000 trie
-(*
-    let c = 20
-
-    let vs = 
-      [|
-        for y = -c to c do
-          for x = -c to c do
-            let s = if (x + y) % 2 = 0 then 1.F else 0.5F
-            yield v (float32 x*1.25F) (float32 y*1.25F) s
-      |]
-*)
 
     let vs = ra.ToArray ()
     printfn "Instance count: %d" vs.Length
@@ -425,16 +441,20 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       Direct3D12.InputElement (name, index, format, offset, slot, slotClass, stepRate)
     let ies =
       [|
-        ie "TEXCOORD"   0 DXGI.Format.R32G32_Float        0       0 Direct3D12.InputClassification.PerVertexData    0
+        ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
         ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  0       1 Direct3D12.InputClassification.PerInstanceData  1
         ie "TEXCOORD"   1 DXGI.Format.R32G32_Float        aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         ie "TEXCOORD"   2 DXGI.Format.R32G32_Float        aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "TEXCOORD"   3 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
       |]
+    let mutable rsd  = Direct3D12.RasterizerStateDescription.Default ()
+    rsd.IsMultisampleEnabled  <- rtrue
+    rsd.IsAntialiasedLineEnabled <- rtrue
     let gpsd = Direct3D12.GraphicsPipelineStateDescription( InputLayout           = Direct3D12.InputLayoutDescription ies
                                                           , RootSignature         = rootSignature
                                                           , VertexShader          = vertexShader
                                                           , PixelShader           = pixelShader
-                                                          , RasterizerState       = Direct3D12.RasterizerStateDescription.Default ()
+                                                          , RasterizerState       = rsd
                                                           , BlendState            = Direct3D12.BlendStateDescription.Default ()
                                                           , DepthStencilFormat    = DXGI.Format.D32_Float
                                                           , DepthStencilState     = Direct3D12.DepthStencilStateDescription.Default ()
@@ -574,7 +594,7 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
-    let view          = Matrix.LookAtLH (Vector3 (0.F, 0.F, 5.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
+    let view          = Matrix.LookAtLH (Vector3 (0.F, 0.F, -5.F), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
     let proj          = Matrix.OrthoLH (2.F*aspectRatio, 2.F, -10.F, 10.F)
     let world         = Matrix.Identity
 //    let worldViewProj = world * view * proj
