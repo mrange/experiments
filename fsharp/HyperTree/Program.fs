@@ -62,13 +62,14 @@ type Vertex (position : Vector2) =
       sprintf "V: %A" position
   end
 
-type InstanceVertex (position : Vector2, color : Vector4) =
+type InstanceVertex (color : Vector4, position : Vector2, size : Vector2) =
   struct
-    member x.Position   = position
     member x.Color      = color
+    member x.Position   = position
+    member x.Size       = size
 
     override x.ToString () =
-      sprintf "IV: %A, %A" position color
+      sprintf "IV: %A, %A, %A" color position size
   end
 
 type CommandList(device : Direct3D12.Device, pipelineState : Direct3D12.PipelineState) =
@@ -306,12 +307,14 @@ type DeviceIndependent () =
 
     let fromPolar r a = Vector2 (r * cos a |> float32, r * sin a |> float32)
 
-    let tau = 2. * Math.PI
+    let tau   = 2. * Math.PI
+
+    let size  = 0.04
 
     let v x y i =
       let i   = i % 6 + 1
       let c b = if i &&& (1 <<< b) <> 0 then 1.F else 0.F
-      InstanceVertex (Vector2 (x, y), Vector4 (c 2, c 1, c 0, 1.F))
+      InstanceVertex (Vector4 (c 2, c 1, c 0, 1.F), Vector2 (x, y), Vector2 (size |> float32, size |> float32))
 
     let ra = ResizeArray 16
 
@@ -319,7 +322,7 @@ type DeviceIndependent () =
       let rec oloop f t r d (Trie.Node (vs, cs)) =
         let cs  = cs |> Seq.toArray
         let aa  = (t - f) / float cs.Length
-        let m   = sqrt 2.
+        let m   = size * sqrt 2.
         let ir  = max m (m * float cs.Length / (t - f) - r)
         let r   = r + ir
 //        let r  = r + 2.
@@ -423,8 +426,9 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
     let ies =
       [|
         ie "TEXCOORD"   0 DXGI.Format.R32G32_Float        0       0 Direct3D12.InputClassification.PerVertexData    0
-        ie "TEXCOORD"   1 DXGI.Format.R32G32_Float        0       1 Direct3D12.InputClassification.PerInstanceData  1
-        ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  0       1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "TEXCOORD"   1 DXGI.Format.R32G32_Float        aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+        ie "TEXCOORD"   2 DXGI.Format.R32G32_Float        aligned 1 Direct3D12.InputClassification.PerInstanceData  1
       |]
     let gpsd = Direct3D12.GraphicsPipelineStateDescription( InputLayout           = Direct3D12.InputLayoutDescription ies
                                                           , RootSignature         = rootSignature

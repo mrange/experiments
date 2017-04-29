@@ -2,8 +2,9 @@
 {
 	float2 position		: TEXCOORD0		;
 
-	float2 iposition	: TEXCOORD1		;
 	float4 icolor		: COLOR1		;
+	float2 iposition	: TEXCOORD1		;
+	float2 isize		: TEXCOORD2		;
 
 	uint   instanceId	: SV_INSTANCEID	;
 };
@@ -79,7 +80,7 @@ PSInput VSMain (VSInput input)
 {
 	PSInput result;
 
-	float2		v	= input.position.xy + input.iposition.xy + offset.xy;
+	float2		v	= input.isize.xy*input.position.xy + input.iposition.xy + offset.xy;
 	float2		tv	= transform(v);
 
 	float4		col	= input.icolor;
