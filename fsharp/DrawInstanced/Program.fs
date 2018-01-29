@@ -25,8 +25,8 @@ module Common =
   let minDelay      = 25.F
   let delayVar      = 10.F
 
-  let startDistance = 1600.0F
-  let endDistance   = 120.0F
+  let startDistance = 2400.0F
+  let endDistance   = 300.0F
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
