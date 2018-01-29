@@ -9,6 +9,13 @@ module Common =
   open SharpDX.Mathematics.Interop
   open System.Diagnostics
 
+  let inline clamp v b e =
+    if v < b    then b
+    elif v > e  then e
+    else v
+
+  let pi            = Math.PI
+
   let frameCount    = 2
 
   let minz          = -7
@@ -16,12 +23,15 @@ module Common =
   let alphaz        = true
 
   let minDelay      = 25.F
-  let delayVar      = 15.F
+  let delayVar      = 10.F
 
-  let distance      = 300.0F
+  let startDistance = 1600.0F
+  let endDistance   = 120.0F
 
-  let viewPos       = Vector4 (0.F, distance*1.5F, distance*4.F, 1.F)
-  let lightningPos  = Vector4 (-1.F*distance, -1.F*distance, 3.F*distance, 1.F)
+  let distance t    = t*(endDistance - startDistance) + startDistance
+
+  let viewPos t     = Vector4 (0.F, distance t*1.5F, distance t*4.F, 1.F)
+  let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 3.F*distance t, 1.F)
 
   let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
 //  let background    = Color4(1.F, 1.F, 1.F, 1.F)
@@ -38,7 +48,7 @@ module Common =
 
     v
 
-  let clock         =
+  let newClock () =
     let f  = Stopwatch.Frequency |> float32
     let sw = Stopwatch ()
     sw.Start ()
@@ -670,9 +680,15 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
       reraise ()
 
   member x.Update (timestamp : float32) =
+    let t             = timestamp / (minDelay + delayVar) 
+    let t             = clamp t 0.F 1.F
+    let t             = sqrt t
+    let t             = sin (float32 pi * t / 2.0F)
+    let viewPos       = viewPos       t
+    let lightningPos  = lightningPos  t
     let viewPosDist   = viewPos.Length ()
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
-    let proj          = Matrix.PerspectiveFovLH (float32 Math.PI / 4.0F, aspectRatio, 0.1F, 2.F*viewPosDist)
+    let proj          = Matrix.PerspectiveFovLH (float32 pi / 4.0F, aspectRatio, 0.1F, 2.F*viewPosDist)
     let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 12.F)
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
@@ -727,8 +743,7 @@ type App (rf : Windows.RenderForm) =
   member x.Initialize () =
     ()
 
-  member x.Update () =
-    let timestamp = clock ()
+  member x.Update timestamp =
     deviceDependent.Update timestamp
     ()
 
@@ -760,9 +775,11 @@ let main argv =
 
     use rl = new Windows.RenderLoop (rf)
 
+    let clock = newClock ()
+
     let rec loop () =
       if rl.NextFrame () then
-        app.Update ()
+        app.Update (clock ())
         app.Render ()
         loop ()
 
