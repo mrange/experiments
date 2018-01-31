@@ -22,11 +22,11 @@ module Common =
   let maxz          = 7
   let alphaz        = true
 
-  let minDelay      = 25.F
+  let minDelay      = 20.F
   let delayVar      = 10.F
 
-  let startDistance = 2400.0F
-  let endDistance   = 300.0F
+  let startDistance = 1200.0F
+  let endDistance   = 280.0F
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
@@ -757,6 +757,9 @@ open System.Diagnostics
 [<STAThread>]
 let main argv =
   try
+    Application.EnableVisualStyles ()
+    Application.SetCompatibleTextRenderingDefault false
+
     Environment.CurrentDirectory <- AppDomain.CurrentDomain.BaseDirectory
 
 #if DEBUG
@@ -766,6 +769,7 @@ let main argv =
 
 
     use rf  = new Windows.RenderForm (Width = 1920, Height = 1200, StartPosition = FormStartPosition.CenterScreen)
+    rf.AutoScaleMode <- AutoScaleMode.None
 
     use app = new App (rf)
 
