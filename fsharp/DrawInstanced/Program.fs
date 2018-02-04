@@ -25,8 +25,8 @@ module Common =
   let minDelay      = 17.F
   let delayVar      = 13.F
 
-  let startDistance = 1000.F
-  let endDistance   = 200.F
+  let startDistance = 1200.F
+  let endDistance   = 220.F
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
@@ -702,7 +702,7 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
     let lightningPos  = lightningPos  t
     let viewPosDist   = viewPos.Length ()
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
-    let proj          = Matrix.PerspectiveFovLH (float32 pi / 4.F, aspectRatio, 0.1F, 2.F*viewPosDist)
+    let proj          = Matrix.PerspectiveFovLH (float32 pi / 3.F, aspectRatio, 1.F, 2.F*viewPosDist)
     let world         = Matrix.RotationY (-6.F*(1.F - t) + 0.5F)*Matrix.RotationX (-3.F*(1.F - t))*Matrix.RotationZ (-2.F*(1.F - t))
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
