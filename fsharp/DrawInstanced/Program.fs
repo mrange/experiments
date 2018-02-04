@@ -14,7 +14,7 @@ module Common =
     elif v > e  then e
     else v
 
-  let pi            = Math.PI
+  let pi            = float32 Math.PI
 
   let frameCount    = 2
 
@@ -22,38 +22,43 @@ module Common =
   let maxz          = 7
   let alphaz        = true
 
-  let minDelay      = 20.F
-  let delayVar      = 10.F
+  let minDelay      = 17.F
+  let delayVar      = 13.F
 
-  let startDistance = 1200.0F
-  let endDistance   = 280.0F
+  let startDistance = 1000.F
+  let endDistance   = 200.F
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
   let viewPos t     = Vector4 (0.F, distance t*1.5F, distance t*4.F, 1.F)
   let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 3.F*distance t, 1.F)
 
-  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
+//  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
+  let background    = Color4(0.2F, 0.025F, 0.15F, 1.F)
 //  let background    = Color4(1.F, 1.F, 1.F, 1.F)
 
   let random        = Random 19740531
 
+  let randomVector1 () = random.NextFloat (-1.F, 1.F)
   let randomVector3 () =
-    let v = Vector3 ( random.NextFloat (-1.F, 1.F)
-                    , random.NextFloat (-1.F, 1.F)
-                    , random.NextFloat (-1.F, 1.F)
+    let v = Vector3 ( randomVector1 ()
+                    , randomVector1 ()
+                    , randomVector1 ()
                     )
 
     v.Normalize ()
 
     v
 
+  let transform (m : Matrix) (v : Vector3) : Vector3 =
+    Vector3.TransformCoordinate(v, m)
+
   let newClock () =
     let f  = Stopwatch.Frequency |> float32
     let sw = Stopwatch ()
     sw.Start ()
     fun () ->
-      float32 sw.ElapsedMilliseconds / 1000.0F
+      float32 sw.ElapsedMilliseconds / 1000.F
 
   let dispose nm (it : IDisposable) =
     try
@@ -436,16 +441,25 @@ type DeviceIndependent () =
 
     let min = Vector3 minDelay
 
-    let m c = float32 c / 255.0F
+    let m c = float32 c / 255.F
 
     let s   = Vector3 2.F
 
     let v x y z (c : Drawing.Color) =
-      let ratio = sqrt (x*x + y*y) / maxDist
-      let delay = min + random.NextFloat(0.F, 1.F) * ratio * delayVar
+      let ratio     = sqrt (x*x + y*y) / maxDist
+      let vx        = x / maxDist
+      let vy        = y / maxDist
+      let vz        = z / maxDist
+      let vector    = Vector3 (vx, vy, vz)
+//      let delay     = min + random.NextFloat(0.F, 1.F) * ratio * delayVar
+      let delay     = min + ratio * delayVar
+      let rotaxis t = (((t * 4.F) % 1.F) - 0.5F)*2.F*pi
+      let rot       = Matrix.RotationX (rotaxis vx)*Matrix.RotationY (rotaxis vy)*Matrix.RotationZ (rotaxis vz)
+      let vector    = transform rot vector
+
       InstanceVertex  ( s * Vector3 (x, y, z)
-                      , s * s * randomVector3 ()
-                      , randomVector3 ()
+                      , s * s * vector + s*s
+                      , vector
                       , delay * Vector3.UnitX
                       , Vector4 (m c.R, m c.G, m c.B, m c.A)
                       )
@@ -479,7 +493,7 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
   let heightf           = height |> float32
   let aspectRatio       = widthf / heightf
 
-  let viewPort          = Viewport  (Width = width, Height = height, MaxDepth = 1.0F, MinDepth = -1.0F)
+  let viewPort          = Viewport  (Width = width, Height = height, MaxDepth = 1.F, MinDepth = -1.F)
   let scissorRect       = Rectangle (Width = width, Height = height)
 
   let device            = new Direct3D12.Device (null, Direct3D.FeatureLevel.Level_11_0)
@@ -648,7 +662,7 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
 
     commandList.SetRenderTargets (Nullable rtvOffset, Nullable depthOffset)
     commandList.ClearRenderTargetView (rtvOffset, dd.Background, 0, null)
-    commandList.ClearDepthStencilView (depthOffset, Direct3D12.ClearFlags.FlagsDepth, 1.0F, 0uy, 0, null)
+    commandList.ClearDepthStencilView (depthOffset, Direct3D12.ClearFlags.FlagsDepth, 1.F, 0uy, 0, null)
 
     commandList.PrimitiveTopology <- Direct3D.PrimitiveTopology.TriangleList
     commandList.SetVertexBuffers (0, [|defaultBox.View; defaultInstance.View|], 2)
@@ -683,13 +697,13 @@ type DeviceDependent (dd : DeviceIndependent, rf : Windows.RenderForm) =
     let t             = timestamp / (minDelay + delayVar) 
     let t             = clamp t 0.F 1.F
     let t             = sqrt t
-    let t             = sin (float32 pi * t / 2.0F)
+    let t             = sin (float32 pi * t / 2.F)
     let viewPos       = viewPos       t
     let lightningPos  = lightningPos  t
     let viewPosDist   = viewPos.Length ()
     let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
-    let proj          = Matrix.PerspectiveFovLH (float32 pi / 4.0F, aspectRatio, 0.1F, 2.F*viewPosDist)
-    let world         = Matrix.RotationY ((timestamp - minDelay - delayVar) / 12.F)
+    let proj          = Matrix.PerspectiveFovLH (float32 pi / 4.F, aspectRatio, 0.1F, 2.F*viewPosDist)
+    let world         = Matrix.RotationY (-6.F*(1.F - t) + 0.5F)*Matrix.RotationX (-3.F*(1.F - t))*Matrix.RotationZ (-2.F*(1.F - t))
 //    let world         = Matrix.Identity
     let worldViewProj = world * view * proj
 
@@ -768,7 +782,7 @@ let main argv =
 #endif
 
 
-    use rf  = new Windows.RenderForm (Width = 1920, Height = 1200, StartPosition = FormStartPosition.CenterScreen)
+    use rf  = new Windows.RenderForm (Width = 3600, Height = 2000, StartPosition = FormStartPosition.CenterScreen)
     rf.AutoScaleMode <- AutoScaleMode.None
 
     use app = new App (rf)
