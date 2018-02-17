@@ -189,6 +189,7 @@ type [<AllowNullLiteral; AbstractClass>] DeviceDependent< 'ViewState  when  'Vie
                                                                       and   'ViewState : (new: unit -> 'ViewState)
                                                         > ( rf              : Windows.RenderForm
                                                           , shaderFileName  : string
+                                                          , ies             : Direct3D12.InputElement []
                                                           ) =
   class
 
@@ -244,20 +245,6 @@ type [<AllowNullLiteral; AbstractClass>] DeviceDependent< 'ViewState  when  'Vie
     let pixelShader       = shader "PSMain" "ps_5_0"
 
     let pipelineState     =
-      let aligned = Direct3D12.InputElement.AppendAligned
-      let ie name index format offset slot slotClass stepRate =
-        Direct3D12.InputElement (name, index, format, offset, slot, slotClass, stepRate)
-      let ies =
-        [|
-          ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
-          ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   2 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   3 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-        |]
       let gpsd = Direct3D12.GraphicsPipelineStateDescription( InputLayout           = Direct3D12.InputLayoutDescription ies
                                                             , RootSignature         = rootSignature
                                                             , VertexShader          = vertexShader

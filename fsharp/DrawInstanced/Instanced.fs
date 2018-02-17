@@ -284,12 +284,28 @@ module Instanced =
         vs
 #endif
 
+      let inputElements =
+        let aligned = Direct3D12.InputElement.AppendAligned
+        let ie name index format offset slot slotClass stepRate =
+          Direct3D12.InputElement (name, index, format, offset, slot, slotClass, stepRate)
+        [|
+          ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
+          ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
+          ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+          ie "TEXCOORD"   2 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+          ie "TEXCOORD"   3 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+          ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
+        |]
+
       do
         GC.Collect (2, GCCollectionMode.Forced)
 
       member x.Background       = background
       member x.BoxVertices      = boxVertices
       member x.InstanceVertices = instanceVertices
+      member x.InputElements    = inputElements
 
       override x.OnDispose ()   = ()
 
@@ -298,7 +314,7 @@ module Instanced =
 
   type InstancedDeviceDependent (rf : Windows.RenderForm, di : InstancedDeviceIndependent) as this =
     class
-      inherit DeviceDependent<ViewState> (rf, "instanced.hlsl")
+      inherit DeviceDependent<ViewState> (rf, "instanced.hlsl", di.InputElements)
 
       let aspectRatio       = this.AspectRatio
       let commandList       = this.CommandList
