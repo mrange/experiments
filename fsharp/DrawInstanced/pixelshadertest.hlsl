@@ -4,9 +4,6 @@
     float4 normal       : NORMAL0       ;
     float4 color        : COLOR0        ;
     float4 iposition    : TEXCOORD0     ;
-    float4 idirection   : TEXCOORD1     ;
-    float4 irotation    : TEXCOORD2     ;
-    float4 idelay       : TEXCOORD3     ;
     float4 icolor       : COLOR1        ;
     uint   instanceId   : SV_INSTANCEID ;
 };
@@ -65,15 +62,8 @@ float4x4 rotz (float a)
 PSInput VSMain (VSInput input)
 {
     PSInput result;
-    float       ts  = max (0, input.idelay.x - timestamp.x);
-    float       rts = sqrt (ts);
-    float       dts = ts*ts;
-    float4      rota= rts*input.irotation;
-    float4x4    rot = mul (rotx (rota.x), mul (roty (rota.y), rotz (rota.z)));
-    float4      dir = mul (rot, input.idirection);
-    float4      box = mul (rot, input.position);
     float4      pos = 1;
-    pos.xyz         = box.xyz + input.iposition.xyz + dts*dir.xyz;
+    pos.xyz         = input.position.xyz + input.iposition.xyz;
     result.position = mul (pos, worldViewProj);
 
     float4      col = input.color * input.icolor;

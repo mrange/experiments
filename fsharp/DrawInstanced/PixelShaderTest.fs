@@ -33,24 +33,15 @@ module PixelShaderTest =
         sprintf "V: %A, %A, %A" position normal color
     end
 
-  type InstanceVertex (position : Vector3, direction : Vector3, rotation : Vector3, delay : Vector3, color : Vector4) =
+  type InstanceVertex (position : Vector3, color : Vector4) =
     struct
       member x.Position   = position
-      member x.Direction  = direction
-      member x.Rotation   = rotation
-      member x.Delay      = delay
       member x.Color      = color
 
       override x.ToString () =
-        sprintf "IV: %A, %A, %A, %A, %A" position direction rotation delay color
+        sprintf "IV: %A, %A" position color
     end
 
-  let minz          = -7
-  let maxz          = 7
-  let alphaz        = true
-
-  let minDelay      = 10.F
-  let delayVar      = 20.F
   let totalTime     = 30.F
 
   let startDistance = 2.F
@@ -125,9 +116,6 @@ module PixelShaderTest =
 
         let v x y z (c : Drawing.Color) =
           InstanceVertex  ( Vector3 (x, y, z)
-                          , Vector3.Zero
-                          , Vector3.Zero
-                          , Vector3.Zero
                           , Vector4 (m c.R, m c.G, m c.B, m c.A)
                           )
 
@@ -149,9 +137,6 @@ module PixelShaderTest =
           ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   2 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
-          ie "TEXCOORD"   3 DXGI.Format.R32G32B32_Float     aligned 1 Direct3D12.InputClassification.PerInstanceData  1
           ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         |]
 

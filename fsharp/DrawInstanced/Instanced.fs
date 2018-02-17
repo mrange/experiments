@@ -51,7 +51,7 @@ module Instanced =
 
   let minDelay      = 10.F
   let delayVar      = 20.F
-  let totalTime     = 30.F
+  let totalTime     = minDelay + delayVar
 
   let startDistance = 1200.F
   let endDistance   = 220.F
