@@ -23,14 +23,15 @@ module PixelShaderTest =
       member x.Timestamp      = timestamp
     end
 
-  type Vertex (position : Vector3, normal : Vector3, color : Vector4) =
+  type Vertex (position : Vector3, normal : Vector3, color : Vector4, texPos : Vector2) =
     struct
       member x.Position = position
       member x.Normal   = normal
       member x.Color    = color
+      member x.TexPos   = texPos
 
       override x.ToString () =
-        sprintf "V: %A, %A, %A" position normal color
+        sprintf "V: %A, %A, %A, %A" position normal color texPos
     end
 
   type InstanceVertex (position : Vector3, color : Vector4) =
@@ -45,12 +46,12 @@ module PixelShaderTest =
   let totalTime     = 30.F
 
   let startDistance = 2.F
-  let endDistance   = 2.F
+  let endDistance   = 1.F
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
   let viewPos t     = Vector4 (distance t*1.F, distance t*1.5F, distance t*4.F, 1.F)
-  let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 3.F*distance t, 1.F)
+  let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 2.F*distance t, 1.F)
 
   type DeviceIndependent () =
     class
@@ -65,50 +66,57 @@ module PixelShaderTest =
         let on = Vector3.UnitY
         let ln = -Vector3.UnitX
         let rn = Vector3.UnitX
-        let v x y z n i = Vertex (Vector3 (x, y, z), n, Vector4 (i, i, i, 1.F))
+        let v x y z n i tx ty = Vertex (Vector3 (x, y, z), n, Vector4 (i, i, i, 1.F), Vector2 (tx, ty))
         [|
-    //       x     y     z    n   i
-          v -1.0F -1.0F -1.0F fn  1.0F // Front
-          v -1.0F  1.0F -1.0F fn  1.0F
-          v  1.0F  1.0F -1.0F fn  1.0F
-          v -1.0F -1.0F -1.0F fn  1.0F
-          v  1.0F  1.0F -1.0F fn  1.0F
-          v  1.0F -1.0F -1.0F fn  1.0F
+    //       x     y     z    n   i     tx    ty
+          v -1.0F -1.0F -1.0F fn  1.0F  0.0F  0.0F    // Front
+          v -1.0F  1.0F -1.0F fn  1.0F  0.0F  1.0F
+          v  1.0F  1.0F -1.0F fn  1.0F  1.0F  1.0F
+          v -1.0F -1.0F -1.0F fn  1.0F  0.0F  0.0F
+          v  1.0F  1.0F -1.0F fn  1.0F  1.0F  1.0F
+          v  1.0F -1.0F -1.0F fn  1.0F  1.0F  0.0F
 
-          v -1.0F -1.0F  1.0F bn 1.0F // Back
-          v  1.0F  1.0F  1.0F bn 1.0F
-          v -1.0F  1.0F  1.0F bn 1.0F
-          v -1.0F -1.0F  1.0F bn 1.0F
-          v  1.0F -1.0F  1.0F bn 1.0F
-          v  1.0F  1.0F  1.0F bn 1.0F
+          v -1.0F -1.0F  1.0F bn 1.0F   0.0F  0.0F    // Back
+          v  1.0F  1.0F  1.0F bn 1.0F   1.0F  1.0F
+          v -1.0F  1.0F  1.0F bn 1.0F   0.0F  1.0F
+          v -1.0F -1.0F  1.0F bn 1.0F   0.0F  0.0F
+          v  1.0F -1.0F  1.0F bn 1.0F   1.0F  0.0F
+          v  1.0F  1.0F  1.0F bn 1.0F   1.0F  1.0F
 
-          v -1.0F -1.0F -1.0F tn 0.5F // Top
-          v  1.0F -1.0F  1.0F tn 0.5F
-          v -1.0F -1.0F  1.0F tn 0.5F
-          v -1.0F -1.0F -1.0F tn 0.5F
-          v  1.0F -1.0F -1.0F tn 0.5F
-          v  1.0F -1.0F  1.0F tn 0.5F
+          v -1.0F -1.0F -1.0F tn 0.5F   0.0F  0.0F    // Top
+          v  1.0F -1.0F  1.0F tn 0.5F   1.0F  1.0F
+          v -1.0F -1.0F  1.0F tn 0.5F   0.0F  1.0F
+          v -1.0F -1.0F -1.0F tn 0.5F   0.0F  0.0F
+          v  1.0F -1.0F -1.0F tn 0.5F   1.0F  0.0F
+          v  1.0F -1.0F  1.0F tn 0.5F   1.0F  1.0F
 
-          v -1.0F  1.0F -1.0F on 0.5F // Bottom
-          v -1.0F  1.0F  1.0F on 0.5F
-          v  1.0F  1.0F  1.0F on 0.5F
-          v -1.0F  1.0F -1.0F on 0.5F
-          v  1.0F  1.0F  1.0F on 0.5F
-          v  1.0F  1.0F -1.0F on 0.5F
+          v -1.0F  1.0F -1.0F on 0.5F   0.0F  0.0F    // Bottom
+          v -1.0F  1.0F  1.0F on 0.5F   0.0F  1.0F
+          v  1.0F  1.0F  1.0F on 0.5F   1.0F  1.0F
+          v -1.0F  1.0F -1.0F on 0.5F   0.0F  0.0F
+          v  1.0F  1.0F  1.0F on 0.5F   1.0F  1.0F
+          v  1.0F  1.0F -1.0F on 0.5F   1.0F  0.0F
 
-          v -1.0F -1.0F -1.0F ln 0.75F // Left
-          v -1.0F -1.0F  1.0F ln 0.75F
-          v -1.0F  1.0F  1.0F ln 0.75F
-          v -1.0F -1.0F -1.0F ln 0.75F
-          v -1.0F  1.0F  1.0F ln 0.75F
-          v -1.0F  1.0F -1.0F ln 0.75F
+          v -1.0F -1.0F -1.0F ln 0.75F  0.0F  0.0F    // Left
+          v -1.0F -1.0F  1.0F ln 0.75F  0.0F  1.0F
+          v -1.0F  1.0F  1.0F ln 0.75F  1.0F  1.0F
+          v -1.0F -1.0F -1.0F ln 0.75F  0.0F  0.0F
+          v -1.0F  1.0F  1.0F ln 0.75F  1.0F  1.0F
+          v -1.0F  1.0F -1.0F ln 0.75F  1.0F  0.0F
 
-          v  1.0F -1.0F -1.0F rn 0.75F // Right
-          v  1.0F  1.0F  1.0F rn 0.75F
-          v  1.0F -1.0F  1.0F rn 0.75F
-          v  1.0F -1.0F -1.0F rn 0.75F
-          v  1.0F  1.0F -1.0F rn 0.75F
-          v  1.0F  1.0F  1.0F rn 0.75F
+          v  1.0F -1.0F -1.0F rn 0.75F  0.0F  0.0F    // Right
+          v  1.0F  1.0F  1.0F rn 0.75F  1.0F  1.0F
+          v  1.0F -1.0F  1.0F rn 0.75F  0.0F  1.0F
+          v  1.0F -1.0F -1.0F rn 0.75F  0.0F  0.0F
+          v  1.0F  1.0F -1.0F rn 0.75F  1.0F  0.0F
+          v  1.0F  1.0F  1.0F rn 0.75F  1.0F  1.0F
+
+          // TODO: This shouldn't be needed but the last texcoord isn't pickedup
+          //  for the last vertex??
+          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
+          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
+          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
+
         |]
 
       let instanceVertices  =
@@ -136,7 +144,8 @@ module PixelShaderTest =
           ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
           ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
+          ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
           ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         |]
 
@@ -192,7 +201,9 @@ module PixelShaderTest =
         let viewPosDist   = viewPos.Length ()
         let view          = Matrix.LookAtLH (Vector3 (viewPos.X, viewPos.Y, viewPos.Z), Vector3.Zero, Vector3.Zero - Vector3.UnitY)
         let proj          = Matrix.PerspectiveFovLH (float32 pi / 3.F, aspectRatio, 1.F, 2.F*viewPosDist)
+        let world         = Matrix.RotationY 1.0F
         let world         = Matrix.Identity
+        let world         = Matrix.RotationY timestamp
         let worldViewProj = world * view * proj
 
         viewState.Data <- ViewState (viewPos, lightningPos, world, worldViewProj, Vector4 timestamp)
