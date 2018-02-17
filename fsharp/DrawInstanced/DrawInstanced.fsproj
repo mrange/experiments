@@ -107,10 +107,14 @@
     <Compile Include="Device.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Instanced.fs" />
+    <Compile Include="PixelShaderTest.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
     <None Include="instanced.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="pixelshadertest.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="img.png">

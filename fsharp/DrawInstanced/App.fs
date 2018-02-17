@@ -6,15 +6,15 @@ open Common
 
 type App< 'DI 
         , 'DD
-        , 'VS when  'DI :> DeviceIndependent 
+        , 'VS when  'DI :> AbstractDeviceIndependent 
               and   'VS : struct 
               and   'VS :> ValueType 
               and   'VS : (new: unit -> 'VS)
-              and   'DD :> DeviceDependent<'VS>
+              and   'DD :> AbstractDeviceDependent<'VS>
         > (rf : Windows.RenderForm, di : unit -> 'DI, dd : Windows.RenderForm -> 'DI -> 'DD) =
   class
     let deviceIndependent       = di ()
-    let mutable deviceDependent = null : DeviceDependent<_>
+    let mutable deviceDependent = null : AbstractDeviceDependent<_>
 
     let uninitialize _ =
       printfn "uninitialize"

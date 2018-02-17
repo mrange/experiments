@@ -43,3 +43,16 @@ module Common =
   let rrectangle  (r : Rectangle) : RawRectangle  = !? r
   let rcolor4     (c : Color4)    : RawColor4     = !? c
 
+  let random        = Random 19740531
+
+  let randomVector1 () = random.NextFloat (-1.F, 1.F)
+  let randomVector3 () =
+    let v = Vector3 ( randomVector1 ()
+                    , randomVector1 ()
+                    , randomVector1 ()
+                    )
+
+    v.Normalize ()
+
+    v
+

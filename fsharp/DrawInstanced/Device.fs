@@ -175,7 +175,7 @@ type DefaultVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T 
     member x.View   = view
   end
 
-type [<AbstractClass>] DeviceIndependent () =
+type [<AbstractClass>] AbstractDeviceIndependent () =
   class
     abstract OnDispose : unit -> unit
 
@@ -184,9 +184,9 @@ type [<AbstractClass>] DeviceIndependent () =
         x.OnDispose ()
   end
 
-type [<AllowNullLiteral; AbstractClass>] DeviceDependent< 'ViewState  when  'ViewState : struct 
-                                                                      and   'ViewState :> ValueType 
-                                                                      and   'ViewState : (new: unit -> 'ViewState)
+type [<AllowNullLiteral; AbstractClass>] AbstractDeviceDependent< 'ViewState  when  'ViewState : struct 
+                                                                              and   'ViewState :> ValueType 
+                                                                              and   'ViewState : (new: unit -> 'ViewState)
                                                         > ( rf              : Windows.RenderForm
                                                           , shaderFileName  : string
                                                           , ies             : Direct3D12.InputElement []
