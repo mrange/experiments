@@ -23,15 +23,17 @@ module PixelShaderTest =
       member x.Timestamp      = timestamp
     end
 
-  type Vertex (position : Vector3, normal : Vector3, color : Vector4, texPos : Vector2) =
+  type Vertex (position : Vector3, normal : Vector3, tangent : Vector3, binormal : Vector3, color : Vector4, texPos : Vector2) =
     struct
       member x.Position = position
       member x.Normal   = normal
+      member x.Tangent  = tangent
+      member x.Binormal = binormal
       member x.Color    = color
       member x.TexPos   = texPos
 
       override x.ToString () =
-        sprintf "V: %A, %A, %A, %A" position normal color texPos
+        sprintf "V: p:%A, n:%A, t:%A, b:%A, c:%A, x:%A" position normal tangent binormal color texPos
     end
 
   type InstanceVertex (position : Vector3, color : Vector4) =
@@ -40,7 +42,7 @@ module PixelShaderTest =
       member x.Color      = color
 
       override x.ToString () =
-        sprintf "IV: %A, %A" position color
+        sprintf "IV: p:%A, c:%A" position color
     end
 
   let totalTime     = 30.F
@@ -60,56 +62,49 @@ module PixelShaderTest =
       let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
 
       let boxVertices  =
-        let fn = -Vector3.UnitZ
-        let bn = Vector3.UnitZ
-        let tn = -Vector3.UnitY
-        let on = Vector3.UnitY
-        let ln = -Vector3.UnitX
-        let rn = Vector3.UnitX
-        let v x y z n i tx ty = Vertex (Vector3 (x, y, z), n, Vector4 (i, i, i, 1.F), Vector2 (tx, ty))
+        let v rot x y z =
+          let x, y, z = rot x y z
+          Vector3 (x, y, z)
+        let t x y = Vector2 (x, y)
+        let quad rot c : Vertex [] =
+          let v00 = v rot -1.0F -1.0F -1.0F
+          let v01 = v rot -1.0F +1.0F -1.0F
+          let v10 = v rot +1.0F -1.0F -1.0F
+          let v11 = v rot +1.0F +1.0F -1.0F
+          let t00 = t -1.0F -1.0F
+          let t01 = t -1.0F +1.0F
+          let t10 = t +1.0F -1.0F
+          let t11 = t +1.0F +1.0F
+          let tng = v10 - v00 |> normalize
+          let bi  = v01 - v00 |> normalize
+          let nor = Vector3.Cross (tng, bi) |> normalize
+          let col = Vector4 (c, c, c, 1.F)
+
+          let vx v tp = Vertex (v, nor, tng, bi, col, tp)
+          [|
+            vx v00 t00
+            vx v01 t01
+            vx v11 t11
+            vx v00 t00
+            vx v11 t11
+            vx v10 t10
+          |]
+
+        let rot00 x y z = +x, +y, +z
+        let rot01 x y z = +x, +z, -y
+        let rot03 x y z = +x, -z, +y
+        let rot10 x y z = +z, +y, -x
+        let rot20 x y z = -x, +y, -z
+        let rot30 x y z = -z, +y, +x
+
         [|
-    //       x     y     z    n   i     tx    ty
-          v -1.0F -1.0F -1.0F fn  1.0F  0.0F  0.0F    // Front
-          v -1.0F  1.0F -1.0F fn  1.0F  0.0F  1.0F
-          v  1.0F  1.0F -1.0F fn  1.0F  1.0F  1.0F
-          v -1.0F -1.0F -1.0F fn  1.0F  0.0F  0.0F
-          v  1.0F  1.0F -1.0F fn  1.0F  1.0F  1.0F
-          v  1.0F -1.0F -1.0F fn  1.0F  1.0F  0.0F
-
-          v -1.0F -1.0F  1.0F bn 1.0F   0.0F  0.0F    // Back
-          v  1.0F  1.0F  1.0F bn 1.0F   1.0F  1.0F
-          v -1.0F  1.0F  1.0F bn 1.0F   0.0F  1.0F
-          v -1.0F -1.0F  1.0F bn 1.0F   0.0F  0.0F
-          v  1.0F -1.0F  1.0F bn 1.0F   1.0F  0.0F
-          v  1.0F  1.0F  1.0F bn 1.0F   1.0F  1.0F
-
-          v -1.0F -1.0F -1.0F tn 0.5F   0.0F  0.0F    // Top
-          v  1.0F -1.0F  1.0F tn 0.5F   1.0F  1.0F
-          v -1.0F -1.0F  1.0F tn 0.5F   0.0F  1.0F
-          v -1.0F -1.0F -1.0F tn 0.5F   0.0F  0.0F
-          v  1.0F -1.0F -1.0F tn 0.5F   1.0F  0.0F
-          v  1.0F -1.0F  1.0F tn 0.5F   1.0F  1.0F
-
-          v -1.0F  1.0F -1.0F on 0.5F   0.0F  0.0F    // Bottom
-          v -1.0F  1.0F  1.0F on 0.5F   0.0F  1.0F
-          v  1.0F  1.0F  1.0F on 0.5F   1.0F  1.0F
-          v -1.0F  1.0F -1.0F on 0.5F   0.0F  0.0F
-          v  1.0F  1.0F  1.0F on 0.5F   1.0F  1.0F
-          v  1.0F  1.0F -1.0F on 0.5F   1.0F  0.0F
-
-          v -1.0F -1.0F -1.0F ln 0.75F  0.0F  0.0F    // Left
-          v -1.0F -1.0F  1.0F ln 0.75F  0.0F  1.0F
-          v -1.0F  1.0F  1.0F ln 0.75F  1.0F  1.0F
-          v -1.0F -1.0F -1.0F ln 0.75F  0.0F  0.0F
-          v -1.0F  1.0F  1.0F ln 0.75F  1.0F  1.0F
-          v -1.0F  1.0F -1.0F ln 0.75F  1.0F  0.0F
-
-          v  1.0F -1.0F -1.0F rn 0.75F  0.0F  0.0F    // Right
-          v  1.0F  1.0F  1.0F rn 0.75F  1.0F  1.0F
-          v  1.0F -1.0F  1.0F rn 0.75F  0.0F  1.0F
-          v  1.0F -1.0F -1.0F rn 0.75F  0.0F  0.0F
-          v  1.0F  1.0F -1.0F rn 0.75F  1.0F  0.0F
-          v  1.0F  1.0F  1.0F rn 0.75F  1.0F  1.0F
+//                    rot   o
+          yield! quad rot00 +1.0F  // Front
+          yield! quad rot20 +1.0F  // Back
+          yield! quad rot01 +0.5F  // Top
+          yield! quad rot03 +0.5F  // Bottom
+          yield! quad rot10 +0.75F // Left
+          yield! quad rot30 +0.75F // Right
         |]
 
       let instanceVertices  =
@@ -138,8 +133,10 @@ module PixelShaderTest =
         [|
           ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
           ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "TANGENT"    0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "BINORMAL"   0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "TEXCOORD"   0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
+          ie "TEXCOORD"   0 DXGI.Format.R32G32_Float        aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "TEXCOORD"   1 DXGI.Format.R32G32B32_Float     0       1 Direct3D12.InputClassification.PerInstanceData  1
           ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  aligned 1 Direct3D12.InputClassification.PerInstanceData  1
         |]

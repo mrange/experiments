@@ -56,3 +56,6 @@ module Common =
 
     v
 
+  let normalize (v3 : Vector3) : Vector3 =
+    v3.Normalize ()
+    v3

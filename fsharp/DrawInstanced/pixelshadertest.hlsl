@@ -2,6 +2,8 @@
 {
     float4 position     : POSITION0     ;
     float4 normal       : NORMAL0       ;
+    float4 tangent      : TANGENT0      ;
+    float4 binormal     : BINORMAL0     ;
     float4 color        : COLOR0        ;
     float2 texpos       : TEXCOORD0     ;
     float4 iposition    : TEXCOORD1     ;
@@ -15,6 +17,8 @@ struct PSInput
     float4 color        : COLOR0        ;
     float2 texpos       : TEXCOORD0     ;
     float4 normal       : NORMAL0       ;
+    float4 tangent      : TANGENT0      ;
+    float4 binormal     : BINORMAL0     ;
     float4 pos          : POSITION0     ;
 };
 
@@ -71,12 +75,16 @@ PSInput VSMain (VSInput input)
 
     float4      wpos      = mul (pos, world);
     float4      wnor      = mul (input.normal, world);
+    float4      wtng      = mul (input.tangent, world);
+    float4      wbi       = mul (input.binormal, world);
 
     result.position       = mul (pos, worldViewProj);
     result.color          = input.color * input.icolor;
     result.texpos         = input.texpos;
     result.pos            = wpos;
     result.normal         = wnor;
+    result.tangent        = wtng;
+    result.binormal       = wbi;
 
     return result;
 }
