@@ -16,8 +16,6 @@ struct PSInput
     float2 texpos       : TEXCOORD0     ;
     float4 normal       : NORMAL0       ;
     float4 pos          : POSITION0     ;
-    float4 lightPos     : TEXCOORD1     ;
-    float4 viewPos      : TEXCOORD2     ;
 };
 
 cbuffer ConstantBuffer
@@ -28,6 +26,42 @@ cbuffer ConstantBuffer
     row_major float4x4  worldViewProj   = 0.0;
     float4              timestamp       = 0.0;
 };
+
+float4x4 rotx (float a)
+{
+    float4x4 m =
+    {
+        1,      0,       0, 0,
+        0, cos(a), -sin(a), 0,
+        0, sin(a),  cos(a), 0,
+        0,      0,       0, 1,
+    };
+    return m;
+}
+
+float4x4 roty (float a)
+{
+    float4x4 m =
+    {
+        cos(a), 0, -sin(a), 0,
+             0, 1,       0, 0,
+        sin(a), 0,  cos(a), 0,
+             0, 0,       0, 1,
+    };
+    return m;
+}
+
+float4x4 rotz (float a)
+{
+    float4x4 m =
+    {
+        cos(a), -sin(a), 0, 0,
+        sin(a),  cos(a), 0, 0,
+             0,       0, 1, 0,
+             0,       0, 0, 1,
+    };
+    return m;
+}
 
 PSInput VSMain (VSInput input)
 {
@@ -43,8 +77,6 @@ PSInput VSMain (VSInput input)
     result.texpos         = input.texpos;
     result.pos            = wpos;
     result.normal         = wnor;
-    result.lightPos       = lightningPos;
-    result.viewPos        = viewPos;
 
     return result;
 }
@@ -57,10 +89,12 @@ float4 PSMain (PSInput input) : SV_TARGET
 
     float4 result ;
 
-    float4 wpos   = input.pos       ;
-    float4 wnor   = input.normal    ;
-    float4 lpos   = input.lightPos  ;
-    float4 vpos   = input.viewPos   ;
+    float4x4 norm = mul(mul(rotx(10.0*tp.x), roty(8.0*tp.y)), rotz(timestamp));
+
+    float4 wpos   = input.pos         ;
+    float4 wnor   = mul(norm, input.normal) ;
+    float4 lpos   = lightningPos      ;
+    float4 vpos   = viewPos           ;
 
     float4 ldir   = normalize (lpos - wpos);
     float  ddot   = dot (ldir, wnor);

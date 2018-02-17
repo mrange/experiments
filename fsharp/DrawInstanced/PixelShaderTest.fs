@@ -110,13 +110,6 @@ module PixelShaderTest =
           v  1.0F -1.0F -1.0F rn 0.75F  0.0F  0.0F
           v  1.0F  1.0F -1.0F rn 0.75F  1.0F  0.0F
           v  1.0F  1.0F  1.0F rn 0.75F  1.0F  1.0F
-
-          // TODO: This shouldn't be needed but the last texcoord isn't pickedup
-          //  for the last vertex??
-          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
-          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
-          v  0.0F  0.0F  0.0F rn 0.75F  1.0F  1.0F
-
         |]
 
       let instanceVertices  =
@@ -129,7 +122,9 @@ module PixelShaderTest =
 
         let vs =
           [|
-            yield v 0.F 0.F 0.F Drawing.Color.White
+            yield v 0.F  0.F 0.F Drawing.Color.White
+            yield v 0.F  3.F 0.F Drawing.Color.White
+            yield v 0.F -3.F 0.F Drawing.Color.White
           |]
 
         printfn "No of instances: %d" vs.Length

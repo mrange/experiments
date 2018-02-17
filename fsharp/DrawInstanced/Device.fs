@@ -100,6 +100,10 @@ type UploadVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :
 
     let size = Utilities.SizeOf data
 
+    // TODO: Add an extra instance because I had some problems in data being 0
+    //  for last vertex. Speculation is that this is related to alignment issues
+    let size = size + Utilities.SizeOf<'T> ()
+
     let resource =
       let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload
       let hf  = Direct3D12.HeapFlags.None
@@ -213,6 +217,13 @@ type [<AllowNullLiteral; AbstractClass>] AbstractDeviceDependent< 'ViewState  wh
       let rps =
         [|
           Direct3D12.RootParameter  ( Direct3D12.ShaderVisibility.Vertex
+                                    , Direct3D12.DescriptorRange  ( RangeType                         = Direct3D12.DescriptorRangeType.ConstantBufferView
+                                                                  , BaseShaderRegister                = 0
+                                                                  , OffsetInDescriptorsFromTableStart = Int32.MinValue
+                                                                  , DescriptorCount                   = 1
+                                                                  )
+                                    )
+          Direct3D12.RootParameter  ( Direct3D12.ShaderVisibility.Pixel
                                     , Direct3D12.DescriptorRange  ( RangeType                         = Direct3D12.DescriptorRangeType.ConstantBufferView
                                                                   , BaseShaderRegister                = 0
                                                                   , OffsetInDescriptorsFromTableStart = Int32.MinValue
@@ -352,6 +363,7 @@ type [<AllowNullLiteral; AbstractClass>] AbstractDeviceDependent< 'ViewState  wh
 
       commandList.SetDescriptorHeaps (1, [| viewState.Heap |]);
       commandList.SetGraphicsRootDescriptorTable (0, viewState.Heap.GPUDescriptorHandleForHeapStart)
+      commandList.SetGraphicsRootDescriptorTable (1, viewState.Heap.GPUDescriptorHandleForHeapStart)
 
       let frameIndex  = swapChain.CurrentBackBufferIndex
 
