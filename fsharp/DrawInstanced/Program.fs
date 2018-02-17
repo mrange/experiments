@@ -15,6 +15,7 @@ module Common =
     else v
 
   let pi            = float32 Math.PI
+  let tau           = 2.F * pi
 
   let frameCount    = 2
 
@@ -22,8 +23,9 @@ module Common =
   let maxz          = 7
   let alphaz        = true
 
-  let minDelay      = 17.F
-  let delayVar      = 13.F
+  let minDelay      = 10.F
+  let delayVar      = 20.F
+  let totalTime     = 30.F
 
   let startDistance = 1200.F
   let endDistance   = 220.F
@@ -34,7 +36,8 @@ module Common =
   let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 3.F*distance t, 1.F)
 
 //  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
-  let background    = Color4(0.2F, 0.025F, 0.15F, 1.F)
+//  let background    = Color4(0.2F, 0.025F, 0.15F, 1.F)
+  let background    = Color4(0.1F, 0.1F, 0.1F, 1.F)
 //  let background    = Color4(1.F, 1.F, 1.F, 1.F)
 
   let random        = Random 19740531
