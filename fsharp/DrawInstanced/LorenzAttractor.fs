@@ -23,17 +23,15 @@ module LorenzAttractor =
       member x.Timestamp      = timestamp
     end
 
-  type Vertex (position : Vector3, normal : Vector3, tangent : Vector3, binormal : Vector3, color : Vector4, texPos : Vector2) =
+  type Vertex (position : Vector3, normal : Vector3, color : Vector4, texPos : Vector2) =
     struct
       member x.Position = position
       member x.Normal   = normal
-      member x.Tangent  = tangent
-      member x.Binormal = binormal
       member x.Color    = color
       member x.TexPos   = texPos
 
       override x.ToString () =
-        sprintf "V: p:%A, n:%A, t:%A, b:%A, c:%A, x:%A" position normal tangent binormal color texPos
+        sprintf "V: p:%A, n:%A, c:%A, x:%A" position normal color texPos
     end
 
   type InstanceVertex ( color         : Vector4
@@ -63,7 +61,7 @@ module LorenzAttractor =
   let totalTime         = 30.F
 
   let startDistance     = 10.F
-  let endDistance       = 0.4F
+  let endDistance       = 2.F
 
   let distance t        = t*(endDistance - startDistance) + startDistance
 
@@ -97,7 +95,7 @@ module LorenzAttractor =
           let nor = -Vector3.Cross (tng, bi) |> normalize
           let col = Vector4 (c, c, c, 1.F)
 
-          let vx v tp = Vertex (v, nor, tng, bi, col, tp)
+          let vx v tp = Vertex (v, nor, col, tp)
           [|
             vx v00 t00
             vx v01 t01
@@ -125,12 +123,10 @@ module LorenzAttractor =
         |]
 
       let instanceVertices  =
-        let m c = float32 c / 255.F
-
         let v3 x y z = Vector3 (float32 x, float32 y, float32 z)
 
-        let iv p np s ns r nr (c : Drawing.Color) =
-          InstanceVertex  ( Vector4 (m c.R, m c.G, m c.B, m c.A)
+        let iv p np s ns r nr c =
+          InstanceVertex  ( c
                           , p
                           , np
                           , s
@@ -141,34 +137,46 @@ module LorenzAttractor =
 
         let inline xyz (v : Vector3) = float v.X, float v.Y, float v.Z
 
+        let slow  = Vector4 (1.F, 0.F, 0.F, 1.F)
+        let fast  = Vector4 (0.F, 1.F, 0.F, 1.F)
+
         let vs =
           let total = 200000
           let rho   = 28.
           let sigma = 10.
           let beta  = 8./3.
           let td    = 0.0005
-          let rec loop p s r n vs =
+          let rec loop p s r n maxv minv vs =
             let x, y, z = xyz p
             if n > 0 then
-              let dx = sigma*(y - x)
-              let dy = x*(rho - z) - y
-              let dz = x*y - beta*z
-              let vv = sqrt (dx*dx + dy*dy + dz*dz)
-              let ss = vv / 10000.
-              let xx = x + td*dx
-              let yy = y + td*dy
-              let zz = z + td*dz
-              let np = v3 xx yy zz
-              let ns = v3 ss ss ss
-              let nr = r + v3 0.2 0.4 0.6
-              let vs = (iv p np s ns r nr Drawing.Color.White)::vs
-              loop np ns nr (n - 1) vs
+              let dx  = sigma*(y - x)
+              let dy  = x*(rho - z) - y
+              let dz  = x*y - beta*z
+              let vv  = sqrt (dx*dx + dy*dy + dz*dz)
+              let maxv= max vv maxv
+              let minv= min vv minv
+              let ss  = vv / 10000.
+              let col = lerp (float32 (sqrt (vv - 15.)) / sqrt 400.F) slow fast
+              let xx  = x + td*dx
+              let yy  = y + td*dy
+              let zz  = z + td*dz
+              let np  = v3 xx yy zz
+              let ns  = v3 ss ss ss
+              let nr  = r + v3 0.2 0.4 0.6
+              let vs  = (iv p np s ns r nr col)::vs
+              loop np ns nr (n - 1) maxv minv vs
             else
-              vs
+              vs, maxv, minv
           let p = v3 1. 1. 1.
           let r = v3 0. 0. 0.
           let s = v3 0. 0. 0.
-          loop p r s total [] |> List.toArray
+
+          let vs, maxv, minv = loop p r s total Double.MinValue Double.MaxValue []
+
+          printfn "Max speed: %A" maxv
+          printfn "Min speed: %A" minv
+
+          vs |> List.toArray
 
         printfn "No of instances: %d" vs.Length
 
@@ -196,8 +204,6 @@ module LorenzAttractor =
         [|
           ie "POSITION"   0 DXGI.Format.R32G32B32_Float     0       0 Direct3D12.InputClassification.PerVertexData    0
           ie "NORMAL"     0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "TANGENT"    0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
-          ie "BINORMAL"   0 DXGI.Format.R32G32B32_Float     aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "COLOR"      0 DXGI.Format.R32G32B32A32_Float  aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "TEXCOORD"   0 DXGI.Format.R32G32_Float        aligned 0 Direct3D12.InputClassification.PerVertexData    0
           ie "COLOR"      1 DXGI.Format.R32G32B32A32_Float  0       1 Direct3D12.InputClassification.PerInstanceData  1

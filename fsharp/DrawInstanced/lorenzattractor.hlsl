@@ -2,8 +2,6 @@
 {
     float4 position       : POSITION0     ;
     float4 normal         : NORMAL0       ;
-    float4 tangent        : TANGENT0      ;
-    float4 binormal       : BINORMAL0     ;
     float4 color          : COLOR0        ;
     float2 texpos         : TEXCOORD0     ;
     float4 icolor         : COLOR1        ;
@@ -22,8 +20,6 @@ struct PSInput
     float4 color        : COLOR0        ;
     float2 texpos       : TEXCOORD0     ;
     float4 normal       : NORMAL0       ;
-    float4 tangent      : TANGENT0      ;
-    float4 binormal     : BINORMAL0     ;
     float4 pos          : POSITION0     ;
 };
 
@@ -86,8 +82,6 @@ PSInput VSMain (VSInput input)
 
     float4      wpos      = mul (pos, world);
     float4      wnor      = mul (input.normal, world);
-    float4      wtng      = mul (input.tangent, world);
-    float4      wbi       = mul (input.binormal, world);
 
     PSInput result;
     result.position       = mul (pos, worldViewProj);
@@ -95,8 +89,6 @@ PSInput VSMain (VSInput input)
     result.texpos         = input.texpos;
     result.pos            = wpos;
     result.normal         = wnor;
-    result.tangent        = wtng;
-    result.binormal       = wbi;
 
     return result;
 }
@@ -105,37 +97,24 @@ float4 PSMain (PSInput input) : SV_TARGET
 {
     float2 mid    = {0.5, 0.5};
     float2 tp     = 2.0*(input.texpos - mid);
-    float  dist   = 4.0*length(tp);
-    float  angle  = dist*dist*dist + timestamp;
-    float  inten  = 0.25*cos (angle) + 0.75;
-    float4 cmod   = {inten*input.texpos.x, inten*input.texpos.y, 1.0, 1.0};
-    float4 col    = cmod*input.color;
-
-    float2 ntp    = normalize (tp);
-    float  coln   = 0.25*sin(angle);
-    float3 n      = {ntp.x*coln, ntp.y*coln, 1};
-    float3 nn     = normalize(n);
+    float4 col    = input.color;
 
     float4 result ;
 
     float4 wpos   = input.pos         ;
     float4 wnor   = input.normal      ;
-    float4 wtng   = input.tangent     ;
-    float4 wbi    = input.binormal    ;
     float4 lpos   = lightningPos      ;
     float4 vpos   = viewPos           ;
 
-    float4 norm   = nn.x*wtng + nn.y*wbi + nn.z*wnor;
-
     float4 ldir   = normalize (lpos - wpos);
-    float  ddot   = dot (ldir, norm);
+    float  ddot   = dot (ldir, wnor);
 
     float4 amb    = 0.75;
     float4 acol   = amb*col;
 
     if (ddot > 0)
     {
-        float4  lref    = reflect (ldir, norm);
+        float4  lref    = reflect (ldir, wnor);
         float4  vdir    = normalize (wpos - vpos);
         float   sdot    = max (dot (lref, vdir), 0);
 
