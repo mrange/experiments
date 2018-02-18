@@ -23,7 +23,7 @@ let main argv =
     use rf  = new Windows.RenderForm (Width = 3600, Height = 2000, StartPosition = FormStartPosition.CenterScreen)
     rf.AutoScaleMode <- AutoScaleMode.None
 
-    use app = new App<_, _, _> (rf, Instanced.deviceIndependent, Instanced.deviceDependent)
+    use app = new App<_, _, _> (rf, LorenzAttractor.deviceIndependent, LorenzAttractor.deviceDependent)
 
     rf.Show ()
 
