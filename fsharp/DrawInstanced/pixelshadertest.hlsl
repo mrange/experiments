@@ -31,42 +31,6 @@ cbuffer ConstantBuffer
     float4              timestamp       = 0.0;
 };
 
-float4x4 rotx (float a)
-{
-    float4x4 m =
-    {
-        1,      0,       0, 0,
-        0, cos(a), -sin(a), 0,
-        0, sin(a),  cos(a), 0,
-        0,      0,       0, 1,
-    };
-    return m;
-}
-
-float4x4 roty (float a)
-{
-    float4x4 m =
-    {
-        cos(a), 0, -sin(a), 0,
-             0, 1,       0, 0,
-        sin(a), 0,  cos(a), 0,
-             0, 0,       0, 1,
-    };
-    return m;
-}
-
-float4x4 rotz (float a)
-{
-    float4x4 m =
-    {
-        cos(a), -sin(a), 0, 0,
-        sin(a),  cos(a), 0, 0,
-             0,       0, 1, 0,
-             0,       0, 0, 1,
-    };
-    return m;
-}
-
 PSInput VSMain (VSInput input)
 {
     PSInput result;
@@ -91,28 +55,39 @@ PSInput VSMain (VSInput input)
 
 float4 PSMain (PSInput input) : SV_TARGET
 {
-    float2 tp     = input.texpos;
-    float4 mod    = {tp.x, tp.y, 1.0, 1.0};
-    float4 col    = mod*input.color;
+    float2 mid    = {0.5, 0.5};
+    float2 tp     = 2.0*(input.texpos - mid);
+    float  dist   = 4.0*length(tp);
+    float  angle  = dist*dist*dist + timestamp;
+    float  inten  = 0.25*cos (angle) + 0.75;
+    float4 cmod   = {inten, inten, 1.0, 1.0};
+    float4 col    = cmod*input.color;
+
+    float2 ntp    = normalize (tp);
+    float  coln   = 0.25*sin(angle);
+    float3 n      = {ntp.x*coln, ntp.y*coln, 1};
+    float3 nn     = normalize(n);
 
     float4 result ;
 
-    float4x4 norm = mul(mul(rotx(10.0*tp.x), roty(8.0*tp.y)), rotz(timestamp));
-
     float4 wpos   = input.pos         ;
-    float4 wnor   = mul(norm, input.normal) ;
+    float4 wnor   = input.normal      ;
+    float4 wtng   = input.tangent     ;
+    float4 wbi    = input.binormal    ;
     float4 lpos   = lightningPos      ;
     float4 vpos   = viewPos           ;
 
+    float4 norm   = nn.x*wtng + nn.y*wbi + nn.z*wnor;
+
     float4 ldir   = normalize (lpos - wpos);
-    float  ddot   = dot (ldir, wnor);
+    float  ddot   = dot (ldir, norm);
 
     float4 amb    = 0.75;
     float4 acol   = amb*col;
 
     if (ddot > 0)
     {
-        float4  lref    = reflect (ldir, wnor);
+        float4  lref    = reflect (ldir, norm);
         float4  vdir    = normalize (wpos - vpos);
         float   sdot    = max (dot (lref, vdir), 0);
 

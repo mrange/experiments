@@ -52,8 +52,8 @@ module PixelShaderTest =
 
   let distance t    = t*(endDistance - startDistance) + startDistance
 
-  let viewPos t     = Vector4 (distance t*1.F, distance t*1.5F, distance t*4.F, 1.F)
-  let lightningPos t= Vector4 (-1.F*distance t, -1.F*distance t, 2.F*distance t, 1.F)
+  let viewPos t     = Vector4 (-1.0F*distance t, +1.5F*distance t, 4.0F*distance t, 1.F)
+  let lightningPos t= Vector4 (-1.0F*distance t, -1.0F*distance t, 2.0F*distance t, 1.F)
 
   type DeviceIndependent () =
     class
@@ -71,13 +71,13 @@ module PixelShaderTest =
           let v01 = v rot -1.0F +1.0F -1.0F
           let v10 = v rot +1.0F -1.0F -1.0F
           let v11 = v rot +1.0F +1.0F -1.0F
-          let t00 = t -1.0F -1.0F
-          let t01 = t -1.0F +1.0F
-          let t10 = t +1.0F -1.0F
+          let t00 = t +0.0F +0.0F
+          let t01 = t +0.0F +1.0F
+          let t10 = t +1.0F +0.0F
           let t11 = t +1.0F +1.0F
           let tng = v10 - v00 |> normalize
           let bi  = v01 - v00 |> normalize
-          let nor = Vector3.Cross (tng, bi) |> normalize
+          let nor = -Vector3.Cross (tng, bi) |> normalize
           let col = Vector4 (c, c, c, 1.F)
 
           let vx v tp = Vertex (v, nor, tng, bi, col, tp)

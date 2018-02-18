@@ -100,10 +100,6 @@ type UploadVertexBuffer<'T when 'T : struct and 'T : (new : unit -> 'T) and 'T :
 
     let size = Utilities.SizeOf data
 
-    // TODO: Add an extra instance because I had some problems in data being 0
-    //  for last vertex. Speculation is that this is related to alignment issues
-    let size = size + Utilities.SizeOf<'T> ()
-
     let resource =
       let hp  = Direct3D12.HeapProperties Direct3D12.HeapType.Upload
       let hf  = Direct3D12.HeapFlags.None
