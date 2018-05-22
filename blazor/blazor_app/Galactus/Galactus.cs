@@ -26,7 +26,6 @@ namespace blazor_app.Galactus
 
     public Unit AddReceiver(string name, Action<String> receiver)
     {
-      Console.WriteLine("AddReceiver(0)");
       if (receiver == null)
       {
         return Unit.Value;
@@ -42,7 +41,6 @@ namespace blazor_app.Galactus
           }
         };
 
-      Console.WriteLine($"AddReceiver - {name}");
       m_builder.AddAttribute(seq++, name, handler);
       return Unit.Value;
     }

@@ -9,7 +9,15 @@ namespace blazor_app.Galactus
     {
     }
 
+    public partial class Br : Node
+    {
+    }
+
     public partial class ContentNode : Node
+    {
+    }
+
+    public partial class Button : ContentNode
     {
     }
 
@@ -18,6 +26,30 @@ namespace blazor_app.Galactus
     }
 
     public partial class Img : Node
+    {
+    }
+
+    public partial class H1 : ContentNode
+    {
+    }
+
+    public partial class H2 : ContentNode
+    {
+    }
+
+    public partial class H3 : ContentNode
+    {
+    }
+
+    public partial class H4 : ContentNode
+    {
+    }
+
+    public partial class H5 : ContentNode
+    {
+    }
+
+    public partial class Hr : Node
     {
     }
 
@@ -56,7 +88,15 @@ namespace blazor_app.Galactus
       public static readonly IAttribute<Hierarchy.Node, bool> Translate = new Attribute<Hierarchy.Node, bool>("translate");
     }
 
+    public partial class Br : Node
+    {
+    }
+
     public partial class ContentNode : Node
+    {
+    }
+
+    public partial class Button : ContentNode
     {
     }
 
@@ -78,8 +118,34 @@ namespace blazor_app.Galactus
       public static readonly IAttribute<Hierarchy.Img, string> Width = new Attribute<Hierarchy.Img, string>("width");
     }
 
+    public partial class H1 : ContentNode
+    {
+    }
+
+    public partial class H2 : ContentNode
+    {
+    }
+
+    public partial class H3 : ContentNode
+    {
+    }
+
+    public partial class H4 : ContentNode
+    {
+    }
+
+    public partial class H5 : ContentNode
+    {
+    }
+
+    public partial class Hr : Node
+    {
+    }
+
     public partial class Input : Node
     {
+      public static readonly IAttribute<Hierarchy.Input, string> Placeholder = new Attribute<Hierarchy.Input, string>("placeholder");
+      public static readonly IAttribute<Hierarchy.Input, string> Value = new Attribute<Hierarchy.Input, string>("value");
     }
 
     public partial class P : ContentNode
@@ -108,7 +174,15 @@ namespace blazor_app.Galactus
       public static readonly IEvent<Hierarchy.Node, Unit> OnSubmit = new Event<Hierarchy.Node, Unit>("onsubmit");
     }
 
+    public partial class Br : Node
+    {
+    }
+
     public partial class ContentNode : Node
+    {
+    }
+
+    public partial class Button : ContentNode
     {
     }
 
@@ -117,6 +191,30 @@ namespace blazor_app.Galactus
     }
 
     public partial class Img : Node
+    {
+    }
+
+    public partial class H1 : ContentNode
+    {
+    }
+
+    public partial class H2 : ContentNode
+    {
+    }
+
+    public partial class H3 : ContentNode
+    {
+    }
+
+    public partial class H4 : ContentNode
+    {
+    }
+
+    public partial class H5 : ContentNode
+    {
+    }
+
+    public partial class Hr : Node
     {
     }
 
@@ -163,7 +261,13 @@ namespace blazor_app.Galactus
     public static IReceiveValue<TMessage, Hierarchy.Node, Unit> OnSelect(Action<Unit> r) => Receive_Unit(Events.Node.OnSelect, r);
     public static IReceiveValue<TMessage, Hierarchy.Node, Unit> OnSubmit(Action<Unit> r) => Receive_Unit(Events.Node.OnSubmit, r);
 
+    // Br
+    public static IView<TMessage> Br(params IValue<TMessage, Hierarchy.Br>[] values) => Create_View<Hierarchy.Br>("br", values);
+
     // ContentNode
+
+    // Button
+    public static ContainerView<TMessage> Button(params IValue<TMessage, Hierarchy.Button>[] values) => Create_ContainerView<Hierarchy.Button>("button", values);
 
     // Div
     public static ContainerView<TMessage> Div(params IValue<TMessage, Hierarchy.Div>[] values) => Create_ContainerView<Hierarchy.Div>("div", values);
@@ -181,7 +285,27 @@ namespace blazor_app.Galactus
     public static ISetValue<TMessage, Hierarchy.Img, string> Width(string v) => Set_string(Attributes.Img.Width, v);
     public static IView<TMessage> Img(params IValue<TMessage, Hierarchy.Img>[] values) => Create_View<Hierarchy.Img>("img", values);
 
+    // H1
+    public static ContainerView<TMessage> H1(params IValue<TMessage, Hierarchy.H1>[] values) => Create_ContainerView<Hierarchy.H1>("h1", values);
+
+    // H2
+    public static ContainerView<TMessage> H2(params IValue<TMessage, Hierarchy.H2>[] values) => Create_ContainerView<Hierarchy.H2>("h2", values);
+
+    // H3
+    public static ContainerView<TMessage> H3(params IValue<TMessage, Hierarchy.H3>[] values) => Create_ContainerView<Hierarchy.H3>("h3", values);
+
+    // H4
+    public static ContainerView<TMessage> H4(params IValue<TMessage, Hierarchy.H4>[] values) => Create_ContainerView<Hierarchy.H4>("h4", values);
+
+    // H5
+    public static ContainerView<TMessage> H5(params IValue<TMessage, Hierarchy.H5>[] values) => Create_ContainerView<Hierarchy.H5>("h5", values);
+
+    // Hr
+    public static IView<TMessage> Hr(params IValue<TMessage, Hierarchy.Hr>[] values) => Create_View<Hierarchy.Hr>("hr", values);
+
     // Input
+    public static ISetValue<TMessage, Hierarchy.Input, string> Placeholder(string v) => Set_string(Attributes.Input.Placeholder, v);
+    public static ISetValue<TMessage, Hierarchy.Input, string> Value(string v) => Set_string(Attributes.Input.Value, v);
     public static IView<TMessage> Input(params IValue<TMessage, Hierarchy.Input>[] values) => Create_View<Hierarchy.Input>("input", values);
 
     // P

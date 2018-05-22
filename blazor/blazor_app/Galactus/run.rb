@@ -92,10 +92,12 @@ $types  =
           onunit(   "OnSubmit"      , "onsubmit"        ),
         ]                                               ,
     }                                                   ,
+    node(       "Br"    , "br"    , [])                 ,
     {
       name:   "ContentNode"                             ,
       base:   "Node"                                    ,
     }                                                   ,
+    contentNode("Button", "button", [])                 ,
     contentNode("Div"   , "div"   , [])                 ,
     node(
       "Img"                                             ,
@@ -113,7 +115,20 @@ $types  =
         string("Width"            , "width"             ),
       ]                                                 ,
     )                                                   ,
-    node(       "Input" , "input" , [])                 ,
+    contentNode("H1"    , "h1"    , [])                 ,
+    contentNode("H2"    , "h2"    , [])                 ,
+    contentNode("H3"    , "h3"    , [])                 ,
+    contentNode("H4"    , "h4"    , [])                 ,
+    contentNode("H5"    , "h5"    , [])                 ,
+    node(       "Hr"    , "hr"    , [])                 ,
+    node(
+      "Input"                                           ,
+      "input"                                           ,
+      [
+        string("Placeholder"      , "placeholder"       ),
+        string("Value"            , "value"             ),
+      ]                                                 ,
+    )                                                   ,
     contentNode("P"     , "p"     , [])                 ,
     contentNode("Span"  , "span"  , [])                 ,
   ]
