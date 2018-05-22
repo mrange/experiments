@@ -1,0 +1,121 @@
+require 'carnelian/executor'
+
+def attribute(name, key, type)
+  {
+    name:           name  ,
+    key:            key   ,
+    type:           type  ,
+  }
+end
+
+def event(name, key, type)
+  {
+    name:           name  ,
+    key:            key   ,
+    type:           type  ,
+  }
+end
+
+def string(name, key)
+  attribute(name, key, "string")
+end
+
+def bool(name, key)
+  attribute(name, key, "bool")
+end
+
+def onstring(name, key)
+  event(name, key, "string")
+end
+
+def onbool(name, key)
+  event(name, key, "bool")
+end
+
+def onunit(name, key)
+  event(name, key, "Unit")
+end
+
+def node(name, tag, attributes)
+  {
+    name:       name        ,
+    tag:        tag         ,
+    base:       "Node"      ,
+    attributes: attributes  ,
+    isContent:  false       ,
+  }
+end
+
+def contentNode(name, tag, attributes)
+  {
+    name:       name          ,
+    tag:        tag           ,
+    base:       "ContentNode" ,
+    attributes: attributes    ,
+    isContent:  true          ,
+  }
+end
+
+$types  =
+  [
+    {
+      name:   "Node"                                    ,
+      attributes:
+        [
+          string("AccessKey"        , "accesskey"       ),
+          string("Class"            , "class"           ),
+          bool(  "ContentEditable"  , "contenteditable" ),
+          string("ContextMenu"      , "contextmenu"     ),
+          string("Dir"              , "dir"             ),
+          bool(  "Draggable"        , "draggable"       ),
+          bool(  "DropZone"         , "dropzone"        ),
+          bool(  "Hidden"           , "hidden"          ),
+          string("Id"               , "id"              ),
+          string("Lang"             , "lang"            ),
+          bool(  "SpellCheck"       , "spellcheck"      ),
+          string("Style"            , "style"           ),
+          string("TabIndex"         , "tabindex"        ),
+          string("Title"            , "title"           ),
+          bool(  "Translate"        , "translate"       ),
+        ]                                               ,
+        events:
+        [
+          onunit(   "OnBlur"        , "onblur"          ),
+          onstring( "OnChange"      , "onchange"        ),
+          onunit(   "OnContextMenu" , "oncontextmenu"   ),
+          onunit(   "OnFocus"       , "onfocus"         ),
+          onunit(   "OnInput"       , "oninput"         ),
+          onunit(   "OnInvalid"     , "oninvalid"       ),
+          onunit(   "OnReset"       , "onreset"         ),
+          onunit(   "OnSearch"      , "onsearch"        ),
+          onunit(   "OnSelect"      , "onselect"        ),
+          onunit(   "OnSubmit"      , "onsubmit"        ),
+        ]                                               ,
+    }                                                   ,
+    {
+      name:   "ContentNode"                             ,
+      base:   "Node"                                    ,
+    }                                                   ,
+    contentNode("Div"   , "div"   , [])                 ,
+    node(
+      "Img"                                             ,
+      "img"                                             ,
+      [
+        string("Alt"              , "alt"               ),
+        string("CrossOrigin"      , "crossorigin"       ),
+        bool(  "IsMap"            , "ismap"             ),
+        string("LongDesc"         , "longdesc"          ),
+        string("Sizes"            , "sizes"             ),
+        string("Src"              , "src"               ),
+        string("SrcSet"           , "srcset"            ),
+        string("UseMap"           , "usemap"            ),
+        string("Vspace"           , "vspace"            ),
+        string("Width"            , "width"             ),
+      ]                                                 ,
+    )                                                   ,
+    node(       "Input" , "input" , [])                 ,
+    contentNode("P"     , "p"     , [])                 ,
+    contentNode("Span"  , "span"  , [])                 ,
+  ]
+
+CarnelianExecutor.execute_metaprogram_to_file "Generated_Galactus.mp", "Generated_Galactus.cs"

@@ -1,0 +1,16 @@
+﻿@page "/formlet"
+
+<h1>Formlet</h1>
+
+<p>
+    @DynamicFragment
+</p>
+
+@functions {
+  protected override void OnInit()
+  {
+    DynamicFragment = blazor_app.Galactus.Extensions.CreateRenderFragment(Test.View);
+  }
+
+  RenderFragment DynamicFragment;
+}
