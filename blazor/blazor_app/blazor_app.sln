@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.27617.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "blazor_app", "blazor_app.csproj", "{868E219B-B3B1-4AC2-A55B-901BF70D1B97}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Galactus.Formlet", "Galactus.Formlet\Galactus.Formlet.fsproj", "{9B48DB49-BB57-4DC0-B29F-6F4A6668B22D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{868E219B-B3B1-4AC2-A55B-901BF70D1B97}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{868E219B-B3B1-4AC2-A55B-901BF70D1B97}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{868E219B-B3B1-4AC2-A55B-901BF70D1B97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B48DB49-BB57-4DC0-B29F-6F4A6668B22D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B48DB49-BB57-4DC0-B29F-6F4A6668B22D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B48DB49-BB57-4DC0-B29F-6F4A6668B22D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B48DB49-BB57-4DC0-B29F-6F4A6668B22D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

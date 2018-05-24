@@ -17,6 +17,7 @@
 
     public static IView<Message> Create()
     {
+      var x = global::Galactus.Formlet.Core.x;
       IView<Message> Label(string txt) => Div(Class("my-label"))(Text(txt));
       IView<Message> Paragraph(string txt) => P(Class("my-paragraph"))(Text(txt));
       IView<Message> Chapter(string label, string txt) => Group(Label(label), Paragraph(txt));
@@ -24,7 +25,7 @@
         Div
           ()
           ( Chapter("Hello", "There!")
-          , Chapter("Hello", "Again!")
+          , Chapter("Hello", $"Again {x}!")
           , Input(Class("my-input"), OnChange(v => Console.WriteLine($"OnChange(1): {v}")))
           , Input(Class("my-input"), OnChange(v => Console.WriteLine($"OnChange(2): {v}")))
           );

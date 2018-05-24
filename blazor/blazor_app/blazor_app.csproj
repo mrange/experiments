@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="Galactus.Formlet\Galactus.Formlet.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Galactus\Generated_Galactus.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>Generated_Galactus.cs</LastGenOutput>
