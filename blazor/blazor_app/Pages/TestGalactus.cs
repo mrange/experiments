@@ -1,10 +1,15 @@
 ﻿namespace blazor_app.Pages
 {
   using Galactus;
+  using static global::Galactus.Formlet.Core;
+
   using System;
   using static Galactus.Views<Message>;
+  using Microsoft.FSharp.Core;
+  using Microsoft.AspNetCore.Blazor.RenderTree;
+    using Microsoft.AspNetCore.Blazor;
 
-  public class Message
+    public class Message
   {
 
   }
@@ -67,4 +72,78 @@
         );
     }
   }
+
+  public static class Test2
+  {
+    public class Builder : FormletRenderTreeBuilder
+    {
+      readonly RenderTreeBuilder m_builder;
+
+      int seq = 0;
+
+      public Builder(RenderTreeBuilder builder)
+      {
+        m_builder = builder;
+      }
+
+      public void AddAttribute(string key, string value)
+      {
+        m_builder.AddAttribute(seq++, key, value);
+      }
+
+      public void AddContent(string content)
+      {
+        m_builder.AddContent(seq++, content);
+      }
+
+      public void CloseElement()
+      {
+        m_builder.CloseElement();
+      }
+
+      public void OpenElement(string tag, FormletElementDecorators feds)
+      {
+        m_builder.OpenElement(seq++, tag);
+        var list = feds.Item;
+        while (!list.IsEmpty)
+        {
+          var fed = list.Head;
+          m_builder.AddAttribute(seq++, fed.Item1, fed.Item2);
+          list = list.Tail;
+        }
+      }
+
+      public void OpenValueElement(string tag, FormletElementDecorators feds, FSharpRef<string> rval)
+      {
+        OpenElement(tag, feds);
+
+        UIEventHandler handler = args =>
+        {
+          var a = args as UIChangeEventArgs;
+          if (a != null)
+          {
+            var v = a.Value as string ?? "";
+            rval.Value = v;
+          }
+        };
+
+        m_builder.AddAttribute(seq++, "onchange", handler);
+      }
+    }
+
+    public static RenderFragment Create<T>(Formlet<T> formlet)
+    {
+      return b => {
+        var builder = new Builder(b);
+        Action<NotifyType> notify = nt =>
+        {
+          Console.WriteLine($"Notify: {nt}");
+        };
+        var tr = global::Galactus.Formlet.Core.Formlet.buildUp(builder, notify, formlet, FormletTree.Empty);
+        Console.WriteLine($"FormletResult: {tr}");
+      };
+    }
+
+  }
+
 }
