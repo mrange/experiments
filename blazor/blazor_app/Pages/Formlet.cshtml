@@ -10,7 +10,7 @@
   protected override void OnInit()
   {
     //DynamicFragment = blazor_app.Galactus.Extensions.CreateRenderFragment(Test.CalculatorView);
-    DynamicFragment = Test2.Create<Tuple<string, string>>(global::Galactus.Formlet.Core.Test.test);
+    DynamicFragment = Test2.Create();
   }
 
   RenderFragment DynamicFragment;
