@@ -4,11 +4,13 @@
 
   using System;
   using static Galactus.Views<Message>;
-  using Microsoft.AspNetCore.Blazor.RenderTree;
   using Microsoft.AspNetCore.Blazor;
-    using blazor_app.Galactus.Formlet;
+  using blazor_app.Galactus.Formlet;
 
-    public class Message
+  using static blazor_app.Galactus.Formlet.Tags;
+
+
+  public class Message
   {
 
   }
@@ -81,7 +83,7 @@
         Console.WriteLine($"Notify: {nt}");
       };
       var ts = FormletState.Empty.Value;
-      var t = Tags.Input("Hello", "").AndAlso(Tags.Input("There", ""));
+      var t = Input("Hello", "").AndAlso(Input("There", ""));
 
       return b => {
         var tr = t.BuildUp(b, notify, ts);

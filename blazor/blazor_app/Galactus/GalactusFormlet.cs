@@ -7,13 +7,14 @@
 
   using FailureContext  = ImmutableList<string>;
   using Attributes      = ImmutableList<(string key, string value)>;
+  using System.Text;
 
   public sealed class Unit
   {
     public static readonly Unit Value = new Unit ();
   }
 
-  public struct Maybe<T>
+  public struct Maybe<T> : IEquatable<Maybe<T>>
   {
     readonly bool m_hasValue;
     readonly T    m_value   ;
@@ -31,6 +32,40 @@
       {
         return m_hasValue ? m_value : throw new Exception("Maybe holds no value");
       }
+    }
+
+    public override bool Equals(object obj)
+    {
+      if(obj is Maybe<T>)
+      {
+        return Equals((Maybe<T>)obj);
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    public override int GetHashCode()
+    {
+      return m_hasValue ? Value.GetHashCode() : 0x55555555;
+    }
+
+    public bool Equals(Maybe<T> other)
+    {
+      if(m_hasValue && other.m_hasValue)
+      {
+        return m_value.Equals(other.Value);
+      } 
+      else
+      {
+        return m_hasValue == other.m_hasValue;
+      }
+    }
+
+    public override string ToString()
+    {
+      return m_hasValue ? $"(Just {m_value})" : "(Nothing)";
     }
   }
 
@@ -67,6 +102,34 @@
     public ImmutableList<T> Tail => !IsEmpty ? m_tail : throw new Exception("List is empty");
 
     public ImmutableList<T> Cons(T head) => new ImmutableList<T>(head, this);
+
+    public override string ToString()
+    {
+      var sb = new StringBuilder(16);
+
+      sb.Append('[');
+
+      var list = this;
+      var first = true;
+      while(!list.IsEmpty)
+      {
+        if(!first)
+        {
+          sb.Append(", ");
+        }
+
+        first = false;
+
+        sb.Append(list.Head);
+
+        list = list.Tail;
+      }
+
+      sb.Append(']');
+
+      return sb.ToString();
+    }
+
   }
 
   public static class ImmutableList
@@ -137,6 +200,8 @@
 
       Builder.AddAttribute(seq++, "onchange", handler);
     }
+
+    public override string ToString() => "(FormletContext)";
   }
 
   public abstract class FormletFailureState
@@ -144,6 +209,8 @@
     public sealed class Empty : FormletFailureState
     {
       public static readonly FormletFailureState Value = new Empty();
+
+      public override string ToString() => "(Empty)";
     }
 
     public sealed class Failure : FormletFailureState
@@ -156,6 +223,8 @@
         FailureContext  = failureContext;
         Message         = message       ;
       }
+
+      public override string ToString() => $"(Failure, {FailureContext}, {Message})";
     }
 
     public sealed class Fork : FormletFailureState
@@ -168,6 +237,8 @@
         Left  = left  ;
         Right = right ;
       }
+
+      public override string ToString() => $"(Fork, {Left}, {Right})";
     }
 
     public static FormletFailureState Join(FormletFailureState left, FormletFailureState right)
@@ -186,7 +257,6 @@
       }
 
     }
-
   }
 
   public sealed class Tag
@@ -206,6 +276,8 @@
     public sealed class Empty : FormletState
     {
       public static readonly FormletState Value = new Empty();
+
+      public override string ToString() => "(Empty)";
     }
 
     public sealed class Input : FormletState
@@ -218,6 +290,8 @@
         Tag     = tag   ;
         Value   = value ;
       }
+
+      public override string ToString() => $"(Input, {Tag}, {Value})";
     }
 
     public sealed class Debug : FormletState
@@ -230,6 +304,8 @@
         Name  = name  ;
         State = state ;
       }
+
+      public override string ToString() => $"(Debug, {Name}, {State})";
     }
 
     public sealed class Named : FormletState
@@ -242,6 +318,8 @@
         Name  = name  ;
         State = state ;
       }
+
+      public override string ToString() => $"(Named, {Name}, {State})";
     }
 
     public sealed class Fork : FormletState
@@ -254,6 +332,8 @@
         Left  = left  ;
         Right = right ;
       }
+
+      public override string ToString() => $"(Fork, {Left}, {Right})";
     }
 
     public static FormletState Join(FormletState left, FormletState right) =>
@@ -273,6 +353,8 @@
       FailureState  = failureState;
       State         = state       ;
     }
+
+    public override string ToString() => $"(FormletResult, {Value}, {FailureState}, {State})";
   }
 
   public delegate FormletResult<T> Formlet<T>(
@@ -498,7 +580,7 @@
         {
           var input = state as FormletState.Input;
 
-          var ts = state != null && inputTag == input.Tag
+          var ts = input != null && inputTag == input.Tag
             ? input
             : new FormletState.Input(inputTag, initial)
             ;
