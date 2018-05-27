@@ -3,15 +3,20 @@
 <h1>Formlet</h1>
 
 <p>
-    @DynamicFragment
+  @DynamicFragment
 </p>
+<div>
+  <label for="GG">Hello there</label>
+  <input class="form-control is-valid" id="GG" type="text" placeholder="Hello there!"/>
+</div>
+
 
 @functions {
-  protected override void OnInit()
-  {
-    DynamicFragment = Flazor.Elmish.Extensions.CreateRenderFragment(Test.CalculatorView);
-    //DynamicFragment = Test2.Create();
-  }
+protected override void OnInit()
+{
+  //DynamicFragment = Flazor.Elmish.Extensions.CreateRenderFragment(Test.CalculatorView);
+  DynamicFragment = Test2.Create();
+}
 
-  RenderFragment DynamicFragment;
+RenderFragment DynamicFragment;
 }

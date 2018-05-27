@@ -6,6 +6,11 @@ namespace Flazor
   using System;
   using System.Text;
 
+  public static partial class Common
+  {
+    public const int InitialSize = 16;
+  }
+
   public sealed partial class Unit
   {
     Unit()
@@ -64,7 +69,7 @@ namespace Flazor
 
     public override string ToString()
     {
-      var sb = new StringBuilder(16);
+      var sb = new StringBuilder(Common.InitialSize);
 
       sb.Append('[');
 
@@ -95,6 +100,7 @@ namespace Flazor
   {
     public static ImmutableList<T> Empty<T>() => ImmutableList<T>.Empty;
     public static ImmutableList<T> Cons<T>(T head, ImmutableList<T> tail) => tail.Cons(head);
+    public static ImmutableList<T> Singleton<T>(T value) => Empty<T>().Cons(value);
   }
 
 }

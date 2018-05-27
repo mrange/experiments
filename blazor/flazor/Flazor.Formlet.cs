@@ -7,9 +7,11 @@ namespace Flazor.Formlets
   using Microsoft.AspNetCore.Blazor.RenderTree;
   using System;
   using System.Text.RegularExpressions;
+  using System.Text;
 
   using FailureContext  = ImmutableList<string>;
-  using Attributes      = ImmutableList<(string key, string value)>;
+  using Attributes      = ImmutableList<Attribute>;
+  using System.Collections.Generic;
 
   public enum NotifyType
   {
@@ -20,46 +22,108 @@ namespace Flazor.Formlets
 
   public sealed class FormletContext
   {
-    public readonly RenderTreeBuilder   Builder ;
-    public readonly Action<NotifyType>  Notify  ;
+    readonly RenderTreeBuilder   m_builder ;
+    readonly Action<NotifyType>  m_notify  ;
 
-    int seq = 0;
+    readonly Stack<List<string>> m_stack    = new Stack<List<string>>(Common.InitialSize);
+    readonly Stack<List<string>> m_reused   = new Stack<List<string>>(Common.InitialSize);
+    readonly StringBuilder       m_classes  = new StringBuilder(Common.InitialSize);
+
+    int seq = 1000;
 
     public FormletContext(RenderTreeBuilder builder, Action<NotifyType> notify)
     {
-      Builder = builder ;
-      Notify  = notify  ;
+      m_builder = builder ;
+      m_notify  = notify  ;
     }
 
     public void AddAttribute(string key, string value)
     {
-      Builder.AddAttribute(seq++, key, value);
+      var list = m_stack.Peek();
+      list.Add(key);
+      list.Add(value);
+    }
+
+    public void CloseAttributes(Attributes attributes)
+    {
+      Console.WriteLine($"(CloseAttributes, {attributes})");
+      while (!attributes.IsEmpty)
+      {
+        var attribute = attributes.Head;
+        attribute.AddAttributes(this);
+        attributes = attributes.Tail;
+      }
+
+      var list = m_stack.Peek();
+
+      if (list.Count > 0)
+      {
+        m_classes.Clear();
+
+        for (var iter = 0; iter < list.Count; iter += 2)
+        {
+          var key = list[iter];
+          var value = iter + 1 < list.Count ? list[iter + 1] : "";
+
+          // Special handling for multiple classes
+          if (key.Equals("class", StringComparison.Ordinal))
+          {
+            if (m_classes.Length > 1)
+            {
+              m_classes.Append(' ');
+            }
+            m_classes.Append(value);
+          }
+          else
+          {
+            Console.WriteLine($"(Attribute, {seq}, {key}, {value})");
+            m_builder.AddAttribute(seq++, key, value);
+          }
+        }
+
+        if (m_classes.Length > 0)
+        { 
+          Console.WriteLine($"(Attribute, {seq},  class, {m_classes})");
+          m_builder.AddAttribute(seq++, "class", m_classes.ToString());
+        }
+
+        m_classes.Clear();
+      }
     }
 
     public void AddContent(string content)
     {
-      Builder.AddContent(seq++, content);
+      m_builder.AddContent(seq++, content);
     }
 
     public void CloseElement()
     {
-      Builder.CloseElement();
+      var list = m_stack.Pop();
+      list.Clear();
+      m_reused.Push(list);
+      m_builder.CloseElement();
     }
 
-    public void OpenElement(string tag, ImmutableList<(string key, string value)> attributes)
+    public void OpenElement(string tag)
     {
-      Builder.OpenElement(seq++, tag);
-      while (!attributes.IsEmpty)
+      m_builder.OpenElement(seq++, tag);
+
+      if (m_reused.Count > 0)
       {
-        var attribute = attributes.Head;
-        Builder.AddAttribute(seq++, attribute.Item1, attribute.Item2);
-        attributes = attributes.Tail;
+        var list = m_reused.Pop();
+        list.Clear();
+        m_stack.Push(list);
+      }
+      else
+      {
+        var list = new List<string>(Common.InitialSize);
+        m_stack.Push(list);
       }
     }
 
-    public void OpenValueElement(string tag, Attributes attributes, FormletState.Input input)
+    public void OpenValueElement(string tag, FormletState.Input input)
     {
-      OpenElement(tag, attributes);
+      OpenElement(tag);
 
       UIEventHandler handler = args =>
       {
@@ -68,14 +132,75 @@ namespace Flazor.Formlets
         {
           var v = a.Value as string ?? "";
           input.Value = v;
-          Notify(NotifyType.Change);
+          m_notify(NotifyType.Change);
         }
       };
 
-      Builder.AddAttribute(seq++, "onchange", handler);
+      m_builder.AddAttribute(seq++, "onchange", handler);
     }
 
     public override string ToString() => "(FormletContext)";
+  }
+
+  public abstract class Attribute
+  {
+    public sealed class Single : Attribute
+    {
+      public readonly string Key   ;
+      public readonly string Value ;
+
+      public Single(string key, string value)
+      {
+        Key   = key   ;
+        Value = value ;
+      }
+
+      public override void AddAttributes(FormletContext context)
+      {
+        context.AddAttribute(Key, Value);
+      }
+
+      public override string ToString() => $"(Single, {Key}, {Value})";
+    }
+
+    public sealed class Many : Attribute
+    {
+      public readonly string[] KeyValues;
+
+      public Many(string[] keyValues)
+      {
+        KeyValues = keyValues;
+      }
+
+      public override void AddAttributes(FormletContext context)
+      {
+        for (var iter = 0; iter < KeyValues.Length; iter += 2)
+        {
+          var key = KeyValues[iter];
+          var value = iter + 1 < KeyValues.Length ? KeyValues[iter + 1] : "";
+
+          context.AddAttribute(key, value);
+        }
+      }
+
+      public override string ToString() {
+        var sb = new StringBuilder(Common.InitialSize);
+        sb.Append("(Many");
+        for (var iter = 0; iter < KeyValues.Length; iter += 2)
+        {
+          var key = KeyValues[iter];
+          var value = iter + 1 < KeyValues.Length ? KeyValues[iter + 1] : "";
+          sb.Append(", ");
+          sb.Append(key);
+          sb.Append(':');
+          sb.Append(value);
+        }
+        sb.Append(')');
+        return sb.ToString();
+      }
+    }
+
+    public abstract void AddAttributes(FormletContext context);
   }
 
   public abstract class FormletFailureState
@@ -382,25 +507,46 @@ namespace Flazor.Formlets
             ;
         };
 
+    public static readonly Func<string, Maybe<string>> ValidatorNotEmpty = 
+      s => string.IsNullOrEmpty(s) ? Maybe.Just("Must not be empty") : Maybe.Nothing<string>();
+
     public static Formlet<string> ValidateNotEmpty(this Formlet<string> t) =>
-      t.Validate(s => string.IsNullOrEmpty(s) ? Maybe.Just("Must not be empty") : Maybe.Nothing<string>());
+      t.Validate(ValidatorNotEmpty);
+
+    public static Func<string, Maybe<string>> ValidatorRegex(Regex regex, string message) =>
+      s => regex.IsMatch(s) ? Maybe.Nothing<string>() : Maybe.Just(message);
 
     public static Formlet<string> ValidateRegex(this Formlet<string> t, Regex regex, string message) =>
-      t.Validate(s => regex.IsMatch(s) ? Maybe.Nothing<string>() : Maybe.Just(message));
+      t.Validate(ValidatorRegex(regex, message));
 
     public static Formlet<T> WithAttribute<T>(this Formlet<T> t, string key, string value) =>
       (context, failureContext, attributes, state) =>
-        t(context, failureContext, attributes.Cons((key, value)), state);
+        t(context, failureContext, attributes.Cons(new Attribute.Single(key, value)), state);
+
+    public static Formlet<T> WithAttributes<T>(this Formlet<T> t, params string[] keyValues) =>
+      (context, failureContext, attributes, state) =>
+        t(context, failureContext, attributes.Cons(new Attribute.Many(keyValues)), state);
+
+    public static Formlet<T> WithClass<T>(this Formlet<T> t, string @class) =>
+      (context, failureContext, attributes, state) =>
+        t(context, failureContext, attributes.Cons(new Attribute.Single("class", @class)), state);
+
+    public static Formlet<T> WithId<T>(this Formlet<T> t, string id) =>
+      (context, failureContext, attributes, state) =>
+        t(context, failureContext, attributes.Cons(new Attribute.Single("id", id)), state);
 
     public static Formlet<T> WithLabel<T>(this Formlet<T> t, string @for, string label) =>
       (context, failureContext, attributes, state) =>
         {
-          context.OpenElement("label", Attributes.Empty);
+          var ffc = failureContext.Cons(label);
+
+          context.OpenElement("label");
           context.AddAttribute("for", @for);
+          context.CloseAttributes(Attributes.Empty);
           context.AddContent(label);
           context.CloseElement();
 
-          return t(context, failureContext, attributes, state);
+          return t(context, ffc, attributes, state);
         };
 
     public static FormletResult<T> BuildUp<T>(this Formlet<T> t, RenderTreeBuilder builder, Action<NotifyType> notify, FormletState state)
@@ -414,7 +560,8 @@ namespace Flazor.Formlets
     public static Formlet<T> NestWithTag<T>(this Formlet<T> t, string tag) =>
       (context, failureContext, attributes, state) =>
         {
-          context.OpenElement(tag, attributes);
+          context.OpenElement(tag);
+          context.CloseAttributes(attributes);
           var tr = t(context, failureContext, Attributes.Empty, state);
           context.CloseElement();
           return tr;
@@ -423,7 +570,8 @@ namespace Flazor.Formlets
     public static Formlet<Unit> Tag(string tag, string content = null) =>
       (context, failureContext, attributes, state) =>
         {
-          context.OpenElement(tag, attributes);
+          context.OpenElement(tag);
+          context.CloseAttributes(attributes);
           if (content != null)
           {
             context.AddContent(content);
@@ -459,12 +607,34 @@ namespace Flazor.Formlets
             : new FormletState.Input(inputTag, initial)
             ;
 
-          context.OpenValueElement("input", attributes, ts);
+          context.OpenValueElement("input", ts);
           context.AddAttribute("placeholder", placeholder);
           context.AddAttribute("type", "text");
+          context.CloseAttributes(attributes);
           context.CloseElement();
 
           return Formlet.Success(ts.Value, ts);
         };
+  }
+
+  namespace Bootstrap
+  {
+    public static class Formlet
+    {
+      public static Formlet<T> WithValidation<T>(this Formlet<T> t, string tag) =>
+        (context, failureContext, attributes, state) =>
+        {
+          context.OpenElement(tag);
+          var tr = t(context, failureContext, attributes, state);
+          var value = tr.FailureState is FormletFailureState.Empty
+            ? "is-valid"
+            : "is-invalid"
+            ;
+          context.AddAttribute("class", value);
+          context.CloseAttributes(Attributes.Empty);
+          context.CloseElement();
+          return tr;
+        };
+    }
   }
 }
