@@ -203,6 +203,81 @@ namespace Flazor.Formlets
     public abstract void AddAttributes(FormletContext context);
   }
 
+  public abstract class FormletVisualState
+  {
+    public sealed class Empty : FormletVisualState
+    {
+      public static readonly FormletVisualState Value = new Empty();
+
+      public override string ToString() => "(Empty)";
+    }
+
+    public sealed class Fork : FormletVisualState
+    {
+      public readonly FormletVisualState Left ;
+      public readonly FormletVisualState Right;
+
+      public Fork(FormletVisualState left, FormletVisualState right)
+      {
+        Left  = left  ;
+        Right = right ;
+      }
+
+      public override string ToString() => $"(Fork, {Left}, {Right})";
+    }
+
+    public sealed class WithAttributes : FormletVisualState
+    {
+      public readonly string[] Attributes ;
+
+      public WithAttributes(string[] attributes)
+      {
+        Attributes  = attributes ;
+      }
+
+      public override string ToString() => $"(WithAttributes, {Tag})";
+    }
+
+    public sealed class WithContent : FormletVisualState
+    {
+      public readonly string Content ;
+
+      public WithContent(string content)
+      {
+        Content = content ;
+      }
+
+      public override string ToString() => $"(WithContent, {Content})";
+    }
+
+    public sealed class Element : FormletVisualState
+    {
+      public readonly string Tag  ;
+
+      public Element(string tag)
+      {
+        Tag   = tag   ;
+      }
+
+      public override string ToString() => $"(Element, {Tag})";
+    }
+
+    public sealed class InputElement : FormletVisualState
+    {
+      public readonly string              Tag  ;
+      public readonly FormletState.Input  Input;
+
+      public InputElement(string tag, FormletState.Input input)
+      {
+        Tag   = tag   ;
+        Input = input ;
+      }
+
+      public override string ToString() => $"(InputElement, {Tag}, {Input})";
+    }
+
+  }
+
   public abstract class FormletFailureState
   {
     public sealed class Empty : FormletFailureState
