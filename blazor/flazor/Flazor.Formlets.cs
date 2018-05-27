@@ -491,6 +491,20 @@ namespace Flazor.Formlets
             );
         };
 
+    public static Formlet<U> Map<T0, T1, T2, U>(Formlet<T0> t0, Formlet<T1> t1, Formlet<T2> t2, Func<T0, T1, T2, U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          var tr2 = t2(context, failureContext, state);
+          return Result(
+              m(tr0.Value, tr1.Value, tr2.Value)
+            , FormletFailureState.Join( FormletFailureState.Join(tr0.FailureState, tr1.FailureState), tr2.FailureState)
+            , FormletVisualState.Join(FormletVisualState.Join(tr0.VisualState, tr1.VisualState), tr2.VisualState)
+            , FormletState.Join(FormletState.Join(tr0.State, tr1.State), tr2.State)
+            );
+        };
+
     public static Formlet<(T left, U right)> AndAlso<T, U>(this Formlet<T> t, Formlet<U> u) =>
       (context, failureContext, state) =>
         {

@@ -1,4 +1,4 @@
-# Copyright (c) M�rten R�nge. All rights reserved.
+# Copyright (c) Mårten Rånge. All rights reserved.
 # Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 require 'carnelian/executor'
 
@@ -136,3 +136,5 @@ $types  =
   ]
 
 CarnelianExecutor.execute_metaprogram_to_file "Generated_Flazor.Elmish.mp", "Generated_Flazor.Elmish.cs"
+
+CarnelianExecutor.execute_metaprogram_to_file "Generated_Flazor.Formlets.mp", "Generated_Flazor.Formlets.cs"
