@@ -9,10 +9,6 @@ namespace Flazor.Formlets
   using System.Text.RegularExpressions;
   using System.Text;
 
-  using FailureContext  = ImmutableList<string>;
-  using Attributes      = ImmutableList<Attribute>;
-  using System.Collections.Generic;
-
   public enum NotifyType
   {
     Submit,
@@ -22,185 +18,7 @@ namespace Flazor.Formlets
 
   public sealed class FormletContext
   {
-    readonly RenderTreeBuilder   m_builder ;
-    readonly Action<NotifyType>  m_notify  ;
-
-    readonly Stack<List<string>> m_stack    = new Stack<List<string>>(Common.InitialSize);
-    readonly Stack<List<string>> m_reused   = new Stack<List<string>>(Common.InitialSize);
-    readonly StringBuilder       m_classes  = new StringBuilder(Common.InitialSize);
-
-    int seq = 1000;
-
-    public FormletContext(RenderTreeBuilder builder, Action<NotifyType> notify)
-    {
-      m_builder = builder ;
-      m_notify  = notify  ;
-    }
-
-    public void AddAttribute(string key, string value)
-    {
-      var list = m_stack.Peek();
-      list.Add(key);
-      list.Add(value);
-    }
-
-    public void CloseAttributes(Attributes attributes)
-    {
-      Console.WriteLine($"(CloseAttributes, {attributes})");
-      while (!attributes.IsEmpty)
-      {
-        var attribute = attributes.Head;
-        attribute.AddAttributes(this);
-        attributes = attributes.Tail;
-      }
-
-      var list = m_stack.Peek();
-
-      if (list.Count > 0)
-      {
-        m_classes.Clear();
-
-        for (var iter = 0; iter < list.Count; iter += 2)
-        {
-          var key = list[iter];
-          var value = iter + 1 < list.Count ? list[iter + 1] : "";
-
-          // Special handling for multiple classes
-          if (key.Equals("class", StringComparison.Ordinal))
-          {
-            if (m_classes.Length > 1)
-            {
-              m_classes.Append(' ');
-            }
-            m_classes.Append(value);
-          }
-          else
-          {
-            Console.WriteLine($"(Attribute, {seq}, {key}, {value})");
-            m_builder.AddAttribute(seq++, key, value);
-          }
-        }
-
-        if (m_classes.Length > 0)
-        { 
-          Console.WriteLine($"(Attribute, {seq},  class, {m_classes})");
-          m_builder.AddAttribute(seq++, "class", m_classes.ToString());
-        }
-
-        m_classes.Clear();
-      }
-    }
-
-    public void AddContent(string content)
-    {
-      m_builder.AddContent(seq++, content);
-    }
-
-    public void CloseElement()
-    {
-      var list = m_stack.Pop();
-      list.Clear();
-      m_reused.Push(list);
-      m_builder.CloseElement();
-    }
-
-    public void OpenElement(string tag)
-    {
-      m_builder.OpenElement(seq++, tag);
-
-      if (m_reused.Count > 0)
-      {
-        var list = m_reused.Pop();
-        list.Clear();
-        m_stack.Push(list);
-      }
-      else
-      {
-        var list = new List<string>(Common.InitialSize);
-        m_stack.Push(list);
-      }
-    }
-
-    public void OpenValueElement(string tag, FormletState.Input input)
-    {
-      OpenElement(tag);
-
-      UIEventHandler handler = args =>
-      {
-        var a = args as UIChangeEventArgs;
-        if (a != null)
-        {
-          var v = a.Value as string ?? "";
-          input.Value = v;
-          m_notify(NotifyType.Change);
-        }
-      };
-
-      m_builder.AddAttribute(seq++, "onchange", handler);
-    }
-
     public override string ToString() => "(FormletContext)";
-  }
-
-  public abstract class Attribute
-  {
-    public sealed class Single : Attribute
-    {
-      public readonly string Key   ;
-      public readonly string Value ;
-
-      public Single(string key, string value)
-      {
-        Key   = key   ;
-        Value = value ;
-      }
-
-      public override void AddAttributes(FormletContext context)
-      {
-        context.AddAttribute(Key, Value);
-      }
-
-      public override string ToString() => $"(Single, {Key}, {Value})";
-    }
-
-    public sealed class Many : Attribute
-    {
-      public readonly string[] KeyValues;
-
-      public Many(string[] keyValues)
-      {
-        KeyValues = keyValues;
-      }
-
-      public override void AddAttributes(FormletContext context)
-      {
-        for (var iter = 0; iter < KeyValues.Length; iter += 2)
-        {
-          var key = KeyValues[iter];
-          var value = iter + 1 < KeyValues.Length ? KeyValues[iter + 1] : "";
-
-          context.AddAttribute(key, value);
-        }
-      }
-
-      public override string ToString() {
-        var sb = new StringBuilder(Common.InitialSize);
-        sb.Append("(Many");
-        for (var iter = 0; iter < KeyValues.Length; iter += 2)
-        {
-          var key = KeyValues[iter];
-          var value = iter + 1 < KeyValues.Length ? KeyValues[iter + 1] : "";
-          sb.Append(", ");
-          sb.Append(key);
-          sb.Append(':');
-          sb.Append(value);
-        }
-        sb.Append(')');
-        return sb.ToString();
-      }
-    }
-
-    public abstract void AddAttributes(FormletContext context);
   }
 
   public abstract class FormletVisualState
@@ -208,6 +26,10 @@ namespace Flazor.Formlets
     public sealed class Empty : FormletVisualState
     {
       public static readonly FormletVisualState Value = new Empty();
+
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+      }
 
       public override string ToString() => "(Empty)";
     }
@@ -223,43 +45,152 @@ namespace Flazor.Formlets
         Right = right ;
       }
 
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+        Left.BuildUp(notify, builder, ref seq, contents, attributes);
+        Right.BuildUp(notify, builder, ref seq, contents, attributes);
+      }
+
       public override string ToString() => $"(Fork, {Left}, {Right})";
     }
 
     public sealed class WithAttributes : FormletVisualState
     {
-      public readonly string[] Attributes ;
+      public readonly FormletVisualState  VisualState ;
+      public readonly string[]            Attributes  ;
 
-      public WithAttributes(string[] attributes)
+      public WithAttributes(FormletVisualState visualState, params string[] attributes)
       {
+        VisualState = visualState;
         Attributes  = attributes ;
       }
 
-      public override string ToString() => $"(WithAttributes, {Tag})";
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+        VisualState.BuildUp(notify, builder, ref seq, contents, attributes.Cons(Attributes));
+      }
+
+      public override string ToString()
+      {
+        var sb = new StringBuilder(Common.InitialSize);
+        sb.Append("(WithAttributes, ");
+        sb.Append(VisualState);
+        for (var iter = 0; iter < Attributes.Length; iter += 2)
+        {
+          var key = Attributes[iter];
+          var value = iter + 1 < Attributes.Length ? Attributes[iter + 1] : "";
+          sb.Append(", ");
+          sb.Append(key);
+          sb.Append(':');
+          sb.Append(value);
+        }
+        sb.Append(')');
+        return sb.ToString();
+      }
     }
 
     public sealed class WithContent : FormletVisualState
     {
-      public readonly string Content ;
+      public readonly FormletVisualState  VisualState ;
+      public readonly string              Content     ;
 
-      public WithContent(string content)
+      public WithContent(FormletVisualState visualState, string content)
       {
-        Content = content ;
+        VisualState = visualState ;
+        Content     = content     ;
       }
 
-      public override string ToString() => $"(WithContent, {Content})";
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+        VisualState.BuildUp(notify, builder, ref seq, contents.Cons(Content), attributes);
+      }
+
+      public override string ToString() => $"(WithContent, {VisualState}, {Content})";
+    }
+
+    [ThreadStatic]
+    readonly static StringBuilder classes = new StringBuilder(Common.InitialSize);
+
+    static void AddAttributes(RenderTreeBuilder builder, ref int seq, ImmutableList<string[]> attributes)
+    {
+      var clss = classes;
+      var attrs = attributes;
+
+      clss.Clear();
+
+      while (!attrs.IsEmpty)
+      {
+        var list = attrs.Head;
+
+        for (var iter = 0; iter < list.Length; iter += 2)
+        {
+          var key = list[iter];
+          var value = iter + 1 < list.Length ? list[iter + 1] : "";
+
+          // Special handling for multiple classes
+          if (key.Equals("class", StringComparison.Ordinal))
+          {
+            if (clss.Length > 1)
+            {
+              clss.Append(' ');
+            }
+            clss.Append(value);
+          }
+          else
+          {
+            builder.AddAttribute(seq++, key, value);
+          }
+        }
+
+        attributes = attributes.Tail;
+      }
+
+      if (clss.Length > 0)
+      {
+        builder.AddAttribute(seq++, "class", clss.ToString());
+      }
+
+      clss.Clear();
+    }
+
+    static void AddContents(RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents)
+    {
+      if(!contents.IsEmpty)
+      {
+        builder.AddContent(seq++, contents.Head);
+        AddContents(builder, ref seq, contents.Tail);
+      }
+    }
+
+    static void OpenElement(RenderTreeBuilder builder, ref int seq, string tag, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+    {
+      builder.OpenElement(seq++, tag);
+
+      AddAttributes(builder, ref seq, attributes);
+      AddContents(builder, ref seq, contents);
     }
 
     public sealed class Element : FormletVisualState
     {
-      public readonly string Tag  ;
+      public readonly FormletVisualState  VisualState ;
+      public readonly string              Tag         ;
 
-      public Element(string tag)
+      public Element(FormletVisualState visualState, string tag)
       {
-        Tag   = tag   ;
+        VisualState = visualState ;
+        Tag         = tag         ;
       }
 
-      public override string ToString() => $"(Element, {Tag})";
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+        OpenElement(builder, ref seq, Tag, contents, attributes);
+
+        VisualState.BuildUp(notify, builder, ref seq, ImmutableList.Empty<string>(), ImmutableList.Empty<string[]>());
+
+        builder.CloseElement();
+      }
+
+      public override string ToString() => $"(Element, {VisualState}, {Tag})";
     }
 
     public sealed class InputElement : FormletVisualState
@@ -273,9 +204,34 @@ namespace Flazor.Formlets
         Input = input ;
       }
 
+      public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
+      {
+        OpenElement(builder, ref seq, Tag, contents, attributes);
+
+        UIEventHandler handler = args =>
+        {
+          var a = args as UIChangeEventArgs;
+          if (a != null)
+          {
+            var v = a.Value as string ?? "";
+            Input.Value = v;
+            notify(NotifyType.Change);
+          }
+        };
+
+        builder.AddAttribute(seq++, "onchange", handler);
+
+        builder.CloseElement();
+      }
+
       public override string ToString() => $"(InputElement, {Tag}, {Input})";
     }
 
+    public static FormletVisualState Join(FormletVisualState left, FormletVisualState right) =>
+      new Fork(left, right);
+
+
+    public abstract void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes);
   }
 
   public abstract class FormletFailureState
@@ -289,10 +245,10 @@ namespace Flazor.Formlets
 
     public sealed class Failure : FormletFailureState
     {
-      public readonly FailureContext  FailureContext;
-      public readonly string          Message       ;
+      public readonly ImmutableList<string> FailureContext;
+      public readonly string                Message       ;
 
-      public Failure(FailureContext failureContext, string message)
+      public Failure(ImmutableList<string> failureContext, string message)
       {
         FailureContext  = failureContext;
         Message         = message       ;
@@ -320,7 +276,7 @@ namespace Flazor.Formlets
       if (left is Empty)
       {
         return right;
-      } 
+      }
       else if (right is Empty)
       {
         return left;
@@ -419,41 +375,82 @@ namespace Flazor.Formlets
   {
     public readonly T                   Value       ;
     public readonly FormletFailureState FailureState;
+    public readonly FormletVisualState  VisualState ;
     public readonly FormletState        State       ;
 
-    public FormletResult(T value, FormletFailureState failureState, FormletState state)
+    public FormletResult(
+        T                   value
+      , FormletFailureState failureState
+      , FormletVisualState  visualState
+      , FormletState        state
+      )
     {
       Value         = value       ;
       FailureState  = failureState;
+      VisualState   = visualState ;
       State         = state       ;
     }
 
-    public override string ToString() => $"(FormletResult, {Value}, {FailureState}, {State})";
+    public FormletResult<T> WithValue(T value)
+    {
+      return new FormletResult<T>(value, FailureState, VisualState, State);
+    }
+
+    public FormletResult<T> WithFailureState(FormletFailureState failureState)
+    {
+      return new FormletResult<T>(Value, failureState, VisualState, State);
+    }
+
+    public FormletResult<T> WithVisualState(FormletVisualState visualState)
+    {
+      return new FormletResult<T>(Value, FailureState, visualState, State);
+    }
+
+    public FormletResult<T> WithState(FormletState state)
+    {
+      return new FormletResult<T>(Value, FailureState, VisualState, state);
+    }
+
+    public override string ToString() => $"(FormletResult, {Value}, {FailureState}, {VisualState}, {State})";
   }
 
   public delegate FormletResult<T> Formlet<T>(
-        FormletContext  context
-      , FailureContext  failureContext
-      , Attributes      attributes
-      , FormletState    state
+        FormletContext        context
+      , ImmutableList<string> failureContext
+      , FormletState          state
     );
 
   public static class Formlet
   {
-    public static FormletResult<T> Result<T>(T value, FormletFailureState failureState, FormletState state) =>
-      new FormletResult<T>(value, failureState, state);
+    public static FormletResult<T> Result<T>(
+        T                   value
+      , FormletFailureState failureState
+      , FormletVisualState  visualState
+      , FormletState        state
+      ) =>
+      new FormletResult<T>(value, failureState, visualState, state);
 
-    public static FormletResult<T> Success<T>(T value, FormletState state) =>
-      new FormletResult<T>(value, FormletFailureState.Empty.Value, state);
+    public static FormletResult<T> Success<T>(
+        T                   value
+      , FormletVisualState  visualState
+      , FormletState        state
+      ) =>
+      new FormletResult<T>(value, FormletFailureState.Empty.Value, visualState, state);
 
-    public static Formlet<T> Value<T>(T v) => (context, failureContext, attributes, state) => 
-      Success(v, FormletState.Empty.Value);
+    public static Formlet<T> Value<T>(T v) => (context, failureContext, state) =>
+      Success(v, FormletVisualState.Empty.Value, FormletState.Empty.Value);
 
-    public static Formlet<T> FailWith<T>(T v, string message) => 
-      (context, failureContext, attributes, state) => Result(v, new FormletFailureState.Failure (failureContext, message), FormletState.Empty.Value);
+    public static Formlet<T> FailWith<T>(T v, string message) =>
+      (context, failureContext, state) =>
+        Result(
+            v
+          , new FormletFailureState.Failure (failureContext, message)
+          , FormletVisualState.Empty.Value
+          , FormletState.Empty.Value
+          );
 
     public static Formlet<U> Bind<T, U>(this Formlet<T> t, Func<T, Formlet<U>> uf) =>
-      (context, failureContext, attributes, state) => 
+      (context, failureContext, state) =>
         {
           var fork = state as FormletState.Fork;
           // TODO: Is this struct tuple?
@@ -462,22 +459,27 @@ namespace Flazor.Formlets
             : (FormletState.Empty.Value, FormletState.Empty.Value)
             ;
 
-          var tr = t(context, failureContext, attributes, ts);
+          var tr = t(context, failureContext, ts);
           var u  = uf(tr.Value);
-          var ur = u(context, failureContext, attributes, us);
+          var ur = u(context, failureContext, us);
 
-          return Result(ur.Value, FormletFailureState.Join(tr.FailureState, ur.FailureState), FormletState.Join(tr.State, ur.State));
+          return Result(
+              ur.Value
+            , FormletFailureState.Join(tr.FailureState, ur.FailureState)
+            , FormletVisualState.Join(tr.VisualState, ur.VisualState)
+            , FormletState.Join(tr.State, ur.State)
+            );
         };
 
     public static Formlet<U> Map<T, U>(this Formlet<T> t, Func<T, U> m) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
-          var tr = t(context, failureContext, attributes, state);
-          return Result(m(tr.Value), tr.FailureState, tr.State);
+          var tr = t(context, failureContext, state);
+          return Result(m(tr.Value), tr.FailureState, tr.VisualState, tr.State);
         };
 
     public static Formlet<(T left, U right)> AndAlso<T, U>(this Formlet<T> t, Formlet<U> u) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var fork = state as FormletState.Fork;
           // TODO: Is this struct tuple?
@@ -486,14 +488,19 @@ namespace Flazor.Formlets
             : (FormletState.Empty.Value, FormletState.Empty.Value)
             ;
 
-          var tr = t(context, failureContext, attributes, ts);
-          var ur = u(context, failureContext, attributes, us);
+          var tr = t(context, failureContext, ts);
+          var ur = u(context, failureContext, us);
 
-          return Result((tr.Value, ur.Value), FormletFailureState.Join(tr.FailureState, ur.FailureState), FormletState.Join(tr.State, ur.State));
+          return Result(
+              (tr.Value, ur.Value)
+            , FormletFailureState.Join(tr.FailureState, ur.FailureState)
+            , FormletVisualState.Join(tr.VisualState, ur.VisualState)
+            , FormletState.Join(tr.State, ur.State)
+            );
         };
 
     public static Formlet<T> KeepLeft<T, U>(this Formlet<T> t, Formlet<U> u) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
       {
         var fork = state as FormletState.Fork;
         // TODO: Is this struct tuple?
@@ -502,14 +509,19 @@ namespace Flazor.Formlets
           : (FormletState.Empty.Value, FormletState.Empty.Value)
           ;
 
-        var tr = t(context, failureContext, attributes, ts);
-        var ur = u(context, failureContext, attributes, us);
+        var tr = t(context, failureContext, ts);
+        var ur = u(context, failureContext, us);
 
-        return Result(tr.Value, FormletFailureState.Join(tr.FailureState, ur.FailureState), FormletState.Join(tr.State, ur.State));
+        return Result(
+            tr.Value
+          , FormletFailureState.Join(tr.FailureState, ur.FailureState)
+          , FormletVisualState.Join(tr.VisualState, ur.VisualState)
+          , FormletState.Join(tr.State, ur.State)
+          );
       };
 
     public static Formlet<U> KeepRight<T, U>(this Formlet<T> t, Formlet<U> u) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
       {
         var fork = state as FormletState.Fork;
         // TODO: Is this struct tuple?
@@ -518,14 +530,19 @@ namespace Flazor.Formlets
           : (FormletState.Empty.Value, FormletState.Empty.Value)
           ;
 
-        var tr = t(context, failureContext, attributes, ts);
-        var ur = u(context, failureContext, attributes, us);
+        var tr = t(context, failureContext, ts);
+        var ur = u(context, failureContext, us);
 
-        return Result(ur.Value, FormletFailureState.Join(tr.FailureState, ur.FailureState), FormletState.Join(tr.State, ur.State));
+        return Result(
+            ur.Value
+          , FormletFailureState.Join(tr.FailureState, ur.FailureState)
+          , FormletVisualState.Join(tr.VisualState, ur.VisualState)
+          , FormletState.Join(tr.State, ur.State)
+          );
       };
 
     public static Formlet<T> Unpack<T>(this Formlet<Formlet<T>> t) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var fork = state as FormletState.Fork;
           // TODO: Is this struct tuple?
@@ -534,15 +551,19 @@ namespace Flazor.Formlets
             : (FormletState.Empty.Value, FormletState.Empty.Value)
             ;
 
-          var tr = t(context, failureContext, attributes, ts);
+          var tr = t(context, failureContext, ts);
           var u  = tr.Value;
-          var ur = u(context, failureContext, attributes, us);
+          var ur = u(context, failureContext, us);
 
-          return Result(ur.Value, FormletFailureState.Join(tr.FailureState, ur.FailureState), FormletState.Join(tr.State, ur.State));
+          return Result(
+              ur.Value
+            , FormletFailureState.Join(tr.FailureState, ur.FailureState)
+            , FormletVisualState.Join(tr.VisualState, ur.VisualState)
+            , FormletState.Join(tr.State, ur.State));
         };
 
     public static Formlet<T> Debug<T>(this Formlet<T> t, string name) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var debug = state as FormletState.Debug;
           // TODO: Is this struct tuple?
@@ -551,13 +572,13 @@ namespace Flazor.Formlets
             : FormletState.Empty.Value
             ;
 
-          var tr = t(context, failureContext, attributes, ts);
+          var tr = t(context, failureContext, ts);
 
-          return Result(tr.Value, tr.FailureState, new FormletState.Debug(name, tr.State));
+          return tr.WithState(new FormletState.Debug(name, tr.State));
         };
 
     public static Formlet<T> Named<T>(this Formlet<T> t, string name) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var named = state as FormletState.Named;
           // TODO: Is this struct tuple?
@@ -566,23 +587,23 @@ namespace Flazor.Formlets
             : FormletState.Empty.Value
             ;
 
-          var tr = t(context, failureContext, attributes, ts);
+          var tr = t(context, failureContext, ts);
 
-          return Result(tr.Value, tr.FailureState, new FormletState.Named(name, tr.State));
+          return tr.WithState(new FormletState.Named(name, tr.State));
         };
 
     public static Formlet<T> Validate<T>(this Formlet<T> t, Func<T, Maybe<string>> validator) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
-          var tr = t(context, failureContext, attributes, state);
+          var tr = t(context, failureContext, state);
           var v  = validator(tr.Value);
           return v.HasValue
-            ? Result(tr.Value, FormletFailureState.Join(tr.FailureState, new FormletFailureState.Failure(failureContext, v.Value)), tr.State)
+            ? tr.WithFailureState(FormletFailureState.Join(tr.FailureState, new FormletFailureState.Failure(failureContext, v.Value)))
             : tr
             ;
         };
 
-    public static readonly Func<string, Maybe<string>> ValidatorNotEmpty = 
+    public static readonly Func<string, Maybe<string>> ValidatorNotEmpty =
       s => string.IsNullOrEmpty(s) ? Maybe.Just("Must not be empty") : Maybe.Nothing<string>();
 
     public static Formlet<string> ValidateNotEmpty(this Formlet<string> t) =>
@@ -594,65 +615,65 @@ namespace Flazor.Formlets
     public static Formlet<string> ValidateRegex(this Formlet<string> t, Regex regex, string message) =>
       t.Validate(ValidatorRegex(regex, message));
 
-    public static Formlet<T> WithAttribute<T>(this Formlet<T> t, string key, string value) =>
-      (context, failureContext, attributes, state) =>
-        t(context, failureContext, attributes.Cons(new Attribute.Single(key, value)), state);
-
     public static Formlet<T> WithAttributes<T>(this Formlet<T> t, params string[] keyValues) =>
-      (context, failureContext, attributes, state) =>
-        t(context, failureContext, attributes.Cons(new Attribute.Many(keyValues)), state);
+      (context, failureContext, state) =>
+        {
+          var tr = t(context, failureContext, state);
+          return tr.WithVisualState(new FormletVisualState.WithAttributes(tr.VisualState, keyValues));
+        };
 
     public static Formlet<T> WithClass<T>(this Formlet<T> t, string @class) =>
-      (context, failureContext, attributes, state) =>
-        t(context, failureContext, attributes.Cons(new Attribute.Single("class", @class)), state);
+      t.WithAttributes("class", @class);
 
     public static Formlet<T> WithId<T>(this Formlet<T> t, string id) =>
-      (context, failureContext, attributes, state) =>
-        t(context, failureContext, attributes.Cons(new Attribute.Single("id", id)), state);
+      t.WithAttributes("id", id);
 
     public static Formlet<T> WithLabel<T>(this Formlet<T> t, string @for, string label) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var ffc = failureContext.Cons(label);
 
-          context.OpenElement("label");
-          context.AddAttribute("for", @for);
-          context.CloseAttributes(Attributes.Empty);
-          context.AddContent(label);
-          context.CloseElement();
+          var visualState =
+            new FormletVisualState.WithContent(
+              new FormletVisualState.WithAttributes(
+                  new FormletVisualState.Element(FormletVisualState.Empty.Value, "label")
+                , "for", @for
+                ),
+                label
+              );
 
-          return t(context, ffc, attributes, state);
+          var tr = t(context, ffc, state);
+          return tr.WithVisualState(FormletVisualState.Join(visualState, tr.VisualState));
         };
 
     public static FormletResult<T> BuildUp<T>(this Formlet<T> t, RenderTreeBuilder builder, Action<NotifyType> notify, FormletState state)
-    { 
-      var context         = new FormletContext(builder, notify);
-      var failureContext  = FailureContext.Empty;
-      var attributes      = Attributes.Empty;
-      return t(context, failureContext, attributes, state);
+    {
+      var context         = new FormletContext();
+      var failureContext  = ImmutableList<string>.Empty;
+      var result          = t(context, failureContext, state);
+      var seq             = 1000;
+
+      result.VisualState.BuildUp(notify, builder, ref seq, ImmutableList.Empty<string>(), ImmutableList.Empty<string[]>());
+
+      return result;
     }
 
     public static Formlet<T> NestWithTag<T>(this Formlet<T> t, string tag) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
-          context.OpenElement(tag);
-          context.CloseAttributes(attributes);
-          var tr = t(context, failureContext, Attributes.Empty, state);
-          context.CloseElement();
-          return tr;
+          var tr = t(context, failureContext, state);
+          return tr.WithVisualState(new FormletVisualState.Element(tr.VisualState, tag));
         };
 
     public static Formlet<Unit> Tag(string tag, string content = null) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
-          context.OpenElement(tag);
-          context.CloseAttributes(attributes);
-          if (content != null)
-          {
-            context.AddContent(content);
-          }
-          context.CloseElement();
-          return Success(Unit.Value, FormletState.Empty.Value);
+          var element = new FormletVisualState.Element(FormletVisualState.Empty.Value, tag);
+          var visualState = content != null
+            ? (FormletVisualState)new FormletVisualState.WithContent(element, content)
+            : element
+            ;
+          return Success(Unit.Value, visualState, FormletState.Empty.Value);
         };
   }
 
@@ -660,7 +681,7 @@ namespace Flazor.Formlets
   {
     static readonly Tag inputTag = new Tag("input");
 
-    public static Formlet<Unit> Br<T>() => 
+    public static Formlet<Unit> Br<T>() =>
       Formlet.Tag("br");
 
     public static Formlet<T> Div<T>(Formlet<T> t) =>
@@ -673,7 +694,7 @@ namespace Flazor.Formlets
       t.NestWithTag("p");
 
     public static Formlet<string> Input(string placeholder, string initial) =>
-      (context, failureContext, attributes, state) =>
+      (context, failureContext, state) =>
         {
           var input = state as FormletState.Input;
 
@@ -682,13 +703,14 @@ namespace Flazor.Formlets
             : new FormletState.Input(inputTag, initial)
             ;
 
-          context.OpenValueElement("input", ts);
-          context.AddAttribute("placeholder", placeholder);
-          context.AddAttribute("type", "text");
-          context.CloseAttributes(attributes);
-          context.CloseElement();
+          var visualState =
+            new FormletVisualState.WithAttributes(
+                new FormletVisualState.InputElement("input", ts)
+              , "placeholder", placeholder
+              , "type", "text"
+              );
 
-          return Formlet.Success(ts.Value, ts);
+          return Formlet.Success(ts.Value, visualState, ts);
         };
   }
 
@@ -697,18 +719,14 @@ namespace Flazor.Formlets
     public static class Formlet
     {
       public static Formlet<T> WithValidation<T>(this Formlet<T> t, string tag) =>
-        (context, failureContext, attributes, state) =>
+        (context, failureContext, state) =>
         {
-          context.OpenElement(tag);
-          var tr = t(context, failureContext, attributes, state);
+          var tr = t(context, failureContext, state);
           var value = tr.FailureState is FormletFailureState.Empty
             ? "is-valid"
             : "is-invalid"
             ;
-          context.AddAttribute("class", value);
-          context.CloseAttributes(Attributes.Empty);
-          context.CloseElement();
-          return tr;
+          return tr.WithVisualState(new FormletVisualState.WithAttributes(tr.VisualState, "class", value));
         };
     }
   }
