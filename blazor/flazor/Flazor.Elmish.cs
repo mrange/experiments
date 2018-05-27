@@ -25,7 +25,7 @@ namespace Flazor.Elmish
       }
 
       UIEventHandler handler = args =>
-        { 
+        {
           var a = args as UIChangeEventArgs;
           if (a != null)
           {
