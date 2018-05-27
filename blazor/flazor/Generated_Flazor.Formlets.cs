@@ -11,6 +11,61 @@ namespace Flazor.Formlets
     public static Formlet<U> Map<
                                   T0,
                                   T1,
+                                  U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Func<
+              T0,
+              T1,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          return Result(
+              m(
+                  tr0.Value
+                , tr1.Value
+              )
+            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
+            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
+            , FormletState.Join(tr0.State, tr1.State)
+            );
+        };
+
+    public static Formlet<U> Map<
+                                  T0,
+                                  T1,
+                                  T2,
+                                  U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Func<
+              T0,
+              T1,
+              T2,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          var tr2 = t2(context, failureContext, state);
+          return Result(
+              m(
+                  tr0.Value
+                , tr1.Value
+                , tr2.Value
+              )
+            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
+            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
+            , FormletState.Join(tr0.State, tr1.State)
+            );
+        };
+
+    public static Formlet<U> Map<
+                                  T0,
+                                  T1,
                                   T2,
                                   T3,
                                   U>(
@@ -76,6 +131,101 @@ namespace Flazor.Formlets
                 , tr2.Value
                 , tr3.Value
                 , tr4.Value
+              )
+            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
+            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
+            , FormletState.Join(tr0.State, tr1.State)
+            );
+        };
+
+    public static Formlet<U> Map<
+                                  T0,
+                                  T1,
+                                  T2,
+                                  T3,
+                                  T4,
+                                  T5,
+                                  U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Formlet<T3> t3,
+        Formlet<T4> t4,
+        Formlet<T5> t5,
+        Func<
+              T0,
+              T1,
+              T2,
+              T3,
+              T4,
+              T5,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          var tr2 = t2(context, failureContext, state);
+          var tr3 = t3(context, failureContext, state);
+          var tr4 = t4(context, failureContext, state);
+          var tr5 = t5(context, failureContext, state);
+          return Result(
+              m(
+                  tr0.Value
+                , tr1.Value
+                , tr2.Value
+                , tr3.Value
+                , tr4.Value
+                , tr5.Value
+              )
+            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
+            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
+            , FormletState.Join(tr0.State, tr1.State)
+            );
+        };
+
+    public static Formlet<U> Map<
+                                  T0,
+                                  T1,
+                                  T2,
+                                  T3,
+                                  T4,
+                                  T5,
+                                  T6,
+                                  U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Formlet<T3> t3,
+        Formlet<T4> t4,
+        Formlet<T5> t5,
+        Formlet<T6> t6,
+        Func<
+              T0,
+              T1,
+              T2,
+              T3,
+              T4,
+              T5,
+              T6,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          var tr2 = t2(context, failureContext, state);
+          var tr3 = t3(context, failureContext, state);
+          var tr4 = t4(context, failureContext, state);
+          var tr5 = t5(context, failureContext, state);
+          var tr6 = t6(context, failureContext, state);
+          return Result(
+              m(
+                  tr0.Value
+                , tr1.Value
+                , tr2.Value
+                , tr3.Value
+                , tr4.Value
+                , tr5.Value
+                , tr6.Value
               )
             , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
             , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)

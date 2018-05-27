@@ -137,4 +137,6 @@ $types  =
 
 CarnelianExecutor.execute_metaprogram_to_file "Generated_Flazor.Elmish.mp", "Generated_Flazor.Elmish.cs"
 
+$overloads = 7
+
 CarnelianExecutor.execute_metaprogram_to_file "Generated_Flazor.Formlets.mp", "Generated_Flazor.Formlets.cs"

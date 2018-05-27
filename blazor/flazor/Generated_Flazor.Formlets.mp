@@ -9,7 +9,7 @@ namespace Flazor.Formlets
 
   public static partial class Formlet
   {
-@@> for overload in 3...5
+@@> for overload in 1...$overloads
 
     public static Formlet<U> Map<
 @@> for i in 0..overload
