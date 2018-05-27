@@ -84,7 +84,7 @@
       };
 
       Formlet<string> LabeledInput(string id, string label) => 
-        Input(label, "").ValidateNotEmpty().WithClass("form-control is-valid").WithId(id).WithLabel(id, label);
+        Input(label, "").ValidateNotEmpty().WithValidation().WithClass("form-control").WithId(id).WithLabel(id, label);
 
       var ts = FormletState.Empty.Value;
       var t = LabeledInput("id-hello", "Hello").AndAlso(LabeledInput("id-there", "There"));

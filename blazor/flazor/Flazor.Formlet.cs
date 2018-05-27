@@ -142,7 +142,7 @@ namespace Flazor.Formlets
           }
         }
 
-        attributes = attributes.Tail;
+        attrs = attrs.Tail;
       }
 
       if (clss.Length > 0)
@@ -655,6 +655,8 @@ namespace Flazor.Formlets
 
       result.VisualState.BuildUp(notify, builder, ref seq, ImmutableList.Empty<string>(), ImmutableList.Empty<string[]>());
 
+      Console.WriteLine($"(BuildUp, {result})");
+
       return result;
     }
 
@@ -718,10 +720,11 @@ namespace Flazor.Formlets
   {
     public static class Formlet
     {
-      public static Formlet<T> WithValidation<T>(this Formlet<T> t, string tag) =>
+      public static Formlet<T> WithValidation<T>(this Formlet<T> t) =>
         (context, failureContext, state) =>
         {
           var tr = t(context, failureContext, state);
+          Console.WriteLine($"(WithValidation, {tr.FailureState})");
           var value = tr.FailureState is FormletFailureState.Empty
             ? "is-valid"
             : "is-invalid"
