@@ -1,5 +1,7 @@
+// Copyright (c) Mårten Rånge. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-namespace blazor_app.Galactus
+namespace Flazor.Elmish
 {
   using System;
 

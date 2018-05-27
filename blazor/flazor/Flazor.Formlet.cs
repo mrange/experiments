@@ -1,4 +1,7 @@
-﻿namespace blazor_app.Galactus.Formlet
+﻿// Copyright (c) Mårten Rånge. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+namespace Flazor.Formlets
 {
   using Microsoft.AspNetCore.Blazor;
   using Microsoft.AspNetCore.Blazor.RenderTree;
@@ -7,135 +10,6 @@
 
   using FailureContext  = ImmutableList<string>;
   using Attributes      = ImmutableList<(string key, string value)>;
-  using System.Text;
-
-  public sealed class Unit
-  {
-    public static readonly Unit Value = new Unit ();
-  }
-
-  public struct Maybe<T> : IEquatable<Maybe<T>>
-  {
-    readonly bool m_hasValue;
-    readonly T    m_value   ;
-
-    public Maybe(T value)
-    {
-      m_hasValue = true ;
-      m_value = value   ;
-    }
-
-    public bool HasValue  => m_hasValue ;
-    public T    Value
-    {
-      get
-      {
-        return m_hasValue ? m_value : throw new Exception("Maybe holds no value");
-      }
-    }
-
-    public override bool Equals(object obj)
-    {
-      if(obj is Maybe<T>)
-      {
-        return Equals((Maybe<T>)obj);
-      }
-      else
-      {
-        return false;
-      }
-    }
-
-    public override int GetHashCode()
-    {
-      return m_hasValue ? Value.GetHashCode() : 0x55555555;
-    }
-
-    public bool Equals(Maybe<T> other)
-    {
-      if(m_hasValue && other.m_hasValue)
-      {
-        return m_value.Equals(other.Value);
-      } 
-      else
-      {
-        return m_hasValue == other.m_hasValue;
-      }
-    }
-
-    public override string ToString()
-    {
-      return m_hasValue ? $"(Just {m_value})" : "(Nothing)";
-    }
-  }
-
-  public static class Maybe
-  {
-    public static Maybe<T> Just<T>(T v)
-    {
-      return new Maybe<T>(v);
-    }
-
-    public static Maybe<T> Nothing<T>()
-    {
-      return new Maybe<T>();
-    }
-  }
-
-
-  public sealed class ImmutableList<T>
-  {
-    readonly T                m_head;
-    readonly ImmutableList<T> m_tail;
-
-    public ImmutableList(T head, ImmutableList<T> tail)
-    {
-      m_head = head;
-      m_tail = tail;
-    }
-
-    public bool IsEmpty => m_tail == null;
-
-    public static ImmutableList<T> Empty = new ImmutableList<T>(default(T), null);
-
-    public T Head => !IsEmpty ? m_head : throw new Exception("List is empty");
-    public ImmutableList<T> Tail => !IsEmpty ? m_tail : throw new Exception("List is empty");
-
-    public ImmutableList<T> Cons(T head) => new ImmutableList<T>(head, this);
-
-    public override string ToString()
-    {
-      var sb = new StringBuilder(16);
-
-      sb.Append('[');
-
-      var list = this;
-      var first = true;
-      while(!list.IsEmpty)
-      {
-        if(!first)
-        {
-          sb.Append(", ");
-        }
-
-        first = false;
-
-        sb.Append(list.Head);
-
-        list = list.Tail;
-      }
-
-      sb.Append(']');
-
-      return sb.ToString();
-    }
-
-  }
-
-  public static class ImmutableList
-  {
-    public static ImmutableList<T> Cons<T>(T head, ImmutableList<T> tail) => tail.Cons(head);
-  }
 
   public enum NotifyType
   {

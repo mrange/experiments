@@ -1,3 +1,5 @@
+# Copyright (c) Mårten Rånge. All rights reserved.
+# Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 require 'carnelian/executor'
 
 def attribute(name, key, type)
@@ -133,4 +135,4 @@ $types  =
     contentNode("Span"  , "span"  , [])                 ,
   ]
 
-CarnelianExecutor.execute_metaprogram_to_file "Generated_Galactus.mp", "Generated_Galactus.cs"
+CarnelianExecutor.execute_metaprogram_to_file "Generated_Flazor.Elmish.mp", "Generated_Flazor.Elmish.cs"

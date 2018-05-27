@@ -1,14 +1,13 @@
 ﻿namespace blazor_app.Pages
 {
-  using Galactus;
 
   using System;
-  using static Galactus.Views<Message>;
+  using static Flazor.Elmish.Views<Message>;
   using Microsoft.AspNetCore.Blazor;
-  using blazor_app.Galactus.Formlet;
+  using Flazor.Elmish;
+  using Flazor.Formlets;
 
-  using static blazor_app.Galactus.Formlet.Tags;
-
+  using static Flazor.Formlets.Tags;
 
   public class Message
   {

@@ -9,8 +9,8 @@
 @functions {
   protected override void OnInit()
   {
-    //DynamicFragment = blazor_app.Galactus.Extensions.CreateRenderFragment(Test.CalculatorView);
-    DynamicFragment = Test2.Create();
+    DynamicFragment = Flazor.Elmish.Extensions.CreateRenderFragment(Test.CalculatorView);
+    //DynamicFragment = Test2.Create();
   }
 
   RenderFragment DynamicFragment;
