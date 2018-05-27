@@ -7,7 +7,7 @@ namespace Flazor.Elmish
   using Microsoft.AspNetCore.Blazor.RenderTree;
   using System;
 
-  public class BuildUpContext
+  public partial class BuildUpContext
   {
     readonly RenderTreeBuilder m_builder;
     int seq = 0;
@@ -104,7 +104,7 @@ namespace Flazor.Elmish
 
   }
 
-  public sealed class Attribute<TElement, T> : IAttribute<TElement, T>
+  public sealed partial class Attribute<TElement, T> : IAttribute<TElement, T>
   {
     readonly string m_name;
 
@@ -126,7 +126,7 @@ namespace Flazor.Elmish
 
   }
 
-  public sealed class Event<TElement, T> : IEvent<TElement, T>
+  public sealed partial class Event<TElement, T> : IEvent<TElement, T>
   {
     readonly string m_name;
 
@@ -153,7 +153,7 @@ namespace Flazor.Elmish
     T Value { get; }
   }
 
-  public sealed class SetStringValue<TMessage, TElement> : ISetValue<TMessage, TElement, string>
+  public sealed partial class SetStringValue<TMessage, TElement> : ISetValue<TMessage, TElement, string>
   {
     readonly IAttribute<TElement, string> m_attribute;
     readonly string m_value;
@@ -175,7 +175,7 @@ namespace Flazor.Elmish
     }
   }
 
-  public sealed class SetBoolValue<TMessage, TElement> : ISetValue<TMessage, TElement, bool>
+  public sealed partial class SetBoolValue<TMessage, TElement> : ISetValue<TMessage, TElement, bool>
   {
     readonly IAttribute<TElement, bool> m_attribute;
     readonly bool m_value;
@@ -204,7 +204,7 @@ namespace Flazor.Elmish
   }
 
 
-  public sealed class ReceiveStringValue<TMessage, TElement> : IReceiveValue<TMessage, TElement, string>
+  public sealed partial class ReceiveStringValue<TMessage, TElement> : IReceiveValue<TMessage, TElement, string>
   {
     readonly IEvent<TElement, string> m_event;
     readonly Action<string> m_receiver;
@@ -226,7 +226,7 @@ namespace Flazor.Elmish
     }
   }
 
-  public sealed class ReceiveUnitValue<TMessage, TElement> : IReceiveValue<TMessage, TElement, Unit>
+  public sealed partial class ReceiveUnitValue<TMessage, TElement> : IReceiveValue<TMessage, TElement, Unit>
   {
     readonly IEvent<TElement, Unit> m_event;
     readonly Action<Unit> m_receiver;
@@ -248,7 +248,7 @@ namespace Flazor.Elmish
     }
   }
 
-  public sealed class View<TMessage, TElement> : IView<TMessage>
+  public sealed partial class View<TMessage, TElement> : IView<TMessage>
   {
     readonly string m_tag;
     readonly IValue<TMessage, TElement>[] m_values;
@@ -281,7 +281,7 @@ namespace Flazor.Elmish
     }
   }
 
-  public sealed class GroupView<TMessage> : IView<TMessage>
+  public sealed partial class GroupView<TMessage> : IView<TMessage>
   {
     readonly IView<TMessage>[] m_views;
 
@@ -301,7 +301,7 @@ namespace Flazor.Elmish
     }
   }
 
-  public sealed class TextView<TMessage> : IView<TMessage>
+  public sealed partial class TextView<TMessage> : IView<TMessage>
   {
     readonly string m_text;
 
@@ -334,7 +334,7 @@ namespace Flazor.Elmish
     public static IView<TMessage> Group(params IView<TMessage>[] views) => new GroupView<TMessage>(views);
   }
 
-  public static class Extensions
+  public static partial class Extensions
   {
     public static RenderFragment CreateRenderFragment<TMessage>(this IView<TMessage> view)
     {

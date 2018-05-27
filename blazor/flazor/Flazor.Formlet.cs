@@ -16,14 +16,14 @@ namespace Flazor.Formlets
     Change,
   }
 
-  public sealed class FormletContext
+  public sealed partial class FormletContext
   {
     public override string ToString() => "(FormletContext)";
   }
 
-  public abstract class FormletVisualState
+  public abstract partial class FormletVisualState
   {
-    public sealed class Empty : FormletVisualState
+    public sealed partial class Empty : FormletVisualState
     {
       public static readonly FormletVisualState Value = new Empty();
 
@@ -34,7 +34,7 @@ namespace Flazor.Formlets
       public override string ToString() => "(Empty)";
     }
 
-    public sealed class Fork : FormletVisualState
+    public sealed partial class Fork : FormletVisualState
     {
       public readonly FormletVisualState Left ;
       public readonly FormletVisualState Right;
@@ -54,7 +54,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Fork, {Left}, {Right})";
     }
 
-    public sealed class WithAttributes : FormletVisualState
+    public sealed partial class WithAttributes : FormletVisualState
     {
       public readonly FormletVisualState  VisualState ;
       public readonly string[]            Attributes  ;
@@ -89,7 +89,7 @@ namespace Flazor.Formlets
       }
     }
 
-    public sealed class WithContent : FormletVisualState
+    public sealed partial class WithContent : FormletVisualState
     {
       public readonly FormletVisualState  VisualState ;
       public readonly string              Content     ;
@@ -170,7 +170,7 @@ namespace Flazor.Formlets
       AddContents(builder, ref seq, contents);
     }
 
-    public sealed class Element : FormletVisualState
+    public sealed partial class Element : FormletVisualState
     {
       public readonly FormletVisualState  VisualState ;
       public readonly string              Tag         ;
@@ -193,7 +193,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Element, {VisualState}, {Tag})";
     }
 
-    public sealed class InputElement : FormletVisualState
+    public sealed partial class InputElement : FormletVisualState
     {
       public readonly string              Tag  ;
       public readonly FormletState.Input  Input;
@@ -234,16 +234,16 @@ namespace Flazor.Formlets
     public abstract void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes);
   }
 
-  public abstract class FormletFailureState
+  public abstract partial class FormletFailureState
   {
-    public sealed class Empty : FormletFailureState
+    public sealed partial class Empty : FormletFailureState
     {
       public static readonly FormletFailureState Value = new Empty();
 
       public override string ToString() => "(Empty)";
     }
 
-    public sealed class Failure : FormletFailureState
+    public sealed partial class Failure : FormletFailureState
     {
       public readonly ImmutableList<string> FailureContext;
       public readonly string                Message       ;
@@ -257,7 +257,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Failure, {FailureContext}, {Message})";
     }
 
-    public sealed class Fork : FormletFailureState
+    public sealed partial class Fork : FormletFailureState
     {
       public readonly FormletFailureState Left  ;
       public readonly FormletFailureState Right ;
@@ -289,7 +289,7 @@ namespace Flazor.Formlets
     }
   }
 
-  public sealed class Tag
+  public sealed partial class Tag
   {
     public readonly string Name;
 
@@ -301,16 +301,16 @@ namespace Flazor.Formlets
     public override string ToString() => $"(Tag, {Name})";
   }
 
-  public abstract class FormletState
+  public abstract partial class FormletState
   {
-    public sealed class Empty : FormletState
+    public sealed partial class Empty : FormletState
     {
       public static readonly FormletState Value = new Empty();
 
       public override string ToString() => "(Empty)";
     }
 
-    public sealed class Input : FormletState
+    public sealed partial class Input : FormletState
     {
       public readonly Tag Tag   ;
       public string       Value ;  // Intentionally mutable
@@ -324,7 +324,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Input, {Tag}, {Value})";
     }
 
-    public sealed class Debug : FormletState
+    public sealed partial class Debug : FormletState
     {
       public readonly string       Name  ;
       public readonly FormletState State ;
@@ -338,7 +338,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Debug, {Name}, {State})";
     }
 
-    public sealed class Named : FormletState
+    public sealed partial class Named : FormletState
     {
       public readonly string        Name  ;
       public readonly FormletState  State ;
@@ -352,7 +352,7 @@ namespace Flazor.Formlets
       public override string ToString() => $"(Named, {Name}, {State})";
     }
 
-    public sealed class Fork : FormletState
+    public sealed partial class Fork : FormletState
     {
       public readonly FormletState Left ;
       public readonly FormletState Right;
@@ -371,7 +371,7 @@ namespace Flazor.Formlets
 
   }
 
-  public struct FormletResult<T>
+  public partial struct FormletResult<T>
   {
     public readonly T                   Value       ;
     public readonly FormletFailureState FailureState;
@@ -420,7 +420,7 @@ namespace Flazor.Formlets
       , FormletState          state
     );
 
-  public static class Formlet
+  public static partial class Formlet
   {
     public static FormletResult<T> Result<T>(
         T                   value
@@ -476,6 +476,19 @@ namespace Flazor.Formlets
         {
           var tr = t(context, failureContext, state);
           return Result(m(tr.Value), tr.FailureState, tr.VisualState, tr.State);
+        };
+
+    public static Formlet<U> Map<T0, T1, U>(Formlet<T0> t0, Formlet<T1> t1, Func<T0, T1, U> m) =>
+      (context, failureContext, state) =>
+        {
+          var tr0 = t0(context, failureContext, state);
+          var tr1 = t1(context, failureContext, state);
+          return Result(
+              m(tr0.Value, tr1.Value)
+            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
+            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
+            , FormletState.Join(tr0.State, tr1.State)
+            );
         };
 
     public static Formlet<(T left, U right)> AndAlso<T, U>(this Formlet<T> t, Formlet<U> u) =>
@@ -679,7 +692,7 @@ namespace Flazor.Formlets
         };
   }
 
-  public static class Tags
+  public static partial class Tags
   {
     static readonly Tag inputTag = new Tag("input");
 
@@ -718,7 +731,7 @@ namespace Flazor.Formlets
 
   namespace Bootstrap
   {
-    public static class Formlet
+    public static partial class Formlet
     {
       public static Formlet<T> WithValidation<T>(this Formlet<T> t) =>
         (context, failureContext, state) =>
