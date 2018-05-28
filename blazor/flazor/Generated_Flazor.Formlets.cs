@@ -9,9 +9,9 @@ namespace Flazor.Formlets
   {
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  U>(
+      T0,
+      T1,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Func<
@@ -20,24 +20,26 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var (tv0, tv1) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                ));
         };
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  T2,
-                                  U>(
+      T0,
+      T1,
+      T2,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Formlet<T2> t2,
@@ -48,27 +50,29 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          var tr2 = t2(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var ((tv0, tv1), tv2) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-                , tr2.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                , tv2
+                ));
         };
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  T2,
-                                  T3,
-                                  U>(
+      T0,
+      T1,
+      T2,
+      T3,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Formlet<T2> t2,
@@ -81,30 +85,32 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          var tr2 = t2(context, failureContext, state);
-          var tr3 = t3(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var (((tv0, tv1), tv2), tv3) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-                , tr2.Value
-                , tr3.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                ));
         };
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  T2,
-                                  T3,
-                                  T4,
-                                  U>(
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Formlet<T2> t2,
@@ -119,33 +125,35 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          var tr2 = t2(context, failureContext, state);
-          var tr3 = t3(context, failureContext, state);
-          var tr4 = t4(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var ((((tv0, tv1), tv2), tv3), tv4) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-                , tr2.Value
-                , tr3.Value
-                , tr4.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                ));
         };
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  T2,
-                                  T3,
-                                  T4,
-                                  T5,
-                                  U>(
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Formlet<T2> t2,
@@ -162,36 +170,38 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          var tr2 = t2(context, failureContext, state);
-          var tr3 = t3(context, failureContext, state);
-          var tr4 = t4(context, failureContext, state);
-          var tr5 = t5(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            .AndAlso(t5)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var (((((tv0, tv1), tv2), tv3), tv4), tv5) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-                , tr2.Value
-                , tr3.Value
-                , tr4.Value
-                , tr5.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                , tv5
+                ));
         };
 
     public static Formlet<U> Map<
-                                  T0,
-                                  T1,
-                                  T2,
-                                  T3,
-                                  T4,
-                                  T5,
-                                  T6,
-                                  U>(
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      U>(
         Formlet<T0> t0,
         Formlet<T1> t1,
         Formlet<T2> t2,
@@ -210,27 +220,215 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-          var tr0 = t0(context, failureContext, state);
-          var tr1 = t1(context, failureContext, state);
-          var tr2 = t2(context, failureContext, state);
-          var tr3 = t3(context, failureContext, state);
-          var tr4 = t4(context, failureContext, state);
-          var tr5 = t5(context, failureContext, state);
-          var tr6 = t6(context, failureContext, state);
-          return Result(
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            .AndAlso(t5)
+            .AndAlso(t6)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var ((((((tv0, tv1), tv2), tv3), tv4), tv5), tv6) = tr.Value;
+
+          return tr.WithValue(
               m(
-                  tr0.Value
-                , tr1.Value
-                , tr2.Value
-                , tr3.Value
-                , tr4.Value
-                , tr5.Value
-                , tr6.Value
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                , tv5
+                , tv6
+                ));
+        };
+
+    public static Formlet<U> Map<
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Formlet<T3> t3,
+        Formlet<T4> t4,
+        Formlet<T5> t5,
+        Formlet<T6> t6,
+        Formlet<T7> t7,
+        Func<
+              T0,
+              T1,
+              T2,
+              T3,
+              T4,
+              T5,
+              T6,
+              T7,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            .AndAlso(t5)
+            .AndAlso(t6)
+            .AndAlso(t7)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var (((((((tv0, tv1), tv2), tv3), tv4), tv5), tv6), tv7) = tr.Value;
+
+          return tr.WithValue(
+              m(
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                , tv5
+                , tv6
+                , tv7
+                ));
+        };
+
+    public static Formlet<U> Map<
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Formlet<T3> t3,
+        Formlet<T4> t4,
+        Formlet<T5> t5,
+        Formlet<T6> t6,
+        Formlet<T7> t7,
+        Formlet<T8> t8,
+        Func<
+              T0,
+              T1,
+              T2,
+              T3,
+              T4,
+              T5,
+              T6,
+              T7,
+              T8,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            .AndAlso(t5)
+            .AndAlso(t6)
+            .AndAlso(t7)
+            .AndAlso(t8)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var ((((((((tv0, tv1), tv2), tv3), tv4), tv5), tv6), tv7), tv8) = tr.Value;
+
+          return tr.WithValue(
+              m(
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                , tv5
+                , tv6
+                , tv7
+                , tv8
+                ));
+        };
+
+    public static Formlet<U> Map<
+      T0,
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      U>(
+        Formlet<T0> t0,
+        Formlet<T1> t1,
+        Formlet<T2> t2,
+        Formlet<T3> t3,
+        Formlet<T4> t4,
+        Formlet<T5> t5,
+        Formlet<T6> t6,
+        Formlet<T7> t7,
+        Formlet<T8> t8,
+        Formlet<T9> t9,
+        Func<
+              T0,
+              T1,
+              T2,
+              T3,
+              T4,
+              T5,
+              T6,
+              T7,
+              T8,
+              T9,
+              U> m) =>
+      (context, failureContext, state) =>
+        {
+          var t = t0
+            .AndAlso(t1)
+            .AndAlso(t2)
+            .AndAlso(t3)
+            .AndAlso(t4)
+            .AndAlso(t5)
+            .AndAlso(t6)
+            .AndAlso(t7)
+            .AndAlso(t8)
+            .AndAlso(t9)
+            ;
+
+          var tr = t(context, failureContext, state);
+
+          var (((((((((tv0, tv1), tv2), tv3), tv4), tv5), tv6), tv7), tv8), tv9) = tr.Value;
+
+          return tr.WithValue(
+              m(
+                  tv0
+                , tv1
+                , tv2
+                , tv3
+                , tv4
+                , tv5
+                , tv6
+                , tv7
+                , tv8
+                , tv9
+                ));
         };
   }
 }

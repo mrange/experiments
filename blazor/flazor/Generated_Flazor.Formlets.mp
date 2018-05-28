@@ -13,9 +13,9 @@ namespace Flazor.Formlets
 
     public static Formlet<U> Map<
 @@> for i in 0..overload
-                                  T@@=i=@@,
+      T@@=i=@@,
 @@> end
-                                  U>(
+      U>(
 @@> for i in 0..overload
         Formlet<T@@=i=@@> t@@=i=@@,
 @@> end
@@ -26,21 +26,28 @@ namespace Flazor.Formlets
               U> m) =>
       (context, failureContext, state) =>
         {
-@@> for i in 0..overload
-          var tr@@=i=@@ = t@@=i=@@(context, failureContext, state);
+          var t = t0
+@@> for i in 1..overload
+            .AndAlso(t@@=i=@@)
 @@> end
-          return Result(
+            ;
+
+          var tr = t(context, failureContext, state);
+
+@@> deconstruct = "tv0"
+@@> for i in 1..overload
+@@>   deconstruct = "(#{deconstruct}, tv#{i})"
+@@> end
+          var @@=deconstruct=@@ = tr.Value;
+
+          return tr.WithValue(
               m(
 @@> prepend = "  "
 @@> for i in 0..overload
-                @@=prepend=@@tr@@=i=@@.Value
+                @@=prepend=@@tv@@=i=@@
 @@>   prepend = ", "
 @@> end
-              )
-            , FormletFailureState.Join(tr0.FailureState, tr1.FailureState)
-            , FormletVisualState.Join(tr0.VisualState, tr1.VisualState)
-            , FormletState.Join(tr0.State, tr1.State)
-            );
+                ));
         };
 @@> end
   }

@@ -391,9 +391,9 @@ namespace Flazor.Formlets
       State         = state       ;
     }
 
-    public FormletResult<T> WithValue(T value)
+    public FormletResult<U> WithValue<U>(U value)
     {
-      return new FormletResult<T>(value, FailureState, VisualState, State);
+      return new FormletResult<U>(value, FailureState, VisualState, State);
     }
 
     public FormletResult<T> WithFailureState(FormletFailureState failureState)
@@ -419,6 +419,8 @@ namespace Flazor.Formlets
       , ImmutableList<string> failureContext
       , FormletState          state
     );
+
+  public delegate Maybe<string> FormletValidator<in T>(T input);
 
   public static partial class Formlet
   {
@@ -592,7 +594,7 @@ namespace Flazor.Formlets
           return tr.WithState(new FormletState.Named(name, tr.State));
         };
 
-    public static Formlet<T> Validate<T>(this Formlet<T> t, Func<T, Maybe<string>> validator) =>
+    public static Formlet<T> Validate<T>(this Formlet<T> t, FormletValidator<T> validator) =>
       (context, failureContext, state) =>
         {
           var tr = t(context, failureContext, state);
@@ -603,13 +605,16 @@ namespace Flazor.Formlets
             ;
         };
 
-    public static readonly Func<string, Maybe<string>> ValidatorNotEmpty =
+    public static FormletValidator<T> ValidatorNop<T>() =>
+      s => Maybe.Nothing<string>();
+
+    public static readonly FormletValidator<string> ValidatorNotEmpty =
       s => string.IsNullOrEmpty(s) ? Maybe.Just("Must not be empty") : Maybe.Nothing<string>();
 
     public static Formlet<string> ValidateNotEmpty(this Formlet<string> t) =>
       t.Validate(ValidatorNotEmpty);
 
-    public static Func<string, Maybe<string>> ValidatorRegex(Regex regex, string message) =>
+    public static FormletValidator<string> ValidatorRegex(Regex regex, string message) =>
       s => regex.IsMatch(s) ? Maybe.Nothing<string>() : Maybe.Just(message);
 
     public static Formlet<string> ValidateRegex(this Formlet<string> t, Regex regex, string message) =>
@@ -654,8 +659,6 @@ namespace Flazor.Formlets
       var seq             = 1000;
 
       result.VisualState.BuildUp(notify, builder, ref seq, ImmutableList.Empty<string>(), ImmutableList.Empty<string[]>());
-
-      Console.WriteLine($"(BuildUp, {result})");
 
       return result;
     }
@@ -718,13 +721,12 @@ namespace Flazor.Formlets
 
   namespace Bootstrap
   {
-    public static partial class Formlet
+    public static partial class BootstrapFormlet
     {
       public static Formlet<T> WithValidation<T>(this Formlet<T> t) =>
         (context, failureContext, state) =>
         {
           var tr = t(context, failureContext, state);
-          Console.WriteLine($"(WithValidation, {tr.FailureState})");
           var value = tr.FailureState is FormletFailureState.Empty
             ? "is-valid"
             : "is-invalid"
