@@ -5,13 +5,24 @@
 <p>
   The result: @Reproduce()
 </p>
+
 <p>
   I was expecting: (1,2,3,4)
 </p>
 
+<p>
+  This is even more weird: @ReproduceWeird()
+</p>
+
+
 @functions {
-  string Reproduce()
-  {
-    return Reproduce2.TestStrings();
-  }
+string Reproduce()
+{
+  return ReproduceIt.TestStrings();
+}
+
+string ReproduceWeird()
+{
+  return ReproduceIt.TestMixed();
+}
 }
