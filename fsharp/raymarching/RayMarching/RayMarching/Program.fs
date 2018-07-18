@@ -94,6 +94,7 @@ module Colors =
   let red   = v3 1 0 0
   let green = v3 0 1 0
   let blue  = v3 0 0 1
+  let gray  = v3 0.5 0.5 0.5
 type ViewPort = 
   {
     Eye             : V3
@@ -199,12 +200,62 @@ module Scenes =
   let translate t (s : Scene) : Scene =
     fun v -> s (v - t)
 
+  module Menger3 =
+    module Loops =
+      let maxIterations = 10
+      let bailout       = 1000.F
+      let scale         = 3.F
+      let scale_1       = scale - 1.F
+      let scale_1_scale = scale_1 / scale
+      let cx            = 1.F
+      let cy            = 1.F
+      let cz            = 1.F
+
+      let rec menger3 (v : V3) i =
+        let l2 = vdot v v
+        if i < maxIterations && l2 < bailout then
+          // rotate1(x,y,z);
+          let av        = vabs v
+
+          let mutable x = av.X
+          let mutable y = av.Y
+          let mutable z = av.Z
+
+
+          if x < y then let t = x in x <- y; y <- t
+          if x < z then let t = x in x <- z; z <- t
+          if y < y then let t = y in y <- z; z <- t
+
+          let z     = z - 0.5F*cz*scale_1_scale
+          let z     = -abs -z
+          let z     = z + 0.5F*cz*scale_1_scale
+
+          //rotate2(x,y,z);
+
+          let x     = scale*x - cx*scale_1
+          let y     = scale*y - cy*scale_1
+          let z     = scale*z
+
+          menger3 (v3 x y z) (i + 1)
+        else
+          sqrt l2 * pown scale -1
+  open Menger3
+
+  let menger3 c : Scene =
+    // http://www.fractalforums.com/sierpinski-gasket/kaleidoscopic-(escape-time-ifs)/
+    fun v -> struct (Loops.menger3 v 0, c)
+
   let objects =
     let boxes   = box Colors.blue (v3 0.1 0.1 0.1) |> repeat (v3 0.3 0.3 0.3)
-    let sphere  = sphere Colors.red 2
+    let sphere  = sphere Colors.gray 2
     [|
       sphere |> subtract boxes
     |]
+  (*
+    [|
+      menger3 Colors.gray
+    |]
+  *)
 
   module Details =
     module Loops =
@@ -232,7 +283,7 @@ module Renderer =
 
   let maxSteps  = 128
 
-  let lightPos  = v3 3 3 6
+  let lightPos  = v3 3 -3 6
   let lightColor= Colors.white
   let ambient   = v3 0.4 0.4 0.4
   let sky       = v3 0.1 0.1 0.1
@@ -318,7 +369,7 @@ module View =
   let at            = v3 0 0 0
   let clipDistance  = 1.0F
   let clipUp        = v3 0 -1 0
-  let fov           = degree2rad 120
+  let fov           = degree2rad 90
   let granularity   = 4.F
 
   let viewPort r    = ViewPort.New eye at clipUp clipDistance fov r
